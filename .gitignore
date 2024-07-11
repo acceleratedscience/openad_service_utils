@@ -1,6 +1,9 @@
 # pixi environments
 .pixi
 
+# other
+local_tests/
+
 # Created by https://www.toptal.com/developers/gitignore/api/python,virtualenv,jupyternotebooks
 # Edit at https://www.toptal.com/developers/gitignore?templates=python,virtualenv,jupyternotebooks
 

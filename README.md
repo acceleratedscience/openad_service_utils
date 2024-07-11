@@ -7,4 +7,4 @@
 [model implementation example](examples/template_implementation.py)
 
 ### Run implementation with api server
-[server example](examples/run_implementation_server.py)
+[server example](examples/run_server.py)
