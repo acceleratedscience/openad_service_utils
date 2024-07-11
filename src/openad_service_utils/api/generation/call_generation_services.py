@@ -10,14 +10,14 @@ import copy
 import sys
 import pandas as pd
 from .generation_applications import ApplicationsRegistry as GeneratorRegistry
-from .generation_applications import AVAILABLE_ALGORITHMS
+from .generation_applications import get_algorithm_applications
 from openad_service_utils.common.exceptions import InvalidItem
 import traceback
 
 # from ray import serve
 from pydantic import BaseModel
 
-# print(AVAILABLE_ALGORITHMS)
+# print(get_algorithm_applications())
 
 class Info(BaseModel):
     conf_one: float
@@ -75,14 +75,15 @@ def is_valid_service(service: dict):
 #                 print("invalid service json definition  " + file)
 #     return service_list
 
+ALL_AVAILABLE_SERVICES = []
+
 def get_services() -> list:
-    return generate_service_defs("generate")
-
-
-ALL_AVAILABLE_SERVICES = get_services()
-
-
-# @serve.deployment
+    """pulls the list of available services once server is ready"""
+    global ALL_AVAILABLE_SERVICES
+    if not ALL_AVAILABLE_SERVICES:
+        print("getting services")
+        ALL_AVAILABLE_SERVICES = generate_service_defs("generate")
+    return ALL_AVAILABLE_SERVICES
 
 
 class service_requester:
@@ -96,7 +97,8 @@ class service_requester:
         return True
 
     def get_available_services(self):
-        return ALL_AVAILABLE_SERVICES
+        """fetch available services and cache results"""
+        return get_services()
 
     def route_service(self, request: dict):
         result = None
@@ -104,7 +106,7 @@ class service_requester:
             return False
         category = None
 
-        for service in ALL_AVAILABLE_SERVICES:
+        for service in get_services():
             current_service = None
             if (
                 service["service_type"] == request["service_type"]

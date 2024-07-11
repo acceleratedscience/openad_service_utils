@@ -1,6 +1,6 @@
 import json
 import copy
-from .generation_applications import ApplicationsRegistry, AVAILABLE_ALGORITHMS
+from .generation_applications import ApplicationsRegistry, get_algorithm_applications
 
 
 def generate_service_defs(target_type):
@@ -28,7 +28,7 @@ def generate_service_defs(target_type):
     # property_types = PropertyPredictorFactory.keys()
     service_types = {}
 
-    for algorithm in AVAILABLE_ALGORITHMS:
+    for algorithm in get_algorithm_applications():
         app = ApplicationsRegistry.get_application(
             algorithm_application=algorithm["algorithm_application"],
             domain=algorithm["domain"],

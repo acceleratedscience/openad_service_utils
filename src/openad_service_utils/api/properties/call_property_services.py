@@ -3,17 +3,22 @@ from pathlib import Path
 import glob
 from pandas import DataFrame
 
-from openad_service_utils.api.generation.generate_service_defs import generate_service_defs, create_service_defs
+from openad_service_utils.api.properties.generate_property_service_defs import generate_property_service_defs
 import os
 import copy
+from .utils import subject_files_repository
+
+from pydantic import BaseModel
 
 
 # from gt4sd_common.properties import PropertyPredictorRegistry
-from .properties__init__ import PropertyPredictorRegistry, PROPERTY_PREDICTOR_TYPE
-
-# from ray import serve
-import services_common as common
-from pydantic import BaseModel
+from openad_service_utils.common.properties import (
+    PropertyPredictorRegistry, 
+    AVAILABLE_PROPERTY_PREDICTOR_TYPES, 
+    MOLECULE_PROPERTY_PREDICTOR_FACTORY, 
+    PROTEIN_PROPERTY_PREDICTOR_FACTORY, 
+    CRYSTALS_PROPERTY_PREDICTOR_FACTORY
+)
 
 
 class Info(BaseModel):
@@ -28,9 +33,6 @@ class Info(BaseModel):
 class ConfStructure(BaseModel):
     version: int
     info: Info
-
-
-docking_props = ["molecule_one", "askcos", "docking"]
 
 
 def is_valid_service(service: dict):
@@ -56,7 +58,11 @@ def is_valid_service(service: dict):
 
 
 def get_services() -> list:
-    return generate_service_defs("properties")
+    all_services = []
+    all_services.extend(generate_property_service_defs("molecule", MOLECULE_PROPERTY_PREDICTOR_FACTORY))
+    all_services.extend(generate_property_service_defs("protein", PROTEIN_PROPERTY_PREDICTOR_FACTORY))
+    all_services.extend(generate_property_service_defs("crystal", CRYSTALS_PROPERTY_PREDICTOR_FACTORY))
+    return all_services
 
 
 # def get_services() -> list:
@@ -79,8 +85,6 @@ def get_services() -> list:
 #     return service_list
 
 
-ALL_AVAILABLE_SERVICES = get_services()
-
 
 # @serve.deployment
 
@@ -90,14 +94,13 @@ class service_requester:
     valid_services = ["property", "prediction", "generation", "training"]
 
     def __init__(self) -> None:
-        # ALL_AVAILABLE_SERVICES.extend(get_services())
         pass
 
     def is_valid_service_request(self, request) -> bool:
         return True
 
     def get_available_services(self):
-        return ALL_AVAILABLE_SERVICES
+        return get_services()
 
     def route_service(self, request):
         result = None
@@ -105,7 +108,7 @@ class service_requester:
             return False
         category = None
 
-        for service in ALL_AVAILABLE_SERVICES:
+        for service in get_services():
             current_service = None
 
             if (
@@ -141,7 +144,7 @@ class request_properties:
 
     def request(self, service_type, parameters: dict, apikey: str):
         results = []
-        if service_type not in PROPERTY_PREDICTOR_TYPE:
+        if service_type not in AVAILABLE_PROPERTY_PREDICTOR_TYPES:
             return {f"No service of type {service_type} available "}
 
         for property_type in parameters["property_type"]:
@@ -179,10 +182,10 @@ class request_properties:
 
                 # Crystaline structure models take data as file sets, the following manages this for the Crystaline property requests
                 if service_type == "get_crystal_property":
-                    tmpdir_cif = common.subject_files_repository(
+                    tmpdir_cif = subject_files_repository(
                         "cif", parameters["subjects"]
                     )
-                    tmpdir_csv = common.subject_files_repository(
+                    tmpdir_csv = subject_files_repository(
                         "csv", parameters["subjects"]
                     )
 

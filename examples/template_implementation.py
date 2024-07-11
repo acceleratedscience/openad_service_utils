@@ -8,8 +8,8 @@
 
 from typing import List, Dict, Any
 from dataclasses import field
-from openad_service_utils.algorithms.registry import ApplicationsRegistry
-from openad_service_utils.template.base_classes import BaseGenerator, BaseAlgorithm, BaseConfiguration
+from openad_service_utils import ApplicationsRegistry  # registry algorithms
+from openad_service_utils import BaseGenerator, BaseAlgorithm, BaseConfiguration  # model scaffold
 
 
 class MyGenerator(BaseGenerator):

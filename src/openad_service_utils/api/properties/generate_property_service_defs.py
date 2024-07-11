@@ -1,17 +1,14 @@
+from typing import Dict, Any
 import json
 import copy
-
-from .properties__init__ import (
+from openad_service_utils.common.properties import (
     PropertyPredictorRegistry,
-    # PROPERTY_PREDICTOR_TYPE,
-    # PROPERTY_PREDICTOR_FACTORY,
     PROTEIN_PROPERTY_PREDICTOR_FACTORY,
-    # CRYSTALS_PROPERTY_PREDICTOR_FACTORY,
     MOLECULE_PROPERTY_PREDICTOR_FACTORY,
 )
 
 
-def generate_property_service_defs(target_type, PropertyPredictorFactory, PropertyPredictorRegistry, def_locations):
+def generate_property_service_defs(target_type: str, PropertyPredictorFactory: Dict[str, Any]):
     if target_type == "molecule":
         input_type = "SMILES"
     elif target_type == "protein":
@@ -109,8 +106,11 @@ def generate_property_service_defs(target_type, PropertyPredictorFactory, Proper
                 xx["valid_types"].extend(service_def["valid_types"])
         if not exists:
             prime_list.append(service_def)
+    return prime_list
+    
+def create_property_defs(target_type, PropertyPredictorFactory, services_path):
+    prime_list = generate_property_service_defs(target_type, PropertyPredictorFactory)
     i = 0
-
     for x in prime_list:
         if len(x["valid_types"]) == 0:
             continue
@@ -118,12 +118,12 @@ def generate_property_service_defs(target_type, PropertyPredictorFactory, Proper
             i += 1
             x["service_name"] = f"get {target_type} properties " + str(i)
             handle = open(
-                f"{def_locations}/property_service_defintion_{target_type}s_" + str(i) + ".json",
+                f"{services_path}/property_service_defintion_{target_type}s_" + str(i) + ".json",
                 "w",
             )
         else:
             handle = open(
-                f"{def_locations}/property_service_defintion_{target_type}s_" + x["valid_types"][0] + ".json",
+                f"{services_path}/property_service_defintion_{target_type}s_" + x["valid_types"][0] + ".json",
                 "w",
             )
         handle.write(json.dumps(x, indent=2))
@@ -131,9 +131,10 @@ def generate_property_service_defs(target_type, PropertyPredictorFactory, Proper
 
 
 if __name__ == "__main__":
-    import os
-    import definitions.services as new_prop_services
-    services_path = os.path.abspath(os.path.dirname(new_prop_services.__file__))
-    generate_property_service_defs("molecule", MOLECULE_PROPERTY_PREDICTOR_FACTORY, PropertyPredictorRegistry, services_path)
-    generate_property_service_defs("protein", PROTEIN_PROPERTY_PREDICTOR_FACTORY, PropertyPredictorRegistry, services_path)
+    # import os
+    # import definitions.services as new_prop_services
+    # services_path = os.path.abspath(os.path.dirname(new_prop_services.__file__))
+    services_path = "./"
+    create_property_defs("molecule", MOLECULE_PROPERTY_PREDICTOR_FACTORY, services_path)
+    create_property_defs("protein", PROTEIN_PROPERTY_PREDICTOR_FACTORY, services_path)
     # generate_property_service_defs("crystal", CRYSTALS_PROPERTY_PREDICTOR_FACTORY, PropertyPredictorRegistry, services_path)

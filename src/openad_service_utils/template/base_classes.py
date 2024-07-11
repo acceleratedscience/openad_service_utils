@@ -1,8 +1,10 @@
 # base_classes.py
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional, TypeVar, Generic
-from openad_service_utils.algorithms.core import AlgorithmConfiguration, GeneratorAlgorithm, Targeted, Untargeted
+from typing import Any, Dict, List, Optional, TypeVar, Generic, Type
+from openad_service_utils.common.algorithms.core import AlgorithmConfiguration, GeneratorAlgorithm, Targeted, Untargeted
+from openad_service_utils import ApplicationsRegistry
+
 
 # leave typing generic for algorithm implementation
 S = TypeVar("S")  # used for generated items

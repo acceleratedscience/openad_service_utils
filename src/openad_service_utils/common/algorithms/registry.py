@@ -39,7 +39,7 @@ import pydantic
 from pydantic.v1.dataclasses import dataclass
 
 from openad_service_utils.common.exceptions import DuplicateApplicationRegistration
-from openad_service_utils.algorithms.core import AlgorithmConfiguration, GeneratorAlgorithm
+from openad_service_utils.common.algorithms.core import AlgorithmConfiguration, GeneratorAlgorithm
 
 
 logger = logging.getLogger(__name__)

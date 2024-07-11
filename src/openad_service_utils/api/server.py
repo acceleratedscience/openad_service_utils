@@ -2,12 +2,16 @@ from fastapi import FastAPI
 from fastapi.responses import HTMLResponse, JSONResponse
 # from call_property_services import service_requester, get_services
 # from bmfm_inference_service.services.call_property_services import service_requester, get_services  # noqa: E402
-from openad_service_utils.api.generation.call_generation_services import service_requester, get_services  # noqa: E402
+from openad_service_utils.api.generation.call_generation_services import service_requester as generation_request  # noqa: E402
+from openad_service_utils.api.generation.call_generation_services import get_services as get_generation_services  # noqa: E402
+from openad_service_utils.api.properties.call_property_services import service_requester as property_request
+from openad_service_utils.api.properties.call_property_services import get_services as get_property_services
 from pandas import DataFrame
 
 app = FastAPI()
 
-requester = service_requester()
+gen_requester = generation_request()
+prop_requester = property_request()
 
 
 @app.get("/health", response_class=HTMLResponse)
@@ -17,9 +21,7 @@ async def health():
 
 @app.post("/service")
 async def service(property_request: dict):
-    # torch.cuda.empty_cache()
-    result = requester.route_service(property_request)
-    # torch.cuda.empty_cache()
+    result = gen_requester.route_service(property_request)
     if isinstance(result, DataFrame):
         return result.to_dict(orient="records")
     else:
@@ -30,8 +32,9 @@ async def service(property_request: dict):
 async def get_service_defs():
     """return service definitions"""
     # get service list
-    service_list: list = get_services()
-    return JSONResponse(service_list)
+    services: list = get_generation_services()
+    services.extend(get_property_services())
+    return JSONResponse(services)
 
 
 def start_server(host="0.0.0.0", port=8080, log_level="debug"):

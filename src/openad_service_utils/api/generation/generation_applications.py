@@ -25,28 +25,32 @@
 
 from typing import Dict, List
 
-from openad_service_utils.algorithms.registry import ApplicationsRegistry, ConfigurationTuple
+from openad_service_utils.common.algorithms.registry import ApplicationsRegistry, ConfigurationTuple
 
 from openad_service_utils.common.configuration import reset_logging_root_logger
 
 reset_logging_root_logger()
 
-AVAILABLE_ALGORITHMS = sorted(
-    ApplicationsRegistry.list_available(),
-    key=lambda algorithm: (
-        algorithm["domain"],
-        algorithm["algorithm_type"],
-        algorithm["algorithm_name"],
-        algorithm["algorithm_application"],
-        algorithm["algorithm_version"],
-    ),
-)
-AVAILABLE_ALGORITHMS_CATEGORIES = {
-    category: sorted(set([algorithm[category] for algorithm in AVAILABLE_ALGORITHMS]))
-    for category in ["domain", "algorithm_type"]
-}
+def get_algorithm_applications() -> List[Dict[str, str]]:
+    return sorted(
+        ApplicationsRegistry.list_available(),
+        key=lambda algorithm: (
+            algorithm["domain"],
+            algorithm["algorithm_type"],
+            algorithm["algorithm_name"],
+            algorithm["algorithm_application"],
+            algorithm["algorithm_version"],
+        ),
+    )
+
+def get_algorithm_categories() -> List[str]:
+    return {
+        category: sorted(set([algorithm[category] for algorithm in get_algorithm_applications()]))
+        for category in ["domain", "algorithm_type"]
+    }
+
 # print("available algorithms")
-# for i in AVAILABLE_ALGORITHMS:
+# for i in get_algorithm_applications():
 #     print(i)
 
 def filter_algorithm_applications(algorithms: List[Dict[str, str]], filters: Dict[str, str]) -> List[Dict[str, str]]:
