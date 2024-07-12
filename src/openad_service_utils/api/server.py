@@ -7,6 +7,7 @@ from openad_service_utils.api.generation.call_generation_services import get_ser
 from openad_service_utils.api.properties.call_property_services import service_requester as property_request
 from openad_service_utils.api.properties.call_property_services import get_services as get_property_services
 from pandas import DataFrame
+from openad_service_utils.common.properties.property_factory import PropertyFactory
 
 app = FastAPI()
 
@@ -21,7 +22,10 @@ async def health():
 
 @app.post("/service")
 async def service(property_request: dict):
-    result = gen_requester.route_service(property_request)
+    if property_request.get("service_type") in PropertyFactory.AVAILABLE_PROPERTY_PREDICTOR_TYPES():
+        result = prop_requester.route_service(property_request)
+    else: # !TODO implement logic for checking generation requests
+        result = gen_requester.route_service(property_request)
     if isinstance(result, DataFrame):
         return result.to_dict(orient="records")
     else:

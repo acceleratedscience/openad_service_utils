@@ -12,13 +12,8 @@ from pydantic import BaseModel
 
 
 # from gt4sd_common.properties import PropertyPredictorRegistry
-from openad_service_utils.common.properties import (
-    PropertyPredictorRegistry, 
-    AVAILABLE_PROPERTY_PREDICTOR_TYPES, 
-    MOLECULE_PROPERTY_PREDICTOR_FACTORY, 
-    PROTEIN_PROPERTY_PREDICTOR_FACTORY, 
-    CRYSTALS_PROPERTY_PREDICTOR_FACTORY
-)
+from openad_service_utils.common.properties import PropertyPredictorRegistry
+from openad_service_utils.common.properties.property_factory import PropertyFactory
 
 
 class Info(BaseModel):
@@ -59,9 +54,10 @@ def is_valid_service(service: dict):
 
 def get_services() -> list:
     all_services = []
-    all_services.extend(generate_property_service_defs("molecule", MOLECULE_PROPERTY_PREDICTOR_FACTORY))
-    all_services.extend(generate_property_service_defs("protein", PROTEIN_PROPERTY_PREDICTOR_FACTORY))
-    all_services.extend(generate_property_service_defs("crystal", CRYSTALS_PROPERTY_PREDICTOR_FACTORY))
+    print("[i] availble predictor types", PropertyFactory.AVAILABLE_PROPERTY_PREDICTOR_TYPES())
+    all_services.extend(generate_property_service_defs("molecule", PropertyFactory.molecule_predictors_registry))
+    all_services.extend(generate_property_service_defs("protein", PropertyFactory.protein_predictors_registry))
+    all_services.extend(generate_property_service_defs("crystal", PropertyFactory.crystal_predictors_registry))
     return all_services
 
 
@@ -144,7 +140,7 @@ class request_properties:
 
     def request(self, service_type, parameters: dict, apikey: str):
         results = []
-        if service_type not in AVAILABLE_PROPERTY_PREDICTOR_TYPES:
+        if service_type not in PropertyFactory.AVAILABLE_PROPERTY_PREDICTOR_TYPES():
             return {f"No service of type {service_type} available "}
 
         for property_type in parameters["property_type"]:

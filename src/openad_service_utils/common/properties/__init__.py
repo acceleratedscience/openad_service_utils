@@ -36,16 +36,16 @@ from .core import PropertyPredictor
 #     ProteinPropertyPredictorScorer,
 # )
 
-PROPERTY_FACTORY = PropertyFactory()
+# PROPERTY_FACTORY = PropertyFactory()
 
-PROPERTY_PREDICTOR_FACTORY = PROPERTY_FACTORY.PROPERTY_PREDICTOR_FACTORY
-AVAILABLE_PROPERTY_PREDICTORS = PROPERTY_FACTORY.AVAILABLE_PROPERTY_PREDICTORS
+# PropertyFactory.PROPERTY_PREDICTOR_FACTORY = PROPERTY_FACTORY.PropertyFactory.PROPERTY_PREDICTOR_FACTORY
+# PropertyFactory.AVAILABLE_PROPERTY_PREDICTORS = PROPERTY_FACTORY.PropertyFactory.AVAILABLE_PROPERTY_PREDICTORS
 
-PROTEIN_PROPERTY_PREDICTOR_FACTORY = PROPERTY_FACTORY.protein_predictors_registry
-MOLECULE_PROPERTY_PREDICTOR_FACTORY = PROPERTY_FACTORY.molecule_predictors_registry
-CRYSTALS_PROPERTY_PREDICTOR_FACTORY = PROPERTY_FACTORY.crystal_predictors_registry
+# PROTEIN_PROPERTY_PREDICTOR_FACTORY = PROPERTY_FACTORY.protein_predictors_registry
+# MOLECULE_PROPERTY_PREDICTOR_FACTORY = PROPERTY_FACTORY.molecule_predictors_registry
+# CRYSTALS_PROPERTY_PREDICTOR_FACTORY = PROPERTY_FACTORY.crystal_predictors_registry
 
-AVAILABLE_PROPERTY_PREDICTOR_TYPES = PROPERTY_FACTORY.AVAILABLE_PROPERTY_PREDICTOR_TYPES
+# AVAILABLE_PROPERTY_PREDICTOR_TYPES = PROPERTY_FACTORY.AVAILABLE_PROPERTY_PREDICTOR_TYPES
 
 # SCORING_FACTORY_WITH_PROPERTY_PREDICTORS = {
 #     "property_predictor_scorer": PropertyPredictorScorer,
@@ -62,13 +62,27 @@ AVAILABLE_SCORING_WITH_PROPERTY_PREDICTORS = {}
 class PropertyPredictorRegistry:
     """A registry for property predictors."""
     @staticmethod
+    def get_property_predictor_doc_description(name: str) -> Dict[str, Any]:
+
+        try:
+            _, parameters_class = PropertyFactory.PROPERTY_PREDICTOR_FACTORY()[name]
+            if _.__doc__ is None:
+                return "No Description"
+            else:
+                return _.__doc__
+        except KeyError:
+            raise ValueError(
+                f"Property predictor name={name} not supported. Pick one from {PropertyFactory.AVAILABLE_PROPERTY_PREDICTORS()}"
+            )
+    
+    @staticmethod
     def get_property_predictor_parameters_schema(name: str) -> Dict[str, Any]:
         try:
-            _, parameters_class = PROPERTY_PREDICTOR_FACTORY[name]
+            _, parameters_class = PropertyFactory.PROPERTY_PREDICTOR_FACTORY()[name]
             return parameters_class.schema_json()
         except KeyError:
             raise ValueError(
-                f"Property predictor name={name} not supported. Pick one from {AVAILABLE_PROPERTY_PREDICTORS}"
+                f"Property predictor name={name} not supported. Pick one from {PropertyFactory.AVAILABLE_PROPERTY_PREDICTORS()}"
             )
 
     @staticmethod
@@ -76,11 +90,11 @@ class PropertyPredictorRegistry:
         name: str, parameters: Dict[str, Any] = {}
     ) -> PropertyPredictor:
         try:
-            property_class, parameters_class = PROPERTY_PREDICTOR_FACTORY[name]
+            property_class, parameters_class = PropertyFactory.PROPERTY_PREDICTOR_FACTORY()[name]
             return property_class(parameters_class(**parameters))
         except KeyError:
             raise ValueError(
-                f"Property predictor name={name} not supported. Pick one from {AVAILABLE_PROPERTY_PREDICTORS}"
+                f"Property predictor name={name} not supported. Pick one from {PropertyFactory.AVAILABLE_PROPERTY_PREDICTORS()}"
             )
 
     # @staticmethod
@@ -116,7 +130,7 @@ class PropertyPredictorRegistry:
 
     @staticmethod
     def list_available() -> List[str]:
-        return AVAILABLE_PROPERTY_PREDICTORS
+        return PropertyFactory.AVAILABLE_PROPERTY_PREDICTORS()
 
     @staticmethod
     def list_available_scorers() -> List[str]:

@@ -1,11 +1,7 @@
 from typing import Dict, Any
 import json
 import copy
-from openad_service_utils.common.properties import (
-    PropertyPredictorRegistry,
-    PROTEIN_PROPERTY_PREDICTOR_FACTORY,
-    MOLECULE_PROPERTY_PREDICTOR_FACTORY,
-)
+from openad_service_utils.common.properties import PropertyPredictorRegistry
 
 
 def generate_property_service_defs(target_type: str, PropertyPredictorFactory: Dict[str, Any]):
@@ -79,6 +75,9 @@ def generate_property_service_defs(target_type: str, PropertyPredictorFactory: D
                         + "\n"
                     )
             service_def["valid_types"] = copy.deepcopy(valid_types)
+            # skip empty defs
+            if len(valid_types) == 0:  # !info check this logic
+                continue
         else:
             service_def["service_name"] = f"get {target_type} " + x
             service_def["description"] = (
@@ -131,10 +130,10 @@ def create_property_defs(target_type, PropertyPredictorFactory, services_path):
 
 
 if __name__ == "__main__":
+    from openad_service_utils.common.properties.property_factory import PropertyFactory
     # import os
     # import definitions.services as new_prop_services
     # services_path = os.path.abspath(os.path.dirname(new_prop_services.__file__))
     services_path = "./"
-    create_property_defs("molecule", MOLECULE_PROPERTY_PREDICTOR_FACTORY, services_path)
-    create_property_defs("protein", PROTEIN_PROPERTY_PREDICTOR_FACTORY, services_path)
-    # generate_property_service_defs("crystal", CRYSTALS_PROPERTY_PREDICTOR_FACTORY, PropertyPredictorRegistry, services_path)
+    create_property_defs("molecule", PropertyFactory.molecule_predictors_registry, services_path)
+    create_property_defs("protein", PropertyFactory.protein_predictors_registry, services_path)
