@@ -1,6 +1,6 @@
 from typing import Dict, Tuple, Type, Union, Any, List
 from openad_service_utils.common.algorithms.core import PredictorAlgorithm
-from .core import PropertyPredictor, PropertyPredictorParameters
+from openad_service_utils.common.properties.core import PropertyPredictor, PropertyPredictorParameters
 from enum import Enum
 
 class ProteinPropertyDict:
@@ -22,9 +22,9 @@ class MoleculePropertyDict:
 
 
 class PredictorTypes(Enum):
-    PROTEIN = "protein"
-    MOLECULE = "molecule"
-    CRYSTAL = "crystal"
+    PROTEIN = "get_protein_property"
+    MOLECULE = "get_molecule_property"
+    CRYSTAL = "get_crystal_property"
 
 
 class PropertyFactory:
@@ -45,11 +45,11 @@ class PropertyFactory:
     def AVAILABLE_PROPERTY_PREDICTOR_TYPES() -> List[str]:
         available_types = []
         if PropertyFactory.protein_predictors_registry:
-            available_types.append("get_protein_property")
+            available_types.append(PredictorTypes.PROTEIN)
         if PropertyFactory.molecule_predictors_registry:
-            available_types.append("get_molecule_property")
+            available_types.append(PredictorTypes.MOLECULE)
         if PropertyFactory.crystal_predictors_registry:
-            available_types.append("get_crystal_property")
+            available_types.append(PredictorTypes.CRYSTAL)
         return available_types
     
     @staticmethod
@@ -62,3 +62,8 @@ class PropertyFactory:
             PropertyFactory.crystal_predictors_registry.update({name: predictor})
         else:
             raise ValueError(f"Property predictor name={name} not supported. Pick one from {PropertyFactory.AVAILABLE_PROPERTY_PREDICTORS()}")
+        
+
+if __name__ == "__main__":
+    preds = PredictorTypes()
+    print(preds.value)

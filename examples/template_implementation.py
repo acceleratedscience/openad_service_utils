@@ -8,7 +8,6 @@
 
 from typing import List, Dict, Any
 from dataclasses import field
-from openad_service_utils import ApplicationsRegistry  # registry algorithms
 from openad_service_utils import BaseGenerator, BaseAlgorithm, BaseConfiguration  # model scaffold
 
 
@@ -36,13 +35,14 @@ class MyGeneratorAlgorithm(BaseAlgorithm[Dict[str, Any], str]):
 
 
 # register the algorithm to the config that returns your model implementation
-@ApplicationsRegistry.register_algorithm_application(MyGeneratorAlgorithm)
+# @ApplicationsRegistry.register_algorithm_application(MyGeneratorAlgorithm)
 class MyModelGenerator(BaseConfiguration[Dict[str, Any], str]):
     """model implementation description"""
     # metadata parameters for registry to fetch models from s3
     algorithm_type: str = "conditional_generation"
     domain: str = "materials"
     algorithm_version: str = "v0"
+    algorithm_class = MyGeneratorAlgorithm
 
     # define model parameters as fields
     param1: int = field(default=10, metadata=dict(description="Description of param1"))

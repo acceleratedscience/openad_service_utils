@@ -1,13 +1,8 @@
 """This library calls generation processes remotely on a given host"""
 
 import json
-from pathlib import Path
-import glob
-# import bmfm_inference_service.services.definitions.services as new_prop_services
 from openad_service_utils.api.generation.generate_service_defs import generate_service_defs, create_service_defs
-import os
 import copy
-import sys
 import pandas as pd
 from .generation_applications import ApplicationsRegistry as GeneratorRegistry
 from .generation_applications import get_algorithm_applications
@@ -106,8 +101,8 @@ class service_requester:
             return False
         category = None
 
+        current_service = None
         for service in get_services():
-            current_service = None
             if (
                 service["service_type"] == request["service_type"]
                 and service["service_name"] == request["service_name"]

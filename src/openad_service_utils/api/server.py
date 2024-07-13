@@ -1,7 +1,5 @@
 from fastapi import FastAPI
 from fastapi.responses import HTMLResponse, JSONResponse
-# from call_property_services import service_requester, get_services
-# from bmfm_inference_service.services.call_property_services import service_requester, get_services  # noqa: E402
 from openad_service_utils.api.generation.call_generation_services import service_requester as generation_request  # noqa: E402
 from openad_service_utils.api.generation.call_generation_services import get_services as get_generation_services  # noqa: E402
 from openad_service_utils.api.properties.call_property_services import service_requester as property_request
@@ -22,10 +20,16 @@ async def health():
 
 @app.post("/service")
 async def service(property_request: dict):
+    # user request is for property prediction
     if property_request.get("service_type") in PropertyFactory.AVAILABLE_PROPERTY_PREDICTOR_TYPES():
         result = prop_requester.route_service(property_request)
-    else: # !TODO implement logic for checking generation requests
+    # user request is for generation
+    elif property_request.get("service_type") == "generate_data":
         result = gen_requester.route_service(property_request)
+    else:
+        return JSONResponse(
+            {"message": "service not supported", "service_type": property_request.get("service_type")},
+        )
     if isinstance(result, DataFrame):
         return result.to_dict(orient="records")
     else:
@@ -44,12 +48,16 @@ async def get_service_defs():
 def start_server(host="0.0.0.0", port=8080, log_level="debug"):
     import uvicorn
 
-    # import torch
-    # if torch.cuda.is_available():
-    #     print(f"\n[i] cuda is available: {torch.cuda.is_available()}")
-    #     print(f"[i] cuda version: {torch.version.cuda}\n")
-    #     print(f"[i] device name: {torch.cuda.get_device_name(0)}")
-    #     print(f"[i] torch version: {torch.__version__}\n")
+    try:
+        import torch
+        if torch.cuda.is_available():
+            print(f"\n[i] cuda is available: {torch.cuda.is_available()}")
+            print(f"[i] cuda version: {torch.version.cuda}\n")
+            print(f"[i] device name: {torch.cuda.get_device_name(0)}")
+            print(f"[i] torch version: {torch.__version__}\n")
+    except ImportError:
+        print("[i] cuda not available")
+        pass
     uvicorn.run(app, host=host, port=port, log_level=log_level, workers=1)
 
 
