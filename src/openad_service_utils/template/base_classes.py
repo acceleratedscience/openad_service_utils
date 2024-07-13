@@ -31,7 +31,7 @@ class BaseGenerator(ABC):
         return configuration
 
 
-class BaseConfiguration(AlgorithmConfiguration[S, T]):
+class BaseConfiguration(AlgorithmConfiguration[S, T], ABC):
     """Algorithm parameter definitions and implementation setup.
 
     The signature of this class constructor (given by the instance attributes) is used
@@ -43,6 +43,8 @@ class BaseConfiguration(AlgorithmConfiguration[S, T]):
     However, the values for :attr:`algorithm_name` and :attr:`algorithm_application`
     are set when you register the application.
     """
+    algorithm_class: Type["BaseAlgorithm"]
+
     @abstractmethod
     def get_target_description(self) -> Dict[str, str]:
         pass
@@ -55,7 +57,14 @@ class BaseConfiguration(AlgorithmConfiguration[S, T]):
     @classmethod
     def register(cls):
         """Register the configuration with the ApplicationsRegistry and load the model into runtime."""
+        if 'algorithm_class' not in cls.__dict__:
+            raise TypeError(f"Can't instantiate class {cls.__name__} without 'algorithm_class' class variable")
         ApplicationsRegistry.register_algorithm_application(cls.algorithm_class)(cls)
+    
+    # def __init_subclass__(cls, **kwargs):
+    #     super().__init_subclass__(**kwargs)
+    #     if 'algorithm_class' not in cls.__dict__:
+    #         raise TypeError(f"Can't instantiate class {cls.__name__} without 'algorithm_class' class variable")
 
 
 class BaseAlgorithm(GeneratorAlgorithm[S, T]):

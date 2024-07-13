@@ -35,7 +35,6 @@ class MyGeneratorAlgorithm(BaseAlgorithm[Dict[str, Any], str]):
 
 
 # register the algorithm to the config that returns your model implementation
-# @ApplicationsRegistry.register_algorithm_application(MyGeneratorAlgorithm)
 class MyModelGenerator(BaseConfiguration[Dict[str, Any], str]):
     """model implementation description"""
     # metadata parameters for registry to fetch models from s3
