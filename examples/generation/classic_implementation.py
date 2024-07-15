@@ -35,7 +35,7 @@ class MyGeneratorAlgorithm(BaseAlgorithm[Dict[str, Any], str]):
 
 
 # register the algorithm to the config that returns your model implementation
-class MyModelGenerator(BaseConfiguration[Dict[str, Any], str]):
+class MyClassicGenerator(BaseConfiguration[Dict[str, Any], str]):
     """model implementation description"""
     # metadata parameters for registry to fetch models from s3
     algorithm_type: str = "conditional_generation"

@@ -1,4 +1,5 @@
-# base_classes.py
+# simple.py
+# follows a simpler gt4sd registry pattern
 
 from abc import ABC, abstractmethod
 from typing import Any, List, Optional, TypeVar, ClassVar
@@ -12,17 +13,36 @@ T = TypeVar("T")  # used for target of generation
 U = TypeVar("U")  # used for additional context (e.g. part of target definition)
 
 
-class BaseImplementationGenerator(AlgorithmConfiguration[S, T], ABC):
-    """Algorithm parameter definitions and implementation setup.
+class SimpleGenerator(AlgorithmConfiguration[S, T], ABC):
+    """More simple implementation of :class:`BaseConfiguration`
 
     The signature of this class constructor (given by the instance attributes) is used
     for the REST API and needs to be serializable.
+    However, the values for :attr:`algorithm_application`
+    are set when you register the application based on the child class name.
 
-    Child classes will add additional instance attributes to configure their respective
-    algorithms. This will require setting default values for all of the attributes defined
-    here.
-    However, the values for :attr:`algorithm_name` and :attr:`algorithm_application`
-    are set when you register the application.
+    1. Setup your generator. Ease child implementation. For example::
+
+        from openad_service_utils.implementation.generation import SimpleGenerator
+
+        class YourApplicationName(SimpleGenerator):
+            algorithm_type: str = "conditional_generation"
+            algorithm_name = "MyGeneratorAlgorithm"
+            algorithm_version: str = "v0"
+            domain: str = "materials"
+
+            actual_parameter1: float = 1.61
+            actual_parameter2: float = 1.61
+            ...
+
+            # no __init__ definition required
+        def generate(self, target: Optional[T]) -> List[Any]:
+            # implementation goes here
+            pass
+    
+    2. Register the generator with the ApplicationsRegistry::
+
+        YourApplicationName.register()
     """
     algorithm_name: ClassVar[str]
     __artifacts_downloaded__: bool = False
@@ -36,7 +56,7 @@ class BaseImplementationGenerator(AlgorithmConfiguration[S, T], ABC):
                 raise TypeError(f"Can't instantiate class ({cls.__name__}) without '{field}' class variable")
         # create during runtime so that user doesnt have to write seperate class
         algorithm = type(cls.algorithm_name, (BaseAlgorithm,), {})
-        print(f"[i] registering generator: {'/'.join([cls.algorithm_type, cls.algorithm_name, cls.__name__, cls.algorithm_version])}\n")
+        print(f"[i] registering simple generator: {'/'.join([cls.algorithm_type, cls.algorithm_name, cls.__name__, cls.algorithm_version])}\n")
         ApplicationsRegistry.register_algorithm_application(algorithm)(cls)
     
     @abstractmethod
@@ -48,15 +68,15 @@ class BaseImplementationGenerator(AlgorithmConfiguration[S, T], ABC):
 
 
 class BaseAlgorithm(GeneratorAlgorithm[S, T]):
-    """Interface for automated generation via an :class:`BaseImplementationGenerator`."""
+    """Interface for automated generation via an :class:`SimpleGenerator`."""
     def __init__(
-        self, configuration: BaseImplementationGenerator[S, T], target: Optional[T] = None
+        self, configuration: SimpleGenerator[S, T], target: Optional[T] = None
     ):
         super().__init__(configuration=configuration, target=target)
 
     def get_generator(
         self,
-        configuration: BaseImplementationGenerator[S, T],
+        configuration: SimpleGenerator[S, T],
         target: Optional[T],
     ) -> Untargeted:
     # ) -> Union[Untargeted, Targeted[T]]:

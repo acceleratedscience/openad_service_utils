@@ -9,11 +9,11 @@
 from typing import List, Dict, Any
 from dataclasses import field
 # from openad_service_utils import BaseConfiguration  # model scaffold
-from openad_service_utils.implementation.models import BaseImplementationGenerator
+from openad_service_utils import SimpleGenerator
 
 
 # register the algorithm to the config that returns your model implementation
-class MyModelGenerator(BaseImplementationGenerator):
+class MySimpleGenerator(SimpleGenerator):
     """model implementation description"""
     # metadata parameters for registry to fetch models from s3
     algorithm_type: str = "conditional_generation"

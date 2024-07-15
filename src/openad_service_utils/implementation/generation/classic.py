@@ -1,4 +1,5 @@
-# base_classes.py
+# classic.py
+# follows the classic gt4sd registry pattern
 
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional, TypeVar, Generic, Type, Union
@@ -59,12 +60,8 @@ class BaseConfiguration(AlgorithmConfiguration[S, T], ABC):
         """Register the configuration with the ApplicationsRegistry and load the model into runtime."""
         if 'algorithm_class' not in cls.__dict__:
             raise TypeError(f"Can't instantiate class {cls.__name__} without 'algorithm_class' class variable")
+        print(f"[i] registering classic generator: {'/'.join([cls.algorithm_type, cls.algorithm_class.__name__, cls.__name__, cls.algorithm_version])}\n")
         ApplicationsRegistry.register_algorithm_application(cls.algorithm_class)(cls)
-    
-    # def __init_subclass__(cls, **kwargs):
-    #     super().__init_subclass__(**kwargs)
-    #     if 'algorithm_class' not in cls.__dict__:
-    #         raise TypeError(f"Can't instantiate class {cls.__name__} without 'algorithm_class' class variable")
 
 
 class BaseAlgorithm(GeneratorAlgorithm[S, T]):
