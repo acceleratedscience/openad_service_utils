@@ -150,8 +150,8 @@ def get_generator_type(generator_application: str, parameters):
             generator_application == service["service_type"]
             and service["generator_type"]["algorithm_application"] == parameters["property_type"][0]
         ):
-            print("Generator")
-            print(service)
+            # print("Generator")
+            # print(service)
             return service["generator_type"]
 
     return None

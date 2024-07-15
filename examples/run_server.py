@@ -2,7 +2,9 @@
 
 if __name__ == "__main__":
     # first import the model configuration
-    from template_implementation import MyModelGenerator
+    # from simple_implementation import MyModelGenerator
+    # from template_implementation import MyModelGenerator
+    from single_implementation import MyModelGenerator
     MyModelGenerator.register()
     
     # start the server

@@ -1,7 +1,7 @@
 # base_classes.py
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional, TypeVar, Generic, Type, Union
+from typing import Any, List, Optional, TypeVar, ClassVar
 from openad_service_utils.common.algorithms.core import AlgorithmConfiguration, GeneratorAlgorithm, Targeted, Untargeted
 from openad_service_utils import ApplicationsRegistry
 
@@ -12,26 +12,7 @@ T = TypeVar("T")  # used for target of generation
 U = TypeVar("U")  # used for additional context (e.g. part of target definition)
 
 
-class BaseGenerator(ABC):
-    @abstractmethod
-    def __init__(self, resources_path: str, **kwargs):
-        self.resources_path = resources_path
-
-    @abstractmethod
-    def generate(
-        self,
-        target: Optional[T],
-    ) -> List[Any]:
-        pass
-
-    def validate_configuration(
-        self, configuration: AlgorithmConfiguration
-    ) -> AlgorithmConfiguration:
-        assert isinstance(configuration, AlgorithmConfiguration)
-        return configuration
-
-
-class BaseConfiguration(AlgorithmConfiguration[S, T], ABC):
+class BaseImplementationGenerator(AlgorithmConfiguration[S, T], ABC):
     """Algorithm parameter definitions and implementation setup.
 
     The signature of this class constructor (given by the instance attributes) is used
@@ -43,41 +24,39 @@ class BaseConfiguration(AlgorithmConfiguration[S, T], ABC):
     However, the values for :attr:`algorithm_name` and :attr:`algorithm_application`
     are set when you register the application.
     """
-    algorithm_class: Type["BaseAlgorithm"]
-
-    @abstractmethod
-    def get_target_description(self) -> Dict[str, str]:
-        pass
-
-    @abstractmethod
-    def get_conditional_generator(self) -> Type["BaseAlgorithm"]:
-        """return your BaseGenerator"""
-        pass
+    algorithm_name: ClassVar[str]
+    __artifacts_downloaded__: bool = False
 
     @classmethod
     def register(cls):
         """Register the configuration with the ApplicationsRegistry and load the model into runtime."""
-        if 'algorithm_class' not in cls.__dict__:
-            raise TypeError(f"Can't instantiate class {cls.__name__} without 'algorithm_class' class variable")
-        ApplicationsRegistry.register_algorithm_application(cls.algorithm_class)(cls)
+        required = ["algorithm_name", "algorithm_type"]
+        for field in required:
+            if field not in cls.__dict__:
+                raise TypeError(f"Can't instantiate class ({cls.__name__}) without '{field}' class variable")
+        # create during runtime so that user doesnt have to write seperate class
+        algorithm = type(cls.algorithm_name, (BaseAlgorithm,), {})
+        print(f"[i] registering generator: {'/'.join([cls.algorithm_type, cls.algorithm_name, cls.__name__, cls.algorithm_version])}\n")
+        ApplicationsRegistry.register_algorithm_application(algorithm)(cls)
     
-    # def __init_subclass__(cls, **kwargs):
-    #     super().__init_subclass__(**kwargs)
-    #     if 'algorithm_class' not in cls.__dict__:
-    #         raise TypeError(f"Can't instantiate class {cls.__name__} without 'algorithm_class' class variable")
+    @abstractmethod
+    def generate(
+        self,
+        target: Optional[T],
+    ) -> List[Any]:
+        pass
 
 
 class BaseAlgorithm(GeneratorAlgorithm[S, T]):
-    """Interface for automated generation via an :class:`BaseConfiguration`."""
+    """Interface for automated generation via an :class:`BaseImplementationGenerator`."""
     def __init__(
-        self, configuration: BaseConfiguration[S, T], target: Optional[T] = None
+        self, configuration: BaseImplementationGenerator[S, T], target: Optional[T] = None
     ):
-        configuration = self.validate_configuration(configuration)
         super().__init__(configuration=configuration, target=target)
 
     def get_generator(
         self,
-        configuration: BaseConfiguration[S, T],
+        configuration: BaseImplementationGenerator[S, T],
         target: Optional[T],
     ) -> Untargeted:
     # ) -> Union[Untargeted, Targeted[T]]:
@@ -100,6 +79,10 @@ class BaseAlgorithm(GeneratorAlgorithm[S, T]):
             generator, the detail implementation used for generation.
             If the target is None, the generator is assumed to be untargeted.
         """
-        self.local_artifacts = configuration.ensure_artifacts()
-        implementation: BaseGenerator = configuration.get_conditional_generator(self.local_artifacts)
-        return implementation.generate
+        if configuration.__artifacts_downloaded__:
+            # download model
+            self.local_artifacts = configuration.ensure_artifacts()
+            if self.local_artifacts:
+                configuration.__artifacts_downloaded__ = True
+        # run model
+        return configuration.generate

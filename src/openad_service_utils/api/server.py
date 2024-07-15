@@ -30,6 +30,10 @@ async def service(property_request: dict):
         return JSONResponse(
             {"message": "service not supported", "service_type": property_request.get("service_type")},
         )
+    if result is None:
+        return JSONResponse(
+            {"message": "could not process service request", "service": property_request.get("parameters",{}).get("property_type")},
+        )
     if isinstance(result, DataFrame):
         return result.to_dict(orient="records")
     else:
