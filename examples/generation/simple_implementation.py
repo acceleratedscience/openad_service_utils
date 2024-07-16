@@ -1,10 +1,7 @@
-# new_model_implementation.py
+# simple_implementation.py
 
-###  Rename the base classes [ BaseGenerator, BaseAlgorithm, BaseConfiguration ] and configure
+###  Name the child class of SimpleGenerator as you model application and configure
 ###  Model checkpoints and files need to be bootstraped by the naming scheme to a path
-###  schema:    algorithm_type / algorithm_name / algorithm_application / algorithm_version ]
-###  exmaple:   conditional_generation / MyGeneratorAlgorithm / MyGenerator / v0
-
 
 from typing import List, Dict, Any
 from dataclasses import field
@@ -16,12 +13,14 @@ from openad_service_utils import SimpleGenerator
 class MySimpleGenerator(SimpleGenerator):
     """model implementation description"""
     # metadata parameters for registry to fetch models from s3
+    #   schema:    algorithm_type / algorithm_name / algorithm_application / algorithm_version
+    #   downloads model using prefix: algorithm/(algorithm_type)/(algorithm_name)/MySimpleGenerator/(algorithm_version)
     algorithm_type: str = "conditional_generation"
     algorithm_name = "MyGeneratorAlgorithm"
     algorithm_version: str = "v0"
     domain: str = "materials"
 
-    # define model parameters as fields
+    # define model parameters as fields for the api
     param1: int = field(default=10, metadata=dict(description="Description of param1"))
     param2: float = field(default=0.5, metadata=dict(description="Description of param2"))
 

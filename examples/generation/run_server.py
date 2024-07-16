@@ -2,7 +2,6 @@
 
 if __name__ == "__main__":
     from simple_implementation import MySimpleGenerator
-    # from examples.simple_implementation import MyModelGenerator
     from classic_implementation import MyClassicGenerator
     MySimpleGenerator.register()
     MyClassicGenerator.register()

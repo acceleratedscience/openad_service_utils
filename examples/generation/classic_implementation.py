@@ -66,7 +66,7 @@ class MyClassicGenerator(BaseConfiguration[Dict[str, Any], str]):
 
 
 if __name__ == "__main__":
-    config = MyModelGenerator()
+    config = MyClassicGenerator()
     algorithm = MyGeneratorAlgorithm(configuration=config, target=None)
     gen = algorithm.sample(1)
     print(list(gen))
