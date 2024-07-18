@@ -56,7 +56,7 @@ class SimplePredictor(PredictorAlgorithm):
             algorithm_version=parameters.algorithm_version,
         )
         # The parent constructor calls `self.get_model`.
-        print("[i] downloading model: ", parameters.algorithm_application)
+        print(f"[i] downloading model: {parameters.algorithm_name}/{parameters.algorithm_version}", )
         super().__init__(configuration=configuration)
 
     @classmethod
