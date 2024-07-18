@@ -74,11 +74,12 @@ ALL_AVAILABLE_SERVICES = []
 
 def get_services() -> list:
     """pulls the list of available services once server is ready"""
+    # !TODO: FIX THIS UGLY LOGIC
     global ALL_AVAILABLE_SERVICES
     if not ALL_AVAILABLE_SERVICES:
         print("getting services")
         ALL_AVAILABLE_SERVICES = generate_service_defs("generate")
-    return ALL_AVAILABLE_SERVICES
+    return ALL_AVAILABLE_SERVICES.copy()
 
 
 class service_requester:
