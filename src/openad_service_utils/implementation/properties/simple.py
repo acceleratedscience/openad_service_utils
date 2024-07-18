@@ -65,11 +65,8 @@ class SimplePredictor(PredictorAlgorithm):
             # parameters defined in class
             class_fields = {k: v for k, v in cls.__dict__.items() if not callable(v) and not k.startswith('__')}
             class_fields.pop("_abc_impl", "")
-            print(class_fields)
             model_params = type(cls.__name__+"Parameters", (S3Parameters, ), class_fields)
-            PropertyFactory.add_predictor(name=cls.__name__, property_type=class_fields.get("domain"), predictor=(cls, model_params))
         else:
             class_fields = {k: v for k, v in vars(parameters).items() if not callable(v) and not k.startswith('__')}
-            print(class_fields)
-            model_params = type(cls.__name__+"Parameters", (S3Parameters, ), class_fields)
-            PropertyFactory.add_predictor(name=cls.__name__, property_type=class_fields.get("domain"), predictor=(cls, model_params))
+        print(f"[i] registering simple predictor: {'/'.join([class_fields.get('domain'), class_fields.get('algorithm_name'), cls.__name__, class_fields.get('algorithm_version')])}\n")
+        PropertyFactory.add_predictor(name=cls.__name__, property_type=class_fields.get("domain"), predictor=(cls, model_params))

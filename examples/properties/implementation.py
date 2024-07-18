@@ -11,18 +11,18 @@ class ClassificationModel:
     """Does nothing. example for a torch model"""
     def __init__(self, model_path, tokenizer) -> None:
         pass
-    def to():
+    def to(*args, **kwargs):
         pass
-    def eval():
+    def eval(*args, **kwargs):
         pass
 
 
 class MySimplePredictor(SimplePredictor):
     """Class for all Molformer classification algorithms."""
     # necessary params
-    algorithm_application: str = "multitask_classification"
-    algorithm_version: str = "molformer_clintox_test"
-    algorithm_name: str = "molformer"
+    algorithm_application: str = "classification"
+    algorithm_version: str = "v0"
+    algorithm_name: str = "mypredictor"
     domain: DomainSubmodule = DomainSubmodule("molecules")
     # user proviced params for api / model inference
     batch_size: int = Field(description="Prediction batch size", default=128)
@@ -57,6 +57,6 @@ class MySimplePredictor(SimplePredictor):
                     predictions = []
                 return preds
             """
-            return []
+            return [1]
 
         return informative_model
