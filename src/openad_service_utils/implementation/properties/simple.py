@@ -14,6 +14,19 @@ from openad_service_utils.common.properties.property_factory import PropertyFact
 
 @dataclass
 class PredictorParameters:
+    """
+    Helper class for adding parameters to your model outside of class::SimplePredictor
+
+    example::
+
+        class MyParams(PredictorParameters):
+            temperature: int = Field(description="", default=7)
+        
+        class MyPredictor(SimplePredictor):
+            pass
+        
+        MyPredictor.register(MyParams)
+    """
     domain: DomainSubmodule = Field(
         ..., example="molecules", description="Submodule of gt4sd.properties"
     )
