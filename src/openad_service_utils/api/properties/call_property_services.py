@@ -117,7 +117,9 @@ class service_requester:
             if self.property_requestor is None:
                 self.property_requestor = request_properties()
             result = self.property_requestor.request(
-                request["service_type"], request["parameters"], request["api_key"]
+                request["service_type"], 
+                request["parameters"], 
+                request.get("api_key", "")
             )
 
         return result
