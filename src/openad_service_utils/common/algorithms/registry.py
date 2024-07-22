@@ -364,5 +364,5 @@ class ApplicationsRegistry:
                 print("[I] could not find any algorithm versions for: ", application.algorithm_class.__name__)
                 logger.info("[I] could not find any algorithm versions for: ", application.algorithm_class.__name__)
         if not available:
-            print("[E] No models available found!")
+            print("[E] No available generation models found!")
         return available

@@ -18,7 +18,6 @@ class PropertyFactory:
 
     @staticmethod
     def PROPERTY_PREDICTOR_FACTORY() -> Dict[str, Tuple[Union[Type[PropertyPredictor], Type[PredictorAlgorithm]], Type[PropertyPredictorParameters]]]:
-        print(PropertyFactory.protein_predictors_registry)
         return {**PropertyFactory.protein_predictors_registry, **PropertyFactory.molecule_predictors_registry, **PropertyFactory.crystal_predictors_registry}
     
     @staticmethod
