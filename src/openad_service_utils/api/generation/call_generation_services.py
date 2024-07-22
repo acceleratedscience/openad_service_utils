@@ -9,10 +9,8 @@ from .generation_applications import get_algorithm_applications
 from openad_service_utils.common.exceptions import InvalidItem
 import traceback
 
-# from ray import serve
 from pydantic import BaseModel
 
-# print(get_algorithm_applications())
 
 class Info(BaseModel):
     conf_one: float
@@ -77,7 +75,6 @@ def get_services() -> list:
     # !TODO: FIX THIS UGLY LOGIC
     global ALL_AVAILABLE_SERVICES
     if not ALL_AVAILABLE_SERVICES:
-        print("getting services")
         ALL_AVAILABLE_SERVICES = generate_service_defs("generate")
     return ALL_AVAILABLE_SERVICES.copy()
 
@@ -187,9 +184,9 @@ class request_generation:
             result = {"error": result}
             return result
 
-        print(generator_type)
+        # print(generator_type)
         parms.update(generator_type)
-        print(parms)
+        # print(parms)
 
         try:
             if "target" in parms:

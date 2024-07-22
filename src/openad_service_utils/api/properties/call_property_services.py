@@ -54,7 +54,6 @@ def is_valid_service(service: dict):
 
 def get_services() -> list:
     all_services = []
-    print("[i] available predictor types", PropertyFactory.AVAILABLE_PROPERTY_PREDICTOR_TYPES())
     all_services.extend(generate_property_service_defs("molecule", PropertyFactory.molecule_predictors_registry))
     all_services.extend(generate_property_service_defs("protein", PropertyFactory.protein_predictors_registry))
     all_services.extend(generate_property_service_defs("crystal", PropertyFactory.crystal_predictors_registry))
