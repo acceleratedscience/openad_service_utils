@@ -2,12 +2,12 @@
 
 ⚠️ Under construction
 
-### Model implementation
+### Model implementations
 
-[model implementation example](examples/template_implementation.py)
+model implementation for [generation example](examples/generation)
 
-### Run implementation with api server
-[server example](examples/run_server.py)
+model implementation for [properties example](examples/properties)
+
 
 ## Use your own private model not hosted on gt4sd
 set the following variables in the os host or python script to your private s3 buckets:
