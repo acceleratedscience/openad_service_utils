@@ -366,3 +366,9 @@ class ApplicationsRegistry:
         if not available:
             print("[E] No available generation models found!")
         return available
+
+if __name__ == "__main__":
+    import os
+    os.environ["hi"] = "hello"
+
+    print(os.environ["hi"])
