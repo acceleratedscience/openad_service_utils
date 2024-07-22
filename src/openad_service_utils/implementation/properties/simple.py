@@ -1,4 +1,5 @@
-from typing import Optional
+from typing import Optional, ClassVar
+from abc import ABC, abstractmethod
 from pydantic.v1.dataclasses import dataclass
 
 from pydantic.v1 import Field
@@ -9,7 +10,7 @@ from openad_service_utils.common.algorithms.core import (
 )
 
 from openad_service_utils.common.properties.core import S3Parameters, DomainSubmodule
-from openad_service_utils.common.properties.property_factory import PropertyFactory
+from openad_service_utils.common.properties.property_factory import PropertyFactory, PredictorTypes
 
 
 @dataclass
@@ -37,12 +38,14 @@ class PredictorParameters:
     algorithm_application: str = Field(..., example="Tox21")
 
 
-class SimplePredictor(PredictorAlgorithm):
+class SimplePredictor(PredictorAlgorithm, ABC):
     """Interface for automated prediction via an :class:`ConfigurablePropertyAlgorithmConfiguration`.
 
     Do not implement __init__()
     
     """
+    property_type: ClassVar[PredictorTypes]
+
     def __init__(self, parameters: S3Parameters):
         # revert class level parameters from pydantic Fields to class attributes
         # this lets you access them when instantiated e.g. self.device
@@ -65,8 +68,8 @@ class SimplePredictor(PredictorAlgorithm):
             # parameters defined in class
             class_fields = {k: v for k, v in cls.__dict__.items() if not callable(v) and not k.startswith('__')}
             class_fields.pop("_abc_impl", "")
-            model_params = type(cls.__name__+"Parameters", (S3Parameters, ), class_fields)
         else:
             class_fields = {k: v for k, v in vars(parameters).items() if not callable(v) and not k.startswith('__')}
+        model_params = type(cls.__name__+"Parameters", (S3Parameters, ), class_fields)
         print(f"[i] registering simple predictor: {'/'.join([class_fields.get('domain'), class_fields.get('algorithm_name'), cls.__name__, class_fields.get('algorithm_version')])}\n")
-        PropertyFactory.add_predictor(name=cls.__name__, property_type=class_fields.get("domain"), predictor=(cls, model_params))
+        PropertyFactory.add_predictor(name=cls.__name__, property_type=class_fields.get("property_type"), predictor=(cls, model_params))

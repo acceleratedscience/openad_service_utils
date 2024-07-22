@@ -37,12 +37,12 @@ class PropertyFactory:
         return available_types
     
     @staticmethod
-    def add_predictor(name: str, property_type: DomainSubmodule, predictor: Tuple[Union[Type[PropertyPredictor], Type[PredictorAlgorithm]], Type[PropertyPredictorParameters]]):
-        if property_type == DomainSubmodule.properties:
+    def add_predictor(name: str, property_type: PredictorTypes, predictor: Tuple[Union[Type[PropertyPredictor], Type[PredictorAlgorithm]], Type[PropertyPredictorParameters]]):
+        if property_type == PredictorTypes.PROTEIN:
             PropertyFactory.protein_predictors_registry.update({name: predictor})
-        elif property_type == DomainSubmodule.molecules:
+        elif property_type == PredictorTypes.MOLECULE:
             PropertyFactory.molecule_predictors_registry.update({name: predictor})
-        elif property_type == DomainSubmodule.crystals:
+        elif property_type == PredictorTypes.CRYSTAL:
             PropertyFactory.crystal_predictors_registry.update({name: predictor})
         else:
-            raise ValueError(f"Property predictor domain={property_type} not supported. Pick one from class::DomainSubmodule")
+            raise ValueError(f"Property predictor domain={property_type} not supported. Pick one from class::PredictorTypes")

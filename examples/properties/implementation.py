@@ -1,7 +1,7 @@
 import os
 from typing import List, Union
 from pydantic.v1 import Field
-from openad_service_utils.implementation.properties.simple import SimplePredictor
+from openad_service_utils.implementation.properties.simple import SimplePredictor, PredictorTypes
 from openad_service_utils.common.properties.core import (
     DomainSubmodule,
 )
@@ -24,6 +24,7 @@ class MySimplePredictor(SimplePredictor):
     algorithm_version: str = "v0"
     algorithm_name: str = "mypredictor"
     domain: DomainSubmodule = DomainSubmodule("molecules")
+    property_type = PredictorTypes.MOLECULE
     # user proviced params for api / model inference
     batch_size: int = Field(description="Prediction batch size", default=128)
     workers: int = Field(description="Number of data loading workers", default=8)
