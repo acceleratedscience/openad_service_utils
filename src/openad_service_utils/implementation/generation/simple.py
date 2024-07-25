@@ -1,10 +1,14 @@
 # simple.py
 # follows a simpler gt4sd registry pattern
-
+import logging
 from abc import ABC, abstractmethod
 from typing import Any, List, Optional, TypeVar, ClassVar
 from openad_service_utils.common.algorithms.core import AlgorithmConfiguration, GeneratorAlgorithm, Targeted, Untargeted
 from openad_service_utils import ApplicationsRegistry
+
+
+logger = logging.getLogger(__name__)
+logger.addHandler(logging.NullHandler())
 
 
 # leave typing generic for algorithm implementation
@@ -99,8 +103,10 @@ class BaseAlgorithm(GeneratorAlgorithm[S, T]):
             generator, the detail implementation used for generation.
             If the target is None, the generator is assumed to be untargeted.
         """
-        if configuration.__artifacts_downloaded__:
+        # check if model is downloaded only once.
+        if not configuration.__artifacts_downloaded__:
             # download model
+            logger.info("[I] Downloading model: ", configuration.get_application_prefix())
             self.local_artifacts = configuration.ensure_artifacts()
             if self.local_artifacts:
                 configuration.__artifacts_downloaded__ = True
