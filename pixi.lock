@@ -646,7 +646,7 @@ packages:
   name: openad-service-utils
   version: 0.1.0
   path: .
-  sha256: 8691657f2796fbd84624674fe0e9ade25606689ea5c6f2a3af2150709206fe22
+  sha256: f589a15166d40c8f6997262e6cef376ed15c97bdb33ce972a004c9afd879fc3d
   requires_dist:
   - pydantic-settings
   - minio

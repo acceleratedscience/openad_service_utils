@@ -1,3 +1,4 @@
+import logging
 from typing import Optional, ClassVar
 from abc import ABC, abstractmethod
 from pydantic.v1.dataclasses import dataclass
@@ -11,6 +12,10 @@ from openad_service_utils.common.algorithms.core import (
 
 from openad_service_utils.common.properties.core import S3Parameters, DomainSubmodule
 from openad_service_utils.common.properties.property_factory import PropertyFactory, PredictorTypes
+
+
+logger = logging.getLogger(__name__)
+logger.addHandler(logging.NullHandler())
 
 
 @dataclass
@@ -60,6 +65,7 @@ class SimplePredictor(PredictorAlgorithm, ABC):
         )
         # The parent constructor calls `self.get_model`.
         print(f"[i] downloading model: {parameters.algorithm_name}/{parameters.algorithm_version}", )
+        logger.info("[I] Downloading model: ", configuration.get_application_prefix())
         super().__init__(configuration=configuration)
 
     @classmethod
