@@ -91,7 +91,7 @@ def signal_handler(signum, frame, executor):
     sys.exit(0)
 
 
-def start_server(host="0.0.0.0", port=8080, log_level="debug", min_workers=20, worker_gpu_min=2000):
+def start_server(host="0.0.0.0", port=8080, log_level="debug", min_workers=10, worker_gpu_min=2000):
     try:
         import torch
         if torch.cuda.is_available():
