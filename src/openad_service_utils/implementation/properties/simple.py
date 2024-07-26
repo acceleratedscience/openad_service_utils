@@ -7,6 +7,7 @@ from pydantic.v1 import Field
 
 from openad_service_utils.common.algorithms.core import (
     ConfigurablePropertyAlgorithmConfiguration,
+    Predictor,
     PredictorAlgorithm
 )
 
@@ -67,6 +68,25 @@ class SimplePredictor(PredictorAlgorithm, ABC):
         print(f"[i] downloading model: {parameters.algorithm_name}/{parameters.algorithm_version}", )
         logger.info("[I] Downloading model: ", configuration.get_application_prefix())
         super().__init__(configuration=configuration)
+    
+    def get_model_location(self):
+        """get path to model"""
+        return self.local_artifacts
+    
+    @abstractmethod
+    def setup_model(self):
+        """
+        This is the major method to implement in child classes, it is called
+        at instantiation of the SimplePredictor and must return a callable:
+
+        Returns:
+            Predictor (callable)
+        """
+        raise NotImplementedError("Not implemented in baseclass.")
+
+    def get_model(self, resources_path: str):
+        """do not implement. implement setup_model instead."""
+        return self.setup_model()
 
     @classmethod
     def register(cls, parameters: Optional[PredictorParameters] = None) -> None:

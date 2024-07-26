@@ -31,7 +31,7 @@ class MySimplePredictor(SimplePredictor):
     device: str = Field(description="Device to be used for inference", default="cpu")
     # add more params or whatever you want a user to know to change about your model
 
-    def get_model(self, resources_path: str):
+    def setup_model(self):
         """Instantiate the actual model.
 
         Args:
@@ -41,13 +41,14 @@ class MySimplePredictor(SimplePredictor):
             Predictor: the model.
         """
         # setup your model
-        model_path = os.path.join(resources_path, "model.ckpt")
+        print(">> model filepath: ", self.get_model_location())
+        model_path = os.path.join( self.get_model_location(), "model.ckpt")  # load model
+
         tokenizer = []
         model = ClassificationModel(model_path=model_path, tokenizer=tokenizer)
         model.to(self.device)
         model.eval()
-
-        # Wrapper to get the predictions
+        # callable function to get the predictions
         def informative_model(samples: Union[str, List[str]]) -> List[float]:
             """
             run predictions on your model. For example::
@@ -58,6 +59,6 @@ class MySimplePredictor(SimplePredictor):
                     predictions = []
                 return preds
             """
-            return [1]
-
+            return [1,0,1]
+        # return callable
         return informative_model

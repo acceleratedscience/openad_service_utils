@@ -24,12 +24,14 @@ class MySimpleGenerator(SimpleGenerator):
     param1: int = field(default=10, metadata=dict(description="Description of param1"))
     param2: float = field(default=0.5, metadata=dict(description="Description of param2"))
 
-    def generate(self) -> List[Any]:
+    def setup_model(self) -> List[Any]:
         """Implement the generation logic for the new model
 
         Returns:
             List[Any]: return your predictions
         """
         # Implement the generation logic for the new model
-        # return value must be an iterable List
+        # return value must be an iterable
+        print(">> model filepath: ", self.get_model_location())  # load model
+        self.model_path = self.get_model_location()
         return [{"pred1":1, "pred2": 2}]

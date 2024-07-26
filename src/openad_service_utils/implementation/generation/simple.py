@@ -2,7 +2,7 @@
 # follows a simpler gt4sd registry pattern
 import logging
 from abc import ABC, abstractmethod
-from typing import Any, List, Optional, TypeVar, ClassVar
+from typing import Any, List, Dict, Optional, TypeVar, ClassVar, Union
 from openad_service_utils.common.algorithms.core import AlgorithmConfiguration, GeneratorAlgorithm, Targeted, Untargeted
 from openad_service_utils import ApplicationsRegistry
 
@@ -51,6 +51,10 @@ class SimpleGenerator(AlgorithmConfiguration[S, T], ABC):
     algorithm_name: ClassVar[str]
     __artifacts_downloaded__: bool = False
 
+    def get_model_location(self):
+        """get path to model"""
+        return self.ensure_artifacts()
+
     @classmethod
     def register(cls):
         """Register the configuration with the ApplicationsRegistry and load the model into runtime."""
@@ -64,11 +68,19 @@ class SimpleGenerator(AlgorithmConfiguration[S, T], ABC):
         ApplicationsRegistry.register_algorithm_application(algorithm)(cls)
     
     @abstractmethod
-    def generate(
-        self,
-        target: Optional[T],
-    ) -> List[Any]:
-        pass
+    def setup_model(self) -> Union[List[Any], Dict[Any]]:
+        """
+        This is the major method to implement in child classes, it is called
+        at instantiation of the SimpleGenerator and must return a List[Any]:
+
+        Returns:
+            Iterable[Any]
+        """
+        raise NotImplementedError("Not implemented in baseclass.")
+
+    def generate(self, target: Optional[T]) -> List[Any]:
+        """do not implement. implement setup_model instead."""
+        return self.setup_model()
 
 
 class BaseAlgorithm(GeneratorAlgorithm[S, T]):
