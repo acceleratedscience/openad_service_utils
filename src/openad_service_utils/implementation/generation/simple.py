@@ -68,7 +68,7 @@ class SimpleGenerator(AlgorithmConfiguration[S, T], ABC):
         ApplicationsRegistry.register_algorithm_application(algorithm)(cls)
     
     @abstractmethod
-    def setup_model(self) -> Union[List[Any], Dict[Any]]:
+    def setup_model(self) -> Union[List[Any], Dict[str, Any]]:
         """
         This is the major method to implement in child classes, it is called
         at instantiation of the SimpleGenerator and must return a List[Any]:
