@@ -102,6 +102,6 @@ class BaseAlgorithm(GeneratorAlgorithm[S, T]):
             If the target is None, the generator is assumed to be untargeted.
         """
         self.local_artifacts = configuration.ensure_artifacts()
-        logger.info("[I] Downloading model: ", configuration.get_application_prefix())
+        # logger.info("[I] Downloading model: ", configuration.get_application_prefix())
         implementation: BaseGenerator = configuration.get_conditional_generator(self.local_artifacts)
         return implementation.generate

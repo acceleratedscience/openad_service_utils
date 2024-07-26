@@ -118,7 +118,7 @@ class BaseAlgorithm(GeneratorAlgorithm[S, T]):
         # check if model is downloaded only once.
         if not configuration.__artifacts_downloaded__:
             # download model
-            logger.info("[I] Downloading model: ", configuration.get_application_prefix())
+            # logger.info("[I] Downloading model: ", configuration.get_application_prefix())
             self.local_artifacts = configuration.ensure_artifacts()
             if self.local_artifacts:
                 configuration.__artifacts_downloaded__ = True

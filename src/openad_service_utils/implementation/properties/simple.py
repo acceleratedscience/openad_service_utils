@@ -66,7 +66,7 @@ class SimplePredictor(PredictorAlgorithm, ABC):
         )
         # The parent constructor calls `self.get_model`.
         print(f"[i] downloading model: {parameters.algorithm_name}/{parameters.algorithm_version}", )
-        logger.info("[I] Downloading model: ", configuration.get_application_prefix())
+        # logger.info("[I] Downloading model: ", configuration.get_application_prefix())
         super().__init__(configuration=configuration)
     
     def get_model_location(self):
