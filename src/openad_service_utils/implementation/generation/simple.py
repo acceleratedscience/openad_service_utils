@@ -1,9 +1,11 @@
 # simple.py
 # follows a simpler gt4sd registry pattern
+import os
 import logging
 from abc import ABC, abstractmethod
 from typing import Any, List, Dict, Optional, TypeVar, ClassVar, Union
 from openad_service_utils.common.algorithms.core import AlgorithmConfiguration, GeneratorAlgorithm, Targeted, Untargeted
+from openad_service_utils.common.configuration import get_cached_algorithm_path
 from openad_service_utils import ApplicationsRegistry
 
 
@@ -53,7 +55,11 @@ class SimpleGenerator(AlgorithmConfiguration[S, T], ABC):
 
     def get_model_location(self):
         """get path to model"""
-        return self.ensure_artifacts()
+        prefix = os.path.join(
+            self.get_application_prefix(),
+            self.algorithm_version,
+        )
+        return get_cached_algorithm_path(prefix)
 
     @classmethod
     def register(cls):
@@ -78,7 +84,7 @@ class SimpleGenerator(AlgorithmConfiguration[S, T], ABC):
         """
         raise NotImplementedError("Not implemented in baseclass.")
 
-    def generate(self, target: Optional[T]) -> List[Any]:
+    def generate(self, target: Optional[T]=None) -> List[Any]:
         """do not implement. implement setup_model instead."""
         return self.setup_model()
 
@@ -116,11 +122,11 @@ class BaseAlgorithm(GeneratorAlgorithm[S, T]):
             If the target is None, the generator is assumed to be untargeted.
         """
         # check if model is downloaded only once.
-        if not configuration.__artifacts_downloaded__:
+        if not SimpleGenerator.__artifacts_downloaded__:
+            logger.info(f"[I] Downloading model: {configuration.algorithm_application}/{configuration.algorithm_version}")
             # download model
-            # logger.info("[I] Downloading model: ", configuration.get_application_prefix())
             self.local_artifacts = configuration.ensure_artifacts()
             if self.local_artifacts:
-                configuration.__artifacts_downloaded__ = True
+                SimpleGenerator.__artifacts_downloaded__ = True
         # run model
         return configuration.generate
