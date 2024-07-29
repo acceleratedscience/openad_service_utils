@@ -77,12 +77,12 @@ async def get_service_defs():
 
 
 # Function to run the main service
-def run_main_service(min_workers):
-    uvicorn.run("openad_service_utils.api.server:app", host="0.0.0.0", port=8080, log_level="debug", workers=min_workers)
+def run_main_service(host, port, log_level, min_workers):
+    uvicorn.run("openad_service_utils.api.server:app", host=host, port=port, log_level=log_level, workers=min_workers)
 
 
-def run_health_service():
-    uvicorn.run("openad_service_utils.api.server:health_app", host="0.0.0.0", port=8081, log_level="debug", workers=1)
+def run_health_service(host, port, log_level, min_workers):
+    uvicorn.run("openad_service_utils.api.server:health_app", host=host, port=port, log_level=log_level, workers=min_workers)
 
 
 def signal_handler(signum, frame, executor):
@@ -90,8 +90,12 @@ def signal_handler(signum, frame, executor):
     executor.shutdown(wait=True)
     sys.exit(0)
 
+def ignore_winch_signal(signum, frame):
+    # ignore signal. do nothing
+    return
 
-def start_server(host="0.0.0.0", port=8080, log_level="debug", min_workers=10, worker_gpu_min=2000):
+
+def start_server(host="0.0.0.0", port=8080, log_level="info", min_workers=10, worker_gpu_min=2000):
     try:
         import torch
         if torch.cuda.is_available():
@@ -119,10 +123,11 @@ def start_server(host="0.0.0.0", port=8080, log_level="debug", min_workers=10, w
     # process is run on linux. spawn.
     multiprocessing.set_start_method("spawn")
     with ProcessPoolExecutor() as executor:
-        executor.submit(run_main_service, min_workers)
-        executor.submit(run_health_service)
+        executor.submit(run_main_service, host, port, log_level, min_workers)
+        executor.submit(run_health_service, host, port+1, log_level, 1)
         signal.signal(signal.SIGINT, lambda s, f: signal_handler(s, f, executor))
         signal.signal(signal.SIGTERM, lambda s, f: signal_handler(s, f, executor))
+        signal.signal(signal.SIGWINCH, ignore_winch_signal)
         # Keep the main process running to handle signals and wait for child processes
         executor.shutdown(wait=True)
 
