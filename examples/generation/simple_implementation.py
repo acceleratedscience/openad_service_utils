@@ -4,7 +4,7 @@
 ###  Model checkpoints and files need to be bootstraped by the naming scheme to a path
 
 from typing import List, Any
-from dataclasses import field
+from pydantic.v1 import Field
 from openad_service_utils import SimpleGenerator
 
 
@@ -20,8 +20,8 @@ class MySimpleGenerator(SimpleGenerator):
     domain: str = "materials"
 
     # define model parameters as fields for the api
-    param1: int = field(default=10, metadata=dict(description="Description of param1"))
-    param2: float = field(default=0.5, metadata=dict(description="Description of param2"))
+    batch_size: int = Field(description="Prediction batch size", default=128)
+    temperature: float = Field(description="Temperature", default=0.7)
 
     def setup_model(self) -> List[Any]:
         """Implement the generation logic for the new model
