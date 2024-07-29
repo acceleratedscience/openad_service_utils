@@ -3,9 +3,8 @@
 ###  Name the child class of SimpleGenerator as you model application and configure
 ###  Model checkpoints and files need to be bootstraped by the naming scheme to a path
 
-from typing import List, Dict, Any
+from typing import List, Any
 from dataclasses import field
-# from openad_service_utils import BaseConfiguration  # model scaffold
 from openad_service_utils import SimpleGenerator
 
 

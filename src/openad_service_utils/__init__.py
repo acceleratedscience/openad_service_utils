@@ -1,6 +1,7 @@
 from openad_service_utils.common.algorithms.registry import ApplicationsRegistry
 from openad_service_utils.implementation.generation.classic import BaseGenerator, BaseAlgorithm, BaseConfiguration
 from openad_service_utils.implementation.generation.simple import SimpleGenerator
+from openad_service_utils.implementation.properties.simple import SimplePredictor, PredictorTypes, DomainSubmodule
 from openad_service_utils.api.server import start_server
 
 
@@ -8,6 +9,9 @@ from openad_service_utils.api.server import start_server
 __all__ = [
     "ApplicationsRegistry",
     "SimpleGenerator",
+    "SimplePredictor",
+    "PredictorTypes",
+    "DomainSubmodule",
     "BaseGenerator", 
     "BaseAlgorithm", 
     "BaseConfiguration",

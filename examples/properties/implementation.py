@@ -1,10 +1,7 @@
 import os
 from typing import List, Union
 from pydantic.v1 import Field
-from openad_service_utils.implementation.properties.simple import SimplePredictor, PredictorTypes
-from openad_service_utils.common.properties.core import (
-    DomainSubmodule,
-)
+from openad_service_utils import SimplePredictor, PredictorTypes, DomainSubmodule
 
 
 class ClassificationModel:
