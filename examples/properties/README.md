@@ -19,7 +19,7 @@ follow the [simple_implementation.py](examples/properties/implementation.py) exa
     ```
 3. Implement the generator function to return your models output
     ```python
-    def get_model(self):
+    def setup_model(self):
         # load model to device
         def informative_model(samples) -> List[Any]:
             # run predictions on your model

@@ -19,7 +19,7 @@ follow the [simple_implementation.py](examples/generation/simple_implementation.
     ```
 3. Implement the generator function to return your models output
     ```python
-    def generate(self) -> List[Any]:
+    def setup_model(self) -> List[Any]:
         ...
     ```
 4. call the register function on your application and start the server.
