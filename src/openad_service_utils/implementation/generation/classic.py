@@ -1,11 +1,14 @@
 # classic.py
 # follows the classic gt4sd registry pattern
 import logging
+import os
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional, TypeVar, Generic, Type, Union
-from openad_service_utils.common.algorithms.core import AlgorithmConfiguration, GeneratorAlgorithm, Targeted, Untargeted
-from openad_service_utils import ApplicationsRegistry
+from typing import Any, Dict, Generic, List, Optional, Type, TypeVar, Union
 
+from openad_service_utils import ApplicationsRegistry
+from openad_service_utils.common.algorithms.core import (
+    AlgorithmConfiguration, GeneratorAlgorithm, Targeted, Untargeted)
+from openad_service_utils.common.configuration import get_cached_algorithm_path
 
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
@@ -70,6 +73,8 @@ class BaseConfiguration(AlgorithmConfiguration[S, T], ABC):
 
 class BaseAlgorithm(GeneratorAlgorithm[S, T]):
     """Interface for automated generation via an :class:`BaseConfiguration`."""
+    __artifacts_downloaded__: bool = False
+
     def __init__(
         self, configuration: BaseConfiguration[S, T], target: Optional[T] = None
     ):
@@ -101,7 +106,18 @@ class BaseAlgorithm(GeneratorAlgorithm[S, T]):
             generator, the detail implementation used for generation.
             If the target is None, the generator is assumed to be untargeted.
         """
-        self.local_artifacts = configuration.ensure_artifacts()
+        # verify model is downloaded
+        if not BaseAlgorithm.__artifacts_downloaded__:
+            self.local_artifacts = configuration.ensure_artifacts()
+            if self.local_artifacts:
+                BaseAlgorithm.__artifacts_downloaded__ = True
+        else:
+            # use cached version. skip s3 check.
+            prefix = os.path.join(
+                    configuration.get_application_prefix(),
+                    configuration.algorithm_version,
+                    )
+            self.local_artifacts = get_cached_algorithm_path(prefix)
         # logger.info("[I] Downloading model: ", configuration.get_application_prefix())
         implementation: BaseGenerator = configuration.get_conditional_generator(self.local_artifacts)
         return implementation.generate
