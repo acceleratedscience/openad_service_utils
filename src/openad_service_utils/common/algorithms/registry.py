@@ -27,10 +27,10 @@ import logging
 from dataclasses import dataclass as vanilla_dataclass
 from dataclasses import field, make_dataclass
 from functools import WRAPPER_ASSIGNMENTS, update_wrapper
-from typing import Any, Callable, ClassVar, Dict, List, NamedTuple, Optional, Type
+from typing import (Any, Callable, ClassVar, Dict, List, NamedTuple, Optional,
+                    Type)
 
 import pydantic
-
 # pyright (pylance in VSCode) does not support pydantic typechecking
 # if typing.TYPE_CHECKING:
 #     from dataclasses import dataclass
@@ -38,9 +38,10 @@ import pydantic
 #     from pydantic.dataclasses import dataclass
 from pydantic.v1.dataclasses import dataclass
 
-from openad_service_utils.common.exceptions import DuplicateApplicationRegistration
-from openad_service_utils.common.algorithms.core import AlgorithmConfiguration, GeneratorAlgorithm
-
+from openad_service_utils.common.algorithms.core import (
+    AlgorithmConfiguration, GeneratorAlgorithm)
+from openad_service_utils.common.exceptions import \
+    DuplicateApplicationRegistration
 
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())

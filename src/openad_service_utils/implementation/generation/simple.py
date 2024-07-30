@@ -1,13 +1,14 @@
 # simple.py
 # follows a simpler gt4sd registry pattern
-import os
 import logging
+import os
 from abc import ABC, abstractmethod
-from typing import Any, List, Dict, Optional, TypeVar, ClassVar, Union
-from openad_service_utils.common.algorithms.core import AlgorithmConfiguration, GeneratorAlgorithm, Targeted, Untargeted
-from openad_service_utils.common.configuration import get_cached_algorithm_path
-from openad_service_utils import ApplicationsRegistry
+from typing import Any, ClassVar, Dict, List, Optional, TypeVar, Union
 
+from openad_service_utils import ApplicationsRegistry
+from openad_service_utils.common.algorithms.core import (
+    AlgorithmConfiguration, GeneratorAlgorithm, Targeted, Untargeted)
+from openad_service_utils.common.configuration import get_cached_algorithm_path
 
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())

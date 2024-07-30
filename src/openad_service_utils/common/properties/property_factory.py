@@ -1,7 +1,9 @@
-from typing import Dict, Tuple, Type, Union, Any, List
-from openad_service_utils.common.algorithms.core import PredictorAlgorithm
-from openad_service_utils.common.properties.core import PropertyPredictor, PropertyPredictorParameters, DomainSubmodule
 from enum import Enum
+from typing import Any, Dict, List, Tuple, Type, Union
+
+from openad_service_utils.common.algorithms.core import PredictorAlgorithm
+from openad_service_utils.common.properties.core import (
+    DomainSubmodule, PropertyPredictor, PropertyPredictorParameters)
 
 
 class PredictorTypes(Enum):
@@ -33,7 +35,7 @@ class PropertyFactory:
             available_types.append(PredictorTypes.MOLECULE.value)
         if PropertyFactory.crystal_predictors_registry:
             available_types.append(PredictorTypes.CRYSTAL.value)
-        print("checking available types: ", available_types)
+        # print("checking available types: ", available_types)
         return available_types
     
     @staticmethod

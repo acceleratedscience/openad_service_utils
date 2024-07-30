@@ -24,9 +24,9 @@
 
 from typing import Any, Dict, List
 
+from .core import PropertyPredictor
 from .property_factory import PropertyFactory
 
-from .core import PropertyPredictor
 # from ..properties.crystals import CRYSTALS_PROPERTY_PREDICTOR_FACTORY
 # from ..properties.molecules import MOLECULE_PROPERTY_PREDICTOR_FACTORY
 # from ..properties.proteins import PROTEIN_PROPERTY_PREDICTOR_FACTORY

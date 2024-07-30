@@ -1,19 +1,16 @@
 import logging
-from typing import Optional, ClassVar
 from abc import ABC, abstractmethod
-from pydantic.v1.dataclasses import dataclass
+from typing import ClassVar, Optional
 
 from pydantic.v1 import Field
+from pydantic.v1.dataclasses import dataclass
 
 from openad_service_utils.common.algorithms.core import (
-    ConfigurablePropertyAlgorithmConfiguration,
-    Predictor,
-    PredictorAlgorithm
-)
-
-from openad_service_utils.common.properties.core import S3Parameters, DomainSubmodule
-from openad_service_utils.common.properties.property_factory import PropertyFactory, PredictorTypes
-
+    ConfigurablePropertyAlgorithmConfiguration, Predictor, PredictorAlgorithm)
+from openad_service_utils.common.properties.core import (DomainSubmodule,
+                                                         S3Parameters)
+from openad_service_utils.common.properties.property_factory import (
+    PredictorTypes, PropertyFactory)
 
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())

@@ -1,15 +1,18 @@
 """This library calls generation processes remotely on a given host"""
 
-import json
-from openad_service_utils.api.generation.generate_service_defs import generate_service_defs, create_service_defs
 import copy
-import pandas as pd
-from .generation_applications import ApplicationsRegistry as GeneratorRegistry
-from .generation_applications import get_algorithm_applications
-from openad_service_utils.common.exceptions import InvalidItem
+import json
 import traceback
 
+import pandas as pd
 from pydantic import BaseModel
+
+from openad_service_utils.api.generation.generate_service_defs import (
+    create_service_defs, generate_service_defs)
+from openad_service_utils.common.exceptions import InvalidItem
+
+from .generation_applications import ApplicationsRegistry as GeneratorRegistry
+from .generation_applications import get_algorithm_applications
 
 
 class Info(BaseModel):
@@ -285,8 +288,8 @@ if __name__ == "__main__":
     dt = datetime.now()
     ts = datetime.timestamp(dt)
     print("Starting", datetime.fromtimestamp(ts))
-    import test_request_generator
     import pandas as pd
+    import test_request_generator
 
     requestor = service_requester()
     dt = datetime.now()

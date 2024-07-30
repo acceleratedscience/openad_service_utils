@@ -24,50 +24,30 @@
 """Bases classes and core code used across multiple algorithms."""
 
 from __future__ import annotations
-import typing
+
 import logging
 import os
 import shutil
+import typing
 from abc import ABC, abstractmethod
 from copy import deepcopy
 from dataclasses import dataclass
 from functools import partial
 from time import time
-from typing import (
-    Any,
-    Callable,
-    ClassVar,
-    Dict,
-    Generic,
-    Iterable,
-    Iterator,
-    Optional,
-    Set,
-    Type,
-    TypeVar,
-    Union,
-)
+from typing import (Any, Callable, ClassVar, Dict, Generic, Iterable, Iterator,
+                    Optional, Set, Type, TypeVar, Union)
 
 from openad_service_utils.common.configuration import (
-    GT4SDConfiguration,
-    get_algorithm_subdirectories_in_cache,
-    get_algorithm_subdirectories_with_s3,
-    get_cached_algorithm_path,
-    sync_algorithm_with_s3,
-    upload_to_s3,
-)
-
-from openad_service_utils.common.exceptions import (
-    GT4SDTimeoutError,
-    InvalidItem,
-    S3SyncError,
-    SamplingError,
-)
+    GT4SDConfiguration, get_algorithm_subdirectories_in_cache,
+    get_algorithm_subdirectories_with_s3, get_cached_algorithm_path,
+    sync_algorithm_with_s3, upload_to_s3)
+from openad_service_utils.common.exceptions import (GT4SDTimeoutError,
+                                                    InvalidItem, S3SyncError,
+                                                    SamplingError)
 
 try:
-    from gt4sd_inference_regression.training_pipelines.core import (
-        TrainingPipelineArguments,
-    )
+    from gt4sd_inference_regression.training_pipelines.core import \
+        TrainingPipelineArguments
 except:  # noqa: E722
     pass
 

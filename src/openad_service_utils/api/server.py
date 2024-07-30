@@ -1,19 +1,25 @@
+import gc
+import multiprocessing
+import os
+import signal
+import sys
+from concurrent.futures import ProcessPoolExecutor
+
+import uvicorn
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, JSONResponse
-from openad_service_utils.api.generation.call_generation_services import service_requester as generation_request  # noqa: E402
-from openad_service_utils.api.generation.call_generation_services import get_services as get_generation_services  # noqa: E402
-from openad_service_utils.api.properties.call_property_services import service_requester as property_request
-from openad_service_utils.api.properties.call_property_services import get_services as get_property_services
 from pandas import DataFrame
-from openad_service_utils.common.properties.property_factory import PropertyFactory
-import multiprocessing
-from concurrent.futures import ProcessPoolExecutor
-import signal
-import uvicorn
-import sys
-import gc
-import os
 
+from openad_service_utils.api.generation.call_generation_services import \
+    get_services as get_generation_services  # noqa: E402
+from openad_service_utils.api.generation.call_generation_services import \
+    service_requester as generation_request  # noqa: E402
+from openad_service_utils.api.properties.call_property_services import \
+    get_services as get_property_services
+from openad_service_utils.api.properties.call_property_services import \
+    service_requester as property_request
+from openad_service_utils.common.properties.property_factory import \
+    PropertyFactory
 
 app = FastAPI()
 health_app = FastAPI()

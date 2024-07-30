@@ -1,19 +1,20 @@
-import json
-from pathlib import Path
-import glob
-from pandas import DataFrame
-
-from openad_service_utils.api.properties.generate_property_service_defs import generate_property_service_defs
-import os
 import copy
-from .utils import subject_files_repository
+import glob
+import json
+import os
+from pathlib import Path
 
+from pandas import DataFrame
 from pydantic import BaseModel
 
-
+from openad_service_utils.api.properties.generate_property_service_defs import \
+    generate_property_service_defs
 # from gt4sd_common.properties import PropertyPredictorRegistry
 from openad_service_utils.common.properties import PropertyPredictorRegistry
-from openad_service_utils.common.properties.property_factory import PropertyFactory
+from openad_service_utils.common.properties.property_factory import \
+    PropertyFactory
+
+from .utils import subject_files_repository
 
 
 class Info(BaseModel):
@@ -261,8 +262,8 @@ if __name__ == "__main__":
     dt = datetime.now()
     ts = datetime.timestamp(dt)
     print("Starting", datetime.fromtimestamp(ts))
-    import test_request
     import pandas as pd
+    import test_request
 
     requestor = service_requester()
     dt = datetime.now()

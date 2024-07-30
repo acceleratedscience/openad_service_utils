@@ -1,6 +1,8 @@
-import json
 import copy
-from .generation_applications import ApplicationsRegistry, get_algorithm_applications
+import json
+
+from .generation_applications import (ApplicationsRegistry,
+                                      get_algorithm_applications)
 
 
 def generate_service_defs(target_type):

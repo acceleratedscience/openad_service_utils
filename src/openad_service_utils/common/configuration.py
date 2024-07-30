@@ -30,12 +30,8 @@ from typing import Dict, Optional, Set
 
 from pydantic_settings import BaseSettings
 
-from .s3 import (
-    GT4SDS3Client,
-    S3SyncError,
-    sync_folder_with_s3,
-    upload_file_to_s3,
-)
+from .s3 import (GT4SDS3Client, S3SyncError, sync_folder_with_s3,
+                 upload_file_to_s3)
 
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())

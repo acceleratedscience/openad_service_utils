@@ -1,6 +1,7 @@
-from typing import Dict, Any
-import json
 import copy
+import json
+from typing import Any, Dict
+
 from openad_service_utils.common.properties import PropertyPredictorRegistry
 
 
@@ -130,7 +131,9 @@ def create_property_defs(target_type, PropertyPredictorFactory, services_path):
 
 
 if __name__ == "__main__":
-    from openad_service_utils.common.properties.property_factory import PropertyFactory
+    from openad_service_utils.common.properties.property_factory import \
+        PropertyFactory
+
     # import os
     # import definitions.services as new_prop_services
     # services_path = os.path.abspath(os.path.dirname(new_prop_services.__file__))
