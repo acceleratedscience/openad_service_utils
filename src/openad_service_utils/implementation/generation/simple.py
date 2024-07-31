@@ -69,8 +69,12 @@ class SimpleGenerator(AlgorithmConfiguration[S, T], ABC):
         for field in required:
             if field not in cls.__dict__:
                 raise TypeError(f"Can't instantiate class ({cls.__name__}) without '{field}' class variable")
-        # create during runtime so that user doesnt have to write separate class
+        # create during runtime so that user doesnt have to write separate algorithm class
         algorithm = type(cls.algorithm_name, (BaseAlgorithm,), {})
+        # update class name to application name
+        if cls.algorithm_application:
+            logger.debug(f"updating application name from '{cls.__name__}' to '{cls.algorithm_application}'")
+            cls.__name__ = cls.algorithm_application
         print(f"[i] registering simple generator: {'/'.join([cls.algorithm_type, cls.algorithm_name, cls.__name__, cls.algorithm_version])}\n")
         ApplicationsRegistry.register_algorithm_application(algorithm)(cls)
     
