@@ -95,7 +95,7 @@ class SimplePredictor(PredictorAlgorithm, ABC):
             class_fields = {k: v for k, v in vars(parameters).items() if not callable(v) and not k.startswith('__')}
         model_params = type(cls.__name__+"Parameters", (S3Parameters, ), class_fields)
         if class_fields.get("algorithm_application"):
-            logger.debug(f"updating application name from '{cls.__name__}' to '{class_fields.get("algorithm_application")}'")
+            logger.debug(f"updating application name from '{cls.__name__}' to '{class_fields.get('algorithm_application')}'")
             cls.__name__ = class_fields.get("algorithm_application")
         print(f"[i] registering simple predictor: {'/'.join([class_fields.get('domain'), class_fields.get('algorithm_name'), cls.__name__, class_fields.get('algorithm_version')])}\n")
         PropertyFactory.add_predictor(name=cls.__name__, property_type=class_fields.get("property_type"), predictor=(cls, model_params))
