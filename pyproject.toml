@@ -4,20 +4,15 @@ version = "0.1.2"
 description = "Utility library to extend an existing model to OpenAD Toolkit and give it an API interface."
 authors = [{name = "Brian Duenas", email = "brian.duenas@ibm.com"}]
 requires-python = ">= 3.9"
+license = "MIT"
+readme = "README.md"
 dependencies = ["pydantic-settings", "minio", "pydantic", "pandas", "fastapi", "uvicorn"]
+
+[project.urls]
+Homepage = "https://github.com/acceleratedscience/openad_service_utils"
+Documentation = "https://github.com/acceleratedscience/openad_service_utils"
+Repository = "https://github.com/acceleratedscience/openad_service_utils"
 
 [build-system]
 requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
-
-[tool.pixi.project]
-channels = ["conda-forge"]
-platforms = ["linux-64"]
-
-[tool.pixi.pypi-dependencies]
-openad_service_utils = { path = ".", editable = false }
-
-[tool.pixi.tasks]
-
-[tool.pixi.dependencies]
-build = ">=0.7.0,<0.8"
