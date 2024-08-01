@@ -4,8 +4,6 @@ version = "0.1.2"
 description = "Utility library to extend an existing model to OpenAD Toolkit and give it an API interface."
 authors = [{name = "Brian Duenas", email = "brian.duenas@ibm.com"}]
 requires-python = ">= 3.9"
-license = "MIT"
-readme = "README.md"
 dependencies = ["pydantic-settings", "minio", "pydantic", "pandas", "fastapi", "uvicorn"]
 
 [project.urls]
