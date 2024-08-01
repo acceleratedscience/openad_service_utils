@@ -12,12 +12,11 @@ from openad_service_utils import SimpleGenerator
 class MySimpleGenerator(SimpleGenerator):
     """model implementation description"""
     # metadata parameters for registry to fetch models from s3
-    #   schema:    algorithm_type / algorithm_name / algorithm_application / algorithm_version
-    #   downloads model using prefix: algorithm/(algorithm_type)/(algorithm_name)/MySimpleGenerator/(algorithm_version)
+    # s3 path: algorithm_type / algorithm_name / algorithm_application / algorithm_version
     algorithm_type: str = "conditional_generation"
     algorithm_name = "MyGeneratorAlgorithm"
+    algorithm_application: str = "MySimpleGenerator"
     algorithm_version: str = "v0"
-    domain: str = "materials"
 
     # define model parameters as fields for the api
     batch_size: int = Field(description="Prediction batch size", default=128)

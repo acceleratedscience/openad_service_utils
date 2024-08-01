@@ -4,20 +4,25 @@
 follow the [simple_implementation.py](examples/properties/implementation.py) example
 
 <!-- ### steps -->
-1. name your class appropriately to your application
+1. name your application and inherit `SimplePredictor`
     ```python
     class YourModelApplication(SimplePredictor):
         ...
     ```
-2. add the params for s3 download path. path looks like the following `algorithm_type/algorithm_name/algorithm_application/algorithm_version`
+2. add the params for s3 download path. path looks like the following `domain/algorithm_name/algorithm_application/algorithm_version`
 
     ```python
-    algorithm_application: str = "classification"
-    algorithm_name: str = "mypredictor"
-    algorithm_version: str = "v0"
     domain: DomainSubmodule = DomainSubmodule("molecules")
+    algorithm_name: str = "mypredictor"
+    algorithm_application: str = "classification"
+    algorithm_version: str = "v0"
+    property_type: PredictorTypes = PredictorTypes.MOLECULE
+
+    # user proviced params for api / model inference
+    temperature: float = Field(description="temperature", default=0.7)
+    ...
     ```
-3. Implement the generator function to return your models output
+3. Implement the `setup_model` function to return your models output
     ```python
     def setup_model(self):
         # load model to device
@@ -31,8 +36,10 @@ follow the [simple_implementation.py](examples/properties/implementation.py) exa
     ```python
     YourModelApplication.register()
     # start the server
-    from openad_service_utils import start_server
-    start_server(port=8080)
+    if __name__ == "__main__":
+        from openad_service_utils import start_server
+        # start the server
+        start_server()
     ```
 5. Test your api with the openad-toolkit cli. assuming server is localhost
     ```bash

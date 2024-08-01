@@ -16,17 +16,18 @@ class ClassificationModel:
 
 class MySimplePredictor(SimplePredictor):
     """Class for all Molformer classification algorithms."""
+    # s3 path: domain / algorithm_name / algorithm_application / algorithm_version
     # necessary params
-    algorithm_application: str = "classification"
-    algorithm_version: str = "v0"
-    algorithm_name: str = "mypredictor"
     domain: DomainSubmodule = DomainSubmodule("molecules")
-    property_type = PredictorTypes.MOLECULE
+    algorithm_name: str = "mypredictor"
+    algorithm_application: str = "MySimplePredictor"
+    algorithm_version: str = "v0"
+    property_type: PredictorTypes = PredictorTypes.MOLECULE
+
     # user proviced params for api / model inference
     batch_size: int = Field(description="Prediction batch size", default=128)
     workers: int = Field(description="Number of data loading workers", default=8)
     device: str = Field(description="Device to be used for inference", default="cpu")
-    # add more params or whatever you want a user to know to change about your model
 
     def setup_model(self):
         """Instantiate the actual model.
@@ -40,7 +41,6 @@ class MySimplePredictor(SimplePredictor):
         # setup your model
         print(">> model filepath: ", self.get_model_location())
         model_path = os.path.join( self.get_model_location(), "model.ckpt")  # load model
-
         tokenizer = []
         model = ClassificationModel(model_path=model_path, tokenizer=tokenizer)
         model.to(self.device)

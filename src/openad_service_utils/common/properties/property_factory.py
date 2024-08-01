@@ -47,4 +47,4 @@ class PropertyFactory:
         elif property_type == PredictorTypes.CRYSTAL:
             PropertyFactory.crystal_predictors_registry.update({name: predictor})
         else:
-            raise ValueError(f"Property predictor domain={property_type} not supported. Pick one from class::PredictorTypes")
+            raise ValueError(f"Property predictor property_type={property_type} not supported. Pick one from class::PredictorTypes")

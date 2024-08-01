@@ -11,8 +11,7 @@ from openad_service_utils.common.algorithms.core import (
 from openad_service_utils.common.configuration import get_cached_algorithm_path
 
 logger = logging.getLogger(__name__)
-logger.addHandler(logging.NullHandler())
-
+# logger.setLevel(logging.DEBUG)
 
 # leave typing generic for algorithm implementation
 S = TypeVar("S")  # used for generated items
@@ -23,14 +22,14 @@ U = TypeVar("U")  # used for additional context (e.g. part of target definition)
 class SimpleGenerator(AlgorithmConfiguration[S, T], ABC):
     """More simple implementation of :class:`BaseConfiguration`
 
+    Do not implement __init__()
+
     The signature of this class constructor (given by the instance attributes) is used
     for the REST API and needs to be serializable.
-    However, the values for :attr:`algorithm_application`
-    are set when you register the application based on the child class name.
 
     1. Setup your generator. Ease child implementation. For example::
 
-        from openad_service_utils.implementation.generation import SimpleGenerator
+        from openad_service_utils import SimpleGenerator
 
         class YourApplicationName(SimpleGenerator):
             algorithm_type: str = "conditional_generation"
@@ -43,15 +42,16 @@ class SimpleGenerator(AlgorithmConfiguration[S, T], ABC):
             ...
 
             # no __init__ definition required
-        def generate(self, target: Optional[T]) -> List[Any]:
+        def setup_model(self) -> List[Any]:
             # implementation goes here
             pass
     
-    2. Register the generator with the ApplicationsRegistry::
+    2. Register the Generator::
 
         YourApplicationName.register()
     """
-    algorithm_name: ClassVar[str]
+    domain: ClassVar[str] = "materials"  # hardcoded because we dont care about it. does nothing but need it.
+
     __artifacts_downloaded__: bool = False
 
     def get_model_location(self):

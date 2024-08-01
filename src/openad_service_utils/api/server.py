@@ -1,3 +1,4 @@
+import logging
 import gc
 import multiprocessing
 import os
@@ -21,8 +22,13 @@ from openad_service_utils.api.properties.call_property_services import \
 from openad_service_utils.common.properties.property_factory import \
     PropertyFactory
 
+
 app = FastAPI()
 health_app = FastAPI()
+
+# Configure logging
+# logging.basicConfig(level=logging.DEBUG,
+#                     format='%(asctime)s - %(levelname)s - %(name)s - %(message)s')
 
 gen_requester = generation_request()
 prop_requester = property_request()
