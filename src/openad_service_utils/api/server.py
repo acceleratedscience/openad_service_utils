@@ -27,8 +27,10 @@ app = FastAPI()
 health_app = FastAPI()
 
 # Configure logging
-# logging.basicConfig(level=logging.DEBUG,
-#                     format='%(asctime)s - %(levelname)s - %(name)s - %(message)s')
+logging.basicConfig(level=logging.DEBUG,
+                    format='%(asctime)s - %(levelname)s - %(name)s - %(message)s')
+# Set logging level for urllib3 to WARNING or higher to mute INFO and DEBUG logs
+logging.getLogger("urllib3").setLevel(logging.WARNING)
 
 gen_requester = generation_request()
 prop_requester = property_request()
@@ -132,6 +134,10 @@ def start_server(host="0.0.0.0", port=8080, log_level="info", min_workers=10, wo
     except ImportError:
         print("[i] cuda not available. Running on CPU only.")
         pass
+    if os.environ.get("GT4SD_S3_ACCESS_KEY", ""):
+        print(f"\n[i] ======USING PRIVATE S3 MODEL REPOSITORY======\n")
+    else:
+        print("\n[i] ======USING PUBLIC GT4SD S3 MODEL REPOSITORY======\n")
     # process is run on linux. spawn.
     multiprocessing.set_start_method("spawn")
     with ProcessPoolExecutor() as executor:
