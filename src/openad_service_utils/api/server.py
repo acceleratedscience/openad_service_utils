@@ -27,10 +27,10 @@ app = FastAPI()
 health_app = FastAPI()
 
 # Configure logging
-logging.basicConfig(level=logging.DEBUG,
-                    format='%(asctime)s - %(levelname)s - %(name)s - %(message)s')
-# Set logging level for urllib3 to WARNING or higher to mute INFO and DEBUG logs
-logging.getLogger("urllib3").setLevel(logging.WARNING)
+# logging.basicConfig(level=logging.DEBUG,
+#                     format='%(asctime)s - %(levelname)s - %(name)s - %(message)s')
+# # Set logging level for urllib3 to WARNING or higher to mute INFO and DEBUG logs
+# logging.getLogger("urllib3").setLevel(logging.WARNING)
 
 gen_requester = generation_request()
 prop_requester = property_request()
