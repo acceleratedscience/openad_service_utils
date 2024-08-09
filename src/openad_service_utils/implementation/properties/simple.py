@@ -89,7 +89,7 @@ class SimplePredictor(PredictorAlgorithm, ABC):
         # revert class level parameters from pydantic Fields to class attributes
         # this lets you access them when instantiated e.g. self.device
         for key, value in vars(parameters).items():
-            print("setting ", key)
+            # print("setting ", key)
             setattr(self, key, value)
         configuration = ConfigurablePropertyAlgorithmConfiguration(
             algorithm_type=parameters.algorithm_type,
@@ -107,7 +107,7 @@ class SimplePredictor(PredictorAlgorithm, ABC):
         """get path to model"""
         return self.local_artifacts
     
-    def get_selected_property(self):
+    def get_selected_property(self) -> str:
         return self.selected_property
     
     @abstractmethod

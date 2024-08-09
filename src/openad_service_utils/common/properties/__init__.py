@@ -91,6 +91,8 @@ class PropertyPredictorRegistry:
     ) -> PropertyPredictor:
         try:
             property_class, parameters_class = PropertyFactory.PROPERTY_PREDICTOR_FACTORY()[name]
+            # pass along chosen property
+            parameters["selected_property"] = name
             return property_class(parameters_class(**parameters))
         except KeyError:
             raise ValueError(
