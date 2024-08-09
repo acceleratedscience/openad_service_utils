@@ -307,6 +307,7 @@ class PredictorAlgorithm(ABC, Generic[S, T]):
             predictor, a callable that takes an item and returns a prediction.
         """
         logger.info("ensure artifacts for the application are present.")
+        # todo: dont check s3 every time
         self.local_artifacts = configuration.ensure_artifacts()
         model: Predictor = self.get_model(self.local_artifacts)
         return model

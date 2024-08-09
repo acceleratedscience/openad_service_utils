@@ -1,9 +1,9 @@
 import logging
 from abc import ABC, abstractmethod
-from typing import ClassVar, Optional
+from typing import ClassVar, Optional, List
 
-from pydantic.v1 import Field
-from pydantic.v1.dataclasses import dataclass
+from pydantic.v1 import Field, BaseModel
+# from pydantic.v1.dataclasses import dataclass
 
 from openad_service_utils.common.algorithms.core import (
     ConfigurablePropertyAlgorithmConfiguration, Predictor, PredictorAlgorithm)
@@ -17,8 +17,8 @@ logger = logging.getLogger(__name__)
 # logger.addHandler(logging.NullHandler())
 
 
-@dataclass
-class PredictorParameters:
+# @dataclass
+class PredictorParameters(BaseModel):
     """
     Helper class for adding parameters to your model outside of class::SimplePredictor
 
@@ -32,6 +32,8 @@ class PredictorParameters:
         
         MyPredictor.register(MyParams)
     """
+    algorithm_type: str = "prediction"
+
     domain: DomainSubmodule = Field(
         ..., example="molecules", description="Submodule of gt4sd.properties"
     )
@@ -40,6 +42,7 @@ class PredictorParameters:
         ..., example="v0", description="Version of the algorithm"
     )
     algorithm_application: str = Field(..., example="Tox21")
+    selected_property: str = ""
 
 
 class SimplePredictor(PredictorAlgorithm, ABC):
@@ -80,11 +83,13 @@ class SimplePredictor(PredictorAlgorithm, ABC):
     """
     algorithm_type: ClassVar[str] = ""  # hardcoded because we dont care about it. does nothing.
     property_type: ClassVar[PredictorTypes]
+    available_properties: ClassVar[List] = []
 
     def __init__(self, parameters: S3Parameters):
         # revert class level parameters from pydantic Fields to class attributes
         # this lets you access them when instantiated e.g. self.device
         for key, value in vars(parameters).items():
+            print("setting ", key)
             setattr(self, key, value)
         configuration = ConfigurablePropertyAlgorithmConfiguration(
             algorithm_type=parameters.algorithm_type,
@@ -101,6 +106,9 @@ class SimplePredictor(PredictorAlgorithm, ABC):
     def get_model_location(self):
         """get path to model"""
         return self.local_artifacts
+    
+    def get_selected_property(self):
+        return self.selected_property
     
     @abstractmethod
     def setup_model(self) -> Predictor:
@@ -133,7 +141,12 @@ class SimplePredictor(PredictorAlgorithm, ABC):
         # update class name to be `algorithm_application`
         cls.__name__ = class_fields.get("algorithm_application")
         # setup s3 class params
-        model_params = type(cls.__name__+"Parameters", (S3Parameters, ), class_fields)
+        model_params = type(cls.__name__+"Parameters", (PredictorParameters, ), class_fields)
         print(f"[i] registering simple predictor: {'/'.join([class_fields.get('domain'), class_fields.get('algorithm_name'), cls.__name__, class_fields.get('algorithm_version')])}\n")
-        PropertyFactory.add_predictor(name=cls.__name__, property_type=class_fields.get("property_type"), predictor=(cls, model_params))
-        logger.debug("hi!!")
+        if class_fields.get("available_properties"):
+            # set all property types in PropertyFactory
+            for predictor_name in class_fields.get("available_properties"):
+                PropertyFactory.add_predictor(name=predictor_name, property_type=class_fields.get("property_type"), predictor=(cls, model_params))
+        else:
+            # set class name as property type in PropertyFactory
+            PropertyFactory.add_predictor(name=cls.__name__, property_type=class_fields.get("property_type"), predictor=(cls, model_params))
