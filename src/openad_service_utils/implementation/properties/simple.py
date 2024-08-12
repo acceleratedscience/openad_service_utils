@@ -108,7 +108,7 @@ class SimplePredictor(PredictorAlgorithm, ABC):
             self.configuration.get_application_prefix(),
             self.configuration.algorithm_version,
         )
-        return get_cached_algorithm_path(prefix)
+        return get_cached_algorithm_path(prefix, module="properties")
     
     def get_predictor(self, configuration: AlgorithmConfiguration):
         """overwrite existing function to download model only once"""
