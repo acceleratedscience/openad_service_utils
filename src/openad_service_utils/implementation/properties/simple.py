@@ -1,23 +1,23 @@
 import logging
+import os
 from abc import ABC, abstractmethod
-from typing import ClassVar, Optional, List
+from typing import ClassVar, List, Optional
 
-from pydantic.v1 import Field, BaseModel
-# from pydantic.v1.dataclasses import dataclass
+from pydantic.v1 import BaseModel, Field
 
 from openad_service_utils.common.algorithms.core import (
-    ConfigurablePropertyAlgorithmConfiguration, Predictor, PredictorAlgorithm)
+    AlgorithmConfiguration, ConfigurablePropertyAlgorithmConfiguration,
+    Predictor, PredictorAlgorithm)
+from openad_service_utils.common.configuration import get_cached_algorithm_path
 from openad_service_utils.common.properties.core import (DomainSubmodule,
                                                          S3Parameters)
 from openad_service_utils.common.properties.property_factory import (
     PredictorTypes, PropertyFactory)
 
-
 logger = logging.getLogger(__name__)
-# logger.addHandler(logging.NullHandler())
+logger.addHandler(logging.NullHandler())
 
 
-# @dataclass
 class PredictorParameters(BaseModel):
     """
     Helper class for adding parameters to your model outside of class::SimplePredictor
@@ -85,6 +85,8 @@ class SimplePredictor(PredictorAlgorithm, ABC):
     property_type: ClassVar[PredictorTypes]
     available_properties: ClassVar[List] = []
 
+    __artifacts_downloaded__: bool = False
+
     def __init__(self, parameters: S3Parameters):
         # revert class level parameters from pydantic Fields to class attributes
         # this lets you access them when instantiated e.g. self.device
@@ -98,14 +100,29 @@ class SimplePredictor(PredictorAlgorithm, ABC):
             algorithm_application=parameters.algorithm_application,
             algorithm_version=parameters.algorithm_version,
         )
-        # The parent constructor calls `self.get_model`.
-        print(f"[i] downloading model: {parameters.algorithm_name}/{parameters.algorithm_version}", )
-        # logger.info("[I] Downloading model: ", configuration.get_application_prefix())
         super().__init__(configuration=configuration)
     
     def get_model_location(self):
         """get path to model"""
-        return self.local_artifacts
+        prefix = os.path.join(
+            self.configuration.get_application_prefix(),
+            self.configuration.algorithm_version,
+        )
+        return get_cached_algorithm_path(prefix)
+    
+    def get_predictor(self, configuration: AlgorithmConfiguration):
+        """overwrite existing function to download model only once"""
+        logger.info("ensure artifacts for the application are present.")
+        if not self.__artifacts_downloaded__:
+            print(f"[I] Downloading model: {configuration.algorithm_application}/{configuration.algorithm_version}")
+            if configuration.ensure_artifacts():
+                SimplePredictor.__artifacts_downloaded__ = True
+            else:
+                print("[E] could not download model")
+        else:
+            logger.info(f"[I] model already downloaded")
+        model: Predictor = self.get_model(self.get_model_location())
+        return model
     
     def get_selected_property(self) -> str:
         return self.selected_property
