@@ -23,6 +23,9 @@ class MySimplePredictor(SimplePredictor):
     algorithm_application: str = "MySimplePredictor"
     algorithm_version: str = "v0"
     property_type: PredictorTypes = PredictorTypes.MOLECULE
+    # OPTIONAL (available_properties). Use only if your class implements many models
+    # the user can choose from.
+    available_properties = ["property1", "property2"]
 
     # user proviced params for api / model inference
     batch_size: int = Field(description="Prediction batch size", default=128)

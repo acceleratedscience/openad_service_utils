@@ -12,11 +12,16 @@ follow the [simple_implementation.py](examples/properties/implementation.py) exa
 2. add the params for s3 download path. path looks like the following `domain/algorithm_name/algorithm_application/algorithm_version`
 
     ```python
+    # the keywords that map to the s3 bucket location for model
     domain: DomainSubmodule = DomainSubmodule("molecules")
     algorithm_name: str = "mypredictor"
-    algorithm_application: str = "classification"
+    algorithm_application: str = "classification"  # this is also used for api call.
     algorithm_version: str = "v0"
     property_type: PredictorTypes = PredictorTypes.MOLECULE
+
+    # OPTIONAL (available_properties). Use only if your class implements many models
+    # the user can choose from.
+    available_properties = ["property1", "property2"]
 
     # user proviced params for api / model inference
     temperature: float = Field(description="temperature", default=0.7)
@@ -25,10 +30,12 @@ follow the [simple_implementation.py](examples/properties/implementation.py) exa
 3. Implement the `setup_model` function to return your models output
     ```python
     def setup_model(self):
-        # load model to device
+        # load model
+        model_path = self.get_model_location()  # function to get model files path
+        selected_property = self.get_selected_property() # OPTIONAL. The selected property from (var::available_properties)
         def informative_model(samples) -> List[Any]:
             # run predictions on your model
-            return predictions
+            return [1,0,1]
         # return the predictions function to the backend
         return informative_model
     ```
