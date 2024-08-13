@@ -26,6 +26,7 @@ from typing import Any, Dict, List
 
 from .core import PropertyPredictor
 from .property_factory import PropertyFactory
+from openad_service_utils.implementation.properties.simple import SimplePredictor
 
 # from ..properties.crystals import CRYSTALS_PROPERTY_PREDICTOR_FACTORY
 # from ..properties.molecules import MOLECULE_PROPERTY_PREDICTOR_FACTORY
@@ -94,6 +95,20 @@ class PropertyPredictorRegistry:
             # pass along chosen property
             parameters["selected_property"] = name
             return property_class(parameters_class(**parameters))
+        except KeyError:
+            raise ValueError(
+                f"Property predictor name={name} not supported. Pick one from {PropertyFactory.AVAILABLE_PROPERTY_PREDICTORS()}"
+            )
+    
+    @staticmethod
+    def get_property_predictor_meta_class(
+        name: str, parameters: Dict[str, Any] = {}
+    ) -> SimplePredictor:
+        try:
+            property_class, parameters_class = PropertyFactory.PROPERTY_PREDICTOR_FACTORY()[name]
+            # pass along chosen property
+            parameters["selected_property"] = name
+            return property_class
         except KeyError:
             raise ValueError(
                 f"Property predictor name={name} not supported. Pick one from {PropertyFactory.AVAILABLE_PROPERTY_PREDICTORS()}"

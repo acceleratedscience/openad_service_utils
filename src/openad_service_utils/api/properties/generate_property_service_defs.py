@@ -80,7 +80,9 @@ def generate_property_service_defs(target_type: str, PropertyPredictorFactory: D
             if len(valid_types) == 0:  # !info check this logic
                 continue
         else:
-            service_def["service_name"] = f"get {target_type} " + x
+            # todo: too hacky. simplify.
+            meta_class_name = PropertyPredictorRegistry.get_property_predictor_meta_class(name=x, parameters={})
+            service_def["service_name"] = f"get {target_type} " + meta_class_name.algorithm_application
             service_def["description"] = (
                 service_def["description"]
                 + f"  -<cmd>{x}</cmd>"
@@ -102,7 +104,6 @@ def generate_property_service_defs(target_type: str, PropertyPredictorFactory: D
                 and xx["required_parameters"] == service_def["required_parameters"]
             ):
                 exists = True
-                print(service_def["valid_types"])
                 xx["valid_types"].extend(service_def["valid_types"])
         if not exists:
             prime_list.append(service_def)
