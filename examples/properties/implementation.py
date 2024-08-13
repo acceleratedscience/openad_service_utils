@@ -43,6 +43,7 @@ class MySimplePredictor(SimplePredictor):
         """
         # setup your model
         print(">> model filepath: ", self.get_model_location())
+        selected_property = self.get_selected_property()
         model_path = os.path.join( self.get_model_location(), "model.ckpt")  # load model
         tokenizer = []
         model = ClassificationModel(model_path=model_path, tokenizer=tokenizer)

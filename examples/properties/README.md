@@ -19,8 +19,7 @@ follow the [simple_implementation.py](examples/properties/implementation.py) exa
     algorithm_version: str = "v0"
     property_type: PredictorTypes = PredictorTypes.MOLECULE
 
-    # OPTIONAL (available_properties). Use only if your class implements many models
-    # the user can choose from.
+    # OPTIONAL (available_properties). Use only if your class implements many models the user can choose from.
     available_properties = ["property1", "property2"]
 
     # user proviced params for api / model inference
