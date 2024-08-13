@@ -45,6 +45,9 @@ def generate_property_service_defs(target_type: str, PropertyPredictorFactory: D
 
             service_types[property_type]["schema"] = schema
             service_types[property_type]["parameters"] = schema["properties"]
+            if service_types[property_type]["parameters"]:
+                # remove redundant field. available_properties -> valid_types
+                service_types[property_type]["parameters"].pop("available_properties", "")
 
             # service_types["description"] = "Retrieves  properties for valid property types\n"
             # service_types["description_details"] = "Retrieves  properties for valid property types\n"
