@@ -14,6 +14,7 @@ follow the [simple_implementation.py](examples/generation/simple_implementation.
     ```python
     algorithm_type: str = "conditional_generation"
     algorithm_name = "MyGeneratorAlgorithm"
+    algorithm_application: str = "MySimpleGenerator"  # this name is also used for api call.
     algorithm_version: str = "v0"
 
     # user proviced params for api / model inference
@@ -23,6 +24,7 @@ follow the [simple_implementation.py](examples/generation/simple_implementation.
 3. Implement the `setup_model` function to return your models output
     ```python
     def setup_model(self) -> List[Any]:
+        model_path = self.get_model_location()  # function to get model files path
         ...
         return []
     ```

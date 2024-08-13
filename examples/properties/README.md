@@ -15,7 +15,7 @@ follow the [simple_implementation.py](examples/properties/implementation.py) exa
     # the keywords that map to the s3 bucket location for model
     domain: DomainSubmodule = DomainSubmodule("molecules")
     algorithm_name: str = "mypredictor"
-    algorithm_application: str = "classification"  # this is also used for api call.
+    algorithm_application: str = "classification"  # this name is also used for api call.
     algorithm_version: str = "v0"
     property_type: PredictorTypes = PredictorTypes.MOLECULE
 
