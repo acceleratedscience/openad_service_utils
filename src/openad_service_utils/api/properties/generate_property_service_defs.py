@@ -1,8 +1,16 @@
 import copy
 import json
-from typing import Any, Dict
+from typing import Any, Dict, List
 
 from openad_service_utils.common.properties import PropertyPredictorRegistry
+from openad_service_utils.implementation.properties.simple import PropertyInfo
+
+
+def description_builder(property_list: List[PropertyInfo]):
+    text = ""
+    for item in property_list:
+        text = text + f"Property: <cmd>{item['name']}</cmd>\nDescription:\n{item.get('description', 'No Description')}\n"
+    return text
 
 
 def generate_property_service_defs(target_type: str, PropertyPredictorFactory: Dict[str, Any]):
@@ -45,9 +53,10 @@ def generate_property_service_defs(target_type: str, PropertyPredictorFactory: D
 
             service_types[property_type]["schema"] = schema
             service_types[property_type]["parameters"] = schema["properties"]
+            
             if service_types[property_type]["parameters"]:
                 # remove redundant field. available_properties -> valid_types
-                service_types[property_type]["parameters"].pop("available_properties", "")
+                property_data_schema = service_types[property_type]["parameters"].pop("available_properties", {}).get("default", [])
 
             # service_types["description"] = "Retrieves  properties for valid property types\n"
             # service_types["description_details"] = "Retrieves  properties for valid property types\n"
@@ -86,7 +95,8 @@ def generate_property_service_defs(target_type: str, PropertyPredictorFactory: D
             # todo: too hacky. simplify.
             meta_class_name = PropertyPredictorRegistry.get_property_predictor_meta_class(name=x, parameters={})
             service_def["service_name"] = f"get {target_type} " + meta_class_name.algorithm_application
-            service_def["description"] = (
+            description = description_builder(property_data_schema)
+            service_def["description"] = description or (
                 service_def["description"]
                 + f"  -<cmd>{x}</cmd>"
                 + ": "

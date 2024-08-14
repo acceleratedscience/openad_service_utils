@@ -1,7 +1,7 @@
 import logging
 import os
 from abc import ABC, abstractmethod
-from typing import ClassVar, List, Optional
+from typing import ClassVar, List, Optional, TypedDict, Dict
 
 from pydantic.v1 import BaseModel, Field
 
@@ -16,6 +16,12 @@ from openad_service_utils.common.properties.property_factory import (
 
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
+
+
+class PropertyInfo(TypedDict):
+    name: str
+    description: str
+
 
 
 class PredictorParameters(BaseModel):
@@ -83,7 +89,8 @@ class SimplePredictor(PredictorAlgorithm, ABC):
     """
     algorithm_type: ClassVar[str] = ""  # hardcoded because we dont care about it. does nothing.
     property_type: ClassVar[PredictorTypes]
-    available_properties: ClassVar[List] = []
+    available_properties: ClassVar[List[PropertyInfo]] = []
+    # available_properties: ClassVar[List] = []
 
     __artifacts_downloaded__: bool = False
 
@@ -163,6 +170,8 @@ class SimplePredictor(PredictorAlgorithm, ABC):
         if class_fields.get("available_properties"):
             # set all property types in PropertyFactory
             for predictor_name in class_fields.get("available_properties"):
+                if isinstance(predictor_name, dict):
+                    predictor_name = predictor_name.get("name")
                 PropertyFactory.add_predictor(name=predictor_name, property_type=class_fields.get("property_type"), predictor=(cls, model_params))
         else:
             # set class name as property type in PropertyFactory
