@@ -168,7 +168,7 @@ class SimplePredictor(PredictorAlgorithm, ABC):
         model_params = type(cls.__name__+"Parameters", (PredictorParameters, ), class_fields)
         print(f"[i] registering simple predictor: {'/'.join([class_fields.get('domain'), class_fields.get('algorithm_name'), cls.__name__, class_fields.get('algorithm_version')])}\n")
         if class_fields.get("available_properties"):
-            # set all property types in PropertyFactory
+            # set all property types in PropertyFactory. available_properties -> valid_types
             for predictor_name in class_fields.get("available_properties"):
                 if isinstance(predictor_name, dict):
                     predictor_name = predictor_name.get("name")
