@@ -91,12 +91,12 @@ async def get_service_defs():
 
 
 # Function to run the main service
-def run_main_service(host, port, log_level, min_workers):
-    uvicorn.run("openad_service_utils.api.server:app", host=host, port=port, log_level=log_level, workers=min_workers)
+def run_main_service(host, port, log_level, max_workers):
+    uvicorn.run("openad_service_utils.api.server:app", host=host, port=port, log_level=log_level, workers=max_workers)
 
 
-def run_health_service(host, port, log_level, min_workers):
-    uvicorn.run("openad_service_utils.api.server:health_app", host=host, port=port, log_level=log_level, workers=min_workers)
+def run_health_service(host, port, log_level, max_workers):
+    uvicorn.run("openad_service_utils.api.server:health_app", host=host, port=port, log_level=log_level, workers=max_workers)
 
 
 def signal_handler(signum, frame, executor):
@@ -109,7 +109,7 @@ def ignore_winch_signal(signum, frame):
     return
 
 
-def start_server(host="0.0.0.0", port=8080, log_level="info", min_workers=10, worker_gpu_min=2000):
+def start_server(host="0.0.0.0", port=8080, log_level="info", max_workers=1, worker_gpu_min=2000):
     try:
         import torch
         if torch.cuda.is_available():
@@ -124,13 +124,14 @@ def start_server(host="0.0.0.0", port=8080, log_level="info", min_workers=10, wo
             # Get the total GPU memory size in bytes
             total_memory = int(gpu_properties.total_memory / (1024 ** 2))
             # Calculate the max amount of workers for gpu size
-            max_workers = total_memory // worker_gpu_min
+            available_workers = total_memory // worker_gpu_min
             # TODO: increase min workers
-            if max_workers < min_workers:
+            if available_workers < max_workers:
                 # downsize the amount of workers if the gpu size is less than expected
-                min_workers = max_workers
+                max_workers = available_workers
+                print("[W] lowering amount of workers due to resource constraint")
             print(f"Total GPU memory: {total_memory:.2f} MB")
-            print(f"Total workers: {min_workers}")
+            print(f"Total workers: {max_workers}")
     except ImportError:
         print("[i] cuda not available. Running on CPU only.")
         pass
@@ -141,7 +142,7 @@ def start_server(host="0.0.0.0", port=8080, log_level="info", min_workers=10, wo
     # process is run on linux. spawn.
     multiprocessing.set_start_method("spawn")
     with ProcessPoolExecutor() as executor:
-        executor.submit(run_main_service, host, port, log_level, min_workers)
+        executor.submit(run_main_service, host, port, log_level, max_workers)
         executor.submit(run_health_service, host, port+1, log_level, 1)
         signal.signal(signal.SIGINT, lambda s, f: signal_handler(s, f, executor))
         signal.signal(signal.SIGTERM, lambda s, f: signal_handler(s, f, executor))
