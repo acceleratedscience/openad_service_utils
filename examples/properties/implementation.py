@@ -1,7 +1,7 @@
 import os
-from typing import List, Union
+from typing import List, Union, Dict
 from pydantic.v1 import Field
-from openad_service_utils import SimplePredictor, PredictorTypes, DomainSubmodule
+from openad_service_utils import SimplePredictor, PredictorTypes, DomainSubmodule, PropertyInfo
 
 
 class ClassificationModel:
@@ -25,7 +25,7 @@ class MySimplePredictor(SimplePredictor):
     property_type: PredictorTypes = PredictorTypes.MOLECULE
     # OPTIONAL (available_properties). Use only if your class implements many models
     # the user can choose from.
-    available_properties = ["property1", "property2"]
+    available_properties: List[PropertyInfo] = [PropertyInfo(name="property1", description=""), PropertyInfo(name="property2", description="")]
 
     # user proviced params for api / model inference
     batch_size: int = Field(description="Prediction batch size", default=128)
@@ -50,7 +50,7 @@ class MySimplePredictor(SimplePredictor):
         model.to(self.device)
         model.eval()
         # callable function to get the predictions
-        def informative_model(samples: Union[str, List[str]]) -> List[float]:
+        def predict(samples: Union[str, List[str]]) -> List[float]:
             """
             run predictions on your model. For example::
             
@@ -62,4 +62,4 @@ class MySimplePredictor(SimplePredictor):
             """
             return [1,0,1]
         # return callable
-        return informative_model
+        return predict
