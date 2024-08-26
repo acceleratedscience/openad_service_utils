@@ -1,7 +1,7 @@
 # How to create a Generation Model
 
 ## Using Simple implementation (recommended)
-follow the [simple_implementation.py](examples/generation/simple_implementation.py) example
+follow the [simple_implementation.py](/examples/generation/simple_implementation.py) example
 
 <!-- ### steps -->
 1. name your application and inheret `SimpleGenerator`

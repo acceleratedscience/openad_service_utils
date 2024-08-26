@@ -1,7 +1,7 @@
 # How to create a Properties Model
 
 ## Using Simple implementation (recommended)
-follow the [simple_implementation.py](examples/properties/implementation.py) example
+follow the [simple_implementation.py](/examples/properties/implementation.py) example
 
 <!-- ### steps -->
 1. name your application and inherit `SimplePredictor`
