@@ -6,7 +6,7 @@ from openad_service_utils.implementation.generation.classic import (
 from openad_service_utils.implementation.generation.simple import \
     SimpleGenerator
 from openad_service_utils.implementation.properties.simple import (
-    DomainSubmodule, PredictorTypes, SimplePredictor)
+    DomainSubmodule, PredictorTypes, SimplePredictor, PropertyInfo)
 
 # make low level modules available for import more easily
 __all__ = [
@@ -14,6 +14,7 @@ __all__ = [
     "SimpleGenerator",
     "SimplePredictor",
     "PredictorTypes",
+    "PropertyInfo",
     "DomainSubmodule",
     "BaseGenerator", 
     "BaseAlgorithm", 

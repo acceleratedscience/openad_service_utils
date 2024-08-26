@@ -9,7 +9,7 @@ from openad_service_utils.implementation.properties.simple import PropertyInfo
 def description_builder(property_list: List[PropertyInfo]):
     text = ""
     for item in property_list:
-        text = text + f"Name: <cmd>{item['name']}</cmd>\nDescription:\n{item.get('description', 'No Description')}\n"
+        text = text + f"Name: <cmd>{item.get('name')}</cmd>\nDescription:\n{item.get('description', 'No Description')}\n"
     return text
 
 
