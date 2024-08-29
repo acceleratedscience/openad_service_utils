@@ -4,7 +4,7 @@
 follow the [simple_implementation.py](/examples/generation/simple_implementation.py) example
 
 <!-- ### steps -->
-1. name your application and inheret `SimpleGenerator`
+1. name your application and inherit `SimpleGenerator`
     ```python
     class YourModelApplication(SimpleGenerator):
         ...
