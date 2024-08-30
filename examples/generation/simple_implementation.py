@@ -7,6 +7,11 @@ from typing import List, Any
 from pydantic.v1 import Field
 from openad_service_utils import SimpleGenerator
 
+class MyModel:
+    def __init__(self, x) -> None:
+        pass
+    def net(self, x):
+        pass
 
 # register the algorithm to the config that returns your model implementation
 class MySimpleGenerator(SimpleGenerator):
@@ -22,14 +27,17 @@ class MySimpleGenerator(SimpleGenerator):
     batch_size: int = Field(description="Prediction batch size", default=128)
     temperature: float = Field(description="Temperature", default=0.7)
 
-    def setup_model(self) -> List[Any]:
+    def setup(self):
+        print(">> model filepath: ", self.get_model_location())  # load model
+        self.model_path = self.get_model_location()
+        self.model = MyModel(self.model_path)
+    
+    def predict(self) -> List[Any]:
         """Implement the generation logic for the new model
-
         Returns:
             List[Any]: return your predictions
         """
-        # Implement the generation logic for the new model
+        # Implement the generation logic for the model
+        self.model.net(self.temperature)
         # return value must be an iterable
-        print(">> model filepath: ", self.get_model_location())  # load model
-        self.model_path = self.get_model_location()
         return [{"pred1":1, "pred2": 2}]

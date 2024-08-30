@@ -42,7 +42,7 @@ class SimpleGenerator(AlgorithmConfiguration[S, T], ABC):
             ...
 
             # no __init__ definition required
-        def setup_model(self) -> List[Any]:
+        def predict(self) -> List[Any]:
             # implementation goes here
             pass
     
@@ -79,7 +79,14 @@ class SimpleGenerator(AlgorithmConfiguration[S, T], ABC):
         ApplicationsRegistry.register_algorithm_application(algorithm)(cls)
     
     @abstractmethod
-    def setup_model(self) -> Union[List[Any], Dict[str, Any]]:
+    def setup(self):
+        """
+        This is the major method to implement in child classes
+        """
+        raise NotImplementedError("Not implemented in baseclass.")
+
+    @abstractmethod
+    def predict(self):
         """
         This is the major method to implement in child classes, it is called
         at instantiation of the SimpleGenerator and must return a List[Any]:
@@ -90,16 +97,18 @@ class SimpleGenerator(AlgorithmConfiguration[S, T], ABC):
         raise NotImplementedError("Not implemented in baseclass.")
 
     def generate(self, target: Optional[T]=None) -> List[Any]:
-        """do not implement. implement setup_model instead."""
-        return self.setup_model()
+        """do not implement. implement predict instead."""
+        return self.predict()
 
 
 class BaseAlgorithm(GeneratorAlgorithm[S, T]):
     """Interface for automated generation via an :class:`SimpleGenerator`."""
     def __init__(
-        self, configuration: SimpleGenerator[S, T], target: Optional[T] = None
+        self, configuration: SimpleGenerator, target: Optional[T] = None
     ):
         super().__init__(configuration=configuration, target=target)
+        # run the user model setup
+        configuration.setup()
 
     def get_generator(
         self,

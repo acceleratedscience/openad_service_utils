@@ -159,7 +159,7 @@ def get_generator_type(generator_application: str, parameters):
 
 
 class request_generation:
-    Generator_cache = []
+    models_cache = []
 
     def __init__(self) -> None:
         pass
@@ -192,22 +192,31 @@ class request_generation:
         # print(parms)
 
         try:
-            if "target" in parms:
-                target = copy.deepcopy(parms["target"])
-                parms.pop("target")
-                if isinstance(target, list):
-                    if len(target) == 1:
-                        target = target[0]
-                print("-----------------------------------------")
-                print(parms)
-                print("-----------------------------------------")
-                print(target)
-                print(sample_size)
-                print("-----------------------------------------")
-
-                model = GeneratorRegistry.get_application_instance(**parms, target=target)
-            else:
-                model = GeneratorRegistry.get_application_instance(**parms)
+            model = None
+            print(self.generate_name(parms))
+            model_type = "_".join(self.generate_name(parms))
+            for model in self.models_cache:
+                if model_type in model:
+                    print(">>>> getting cached!!!!!")
+                    model = model[model_type]
+            if not model:
+                if "target" in parms:
+                    target = copy.deepcopy(parms["target"])
+                    parms.pop("target")
+                    if isinstance(target, list):
+                        if len(target) == 1:
+                            target = target[0]
+                    print("-----------------------------------------")
+                    print(parms)
+                    print("-----------------------------------------")
+                    print(target)
+                    print(sample_size)
+                    print("-----------------------------------------")
+                    model = GeneratorRegistry.get_application_instance(**parms, target=target)
+                    self.models_cache.append({model_type: model})
+                else:
+                    model = GeneratorRegistry.get_application_instance(**parms)
+                    self.models_cache.append({model_type: model})
         except TypeError as e:
             print(traceback.print_tb(e.__traceback__))
             return {"error": {"Type Error: ": str(e)}}
@@ -252,6 +261,14 @@ class request_generation:
         except Exception as e:
             print(traceback.print_tb(e.__traceback__))
             return {"error": {"Unknown Error": str(e)}}
+    
+    def generate_name(self, params: dict):
+        valid_keys = [
+            params.get("algorithm_type", ""),
+            params.get("algorithm_application", ""),
+            params.get("algorithm_name", "")
+            ]
+        return valid_keys
 
     def set_parms(self, generator_type, parameters):
         request_params = {}
