@@ -108,6 +108,8 @@ class SimplePredictor(PredictorAlgorithm, ABC):
             algorithm_version=parameters.algorithm_version,
         )
         super().__init__(configuration=configuration)
+        # run the user model setup
+        self.setup()
     
     def get_model_location(self):
         """get path to model"""
@@ -134,20 +136,24 @@ class SimplePredictor(PredictorAlgorithm, ABC):
     def get_selected_property(self) -> str:
         return self.selected_property
     
+    def get_model(self, resources_path: str):
+        """do not use. do not overwrite!"""
+        # implement abstracted class
+        return self.predict
+    
     @abstractmethod
-    def setup_model(self) -> Predictor:
+    def setup(self):
         """
-        This is the major method to implement in child classes, it is called
-        at instantiation of the SimplePredictor and must return a callable:
-
-        Returns:
-            Predictor (callable)
+        Setup you model load.
         """
         raise NotImplementedError("Not implemented in baseclass.")
-
-    def get_model(self, resources_path: str):
-        """do not implement. implement setup_model instead."""
-        return self.setup_model()
+    
+    @abstractmethod
+    def predict(self):
+        """
+        Implement your prediction method
+        """
+        raise NotImplementedError("Not implemented in baseclass.")
 
     @classmethod
     def register(cls, parameters: Optional[PredictorParameters] = None) -> None:
