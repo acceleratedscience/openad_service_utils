@@ -43,8 +43,8 @@ if __name__ == "__main__":
 
 ## Test your api with the openad-toolkit cli. assuming server is localhost
 ```bash
->> catalog model service from remote 'http://localhost:8080' as 'mymodel'
->> mymodel ?
+>> catalog model service from remote 'http://localhost:8080' as 'mypredictor'
+>> mypredictor ?
 ```
 
 ## Test your api with using curl. assuming server is localhost

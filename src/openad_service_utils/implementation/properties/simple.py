@@ -67,12 +67,9 @@ class PredictorParameters(BaseModel):
 
 
 class SimplePredictor(PredictorAlgorithm, BasePredictorParameters):
-    """Interface for automated prediction via an :class:`ConfigurablePropertyAlgorithmConfiguration`.
+    """Class to create an api for a predictor model.
 
-    Do not implement __init__()
-
-    The signature of this class constructor (given by the instance attributes) is used
-    for the REST API and needs to be serializable.
+    Do not implement __init__() or instatiate this class.
 
     1. Setup your predictor. Ease child implementation. For example::
 

@@ -29,11 +29,12 @@ class SimpleGenerator(AlgorithmConfiguration[S, T], ABC):
         from openad_service_utils import SimpleGenerator
 
         class YourApplicationName(SimpleGenerator):
+            # necessary s3 paramters
             algorithm_type: str = "conditional_generation"
             algorithm_name = "MyGeneratorAlgorithm"
             algorithm_application: str = "MySimpleGenerator"
             algorithm_version: str = "v0"
-
+            # your custom api paramters
             actual_parameter1: float = 1.61
             actual_parameter2: float = 1.61
 
