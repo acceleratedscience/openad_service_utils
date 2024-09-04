@@ -20,12 +20,9 @@ U = TypeVar("U")  # used for additional context (e.g. part of target definition)
 
 
 class SimpleGenerator(AlgorithmConfiguration[S, T], ABC):
-    """More simple implementation of :class:`BaseConfiguration`
+    """Class to create an api for a generator algorithm.
 
-    Do not implement __init__()
-
-    The signature of this class constructor (given by the instance attributes) is used
-    for the REST API and needs to be serializable.
+    Do not implement __init__() or instatiate this class.
 
     1. Setup your generator. Ease child implementation. For example::
 
@@ -34,17 +31,17 @@ class SimpleGenerator(AlgorithmConfiguration[S, T], ABC):
         class YourApplicationName(SimpleGenerator):
             algorithm_type: str = "conditional_generation"
             algorithm_name = "MyGeneratorAlgorithm"
+            algorithm_application: str = "MySimpleGenerator"
             algorithm_version: str = "v0"
-            domain: str = "materials"
 
             actual_parameter1: float = 1.61
             actual_parameter2: float = 1.61
-            ...
 
-            # no __init__ definition required
+        def setup(self) -> List[Any]:
+            # load model
+        
         def predict(self) -> List[Any]:
-            # implementation goes here
-            pass
+            # setup model prediction
     
     2. Register the Generator::
 
@@ -86,7 +83,7 @@ class SimpleGenerator(AlgorithmConfiguration[S, T], ABC):
         raise NotImplementedError("Not implemented in baseclass.")
 
     @abstractmethod
-    def predict(self):
+    def predict(self, sample: Optional[Any]=None):
         """
         This is the major method to implement in child classes, it is called
         at instantiation of the SimpleGenerator and must return a List[Any]:
@@ -98,7 +95,7 @@ class SimpleGenerator(AlgorithmConfiguration[S, T], ABC):
 
     def generate(self, target: Optional[T]=None) -> List[Any]:
         """do not implement. implement predict instead."""
-        return self.predict()
+        return self.predict(target)
 
 
 class BaseAlgorithm(GeneratorAlgorithm[S, T]):
