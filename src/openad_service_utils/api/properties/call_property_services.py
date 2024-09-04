@@ -130,7 +130,7 @@ class service_requester:
 
 
 class request_properties:
-    PropertyPredictor_cache = []
+    models_cache = []
 
     def __init__(self) -> None:
         pass
@@ -154,24 +154,28 @@ class request_properties:
                     )
                     continue
                 # get handle to predictor, if there is not one for the specific propoerty type and Parameter combination then create on
-                for handle in self.PropertyPredictor_cache:
-                    if (
-                        handle["parms"] == parms
-                        and handle["property_type"] == property_type
-                    ):
-                        predictor = handle["predictor"]
+                # for handle in self.models_cache:
+                #     if (
+                #         handle["parms"] == parms
+                #         and handle["property_type"] == property_type
+                #     ):
+                #         predictor = handle["predictor"]
+                for model in self.models_cache:
+                    if property_type in model:
+                        # get model from cache
+                        predictor = model[property_type]
                 if predictor is None:
                     predictor = PropertyPredictorRegistry.get_property_predictor(
                         name=property_type, parameters=parms
                     )
-
-                    self.PropertyPredictor_cache.append(
-                        {
-                            "property_type": property_type,
-                            "parms": parms,
-                            "predictor": predictor,
-                        }
-                    )
+                    self.models_cache.append({property_type: predictor})
+                    # self.models_cache.append(
+                    #     {
+                    #         "property_type": property_type,
+                    #         "parms": parms,
+                    #         "predictor": predictor,
+                    #     }
+                    # )
 
                 # Crystaline structure models take data as file sets, the following manages this for the Crystaline property requests
                 if service_type == "get_crystal_property":

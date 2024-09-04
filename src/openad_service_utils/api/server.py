@@ -7,7 +7,7 @@ import sys
 from concurrent.futures import ProcessPoolExecutor
 
 import uvicorn
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import HTMLResponse, JSONResponse
 from pandas import DataFrame
 
@@ -24,7 +24,7 @@ from openad_service_utils.common.properties.property_factory import \
 
 
 app = FastAPI()
-health_app = FastAPI()
+kube_probe = FastAPI()
 
 # Configure logging
 # logging.basicConfig(level=logging.DEBUG,
@@ -47,7 +47,7 @@ def clean_gpu_mem():
         gc.collect()
 
 
-@health_app.get("/health", response_class=HTMLResponse)
+@kube_probe.get("/health", response_class=HTMLResponse)
 async def healthz(request: Request):
     return "UP"
 
@@ -59,26 +59,30 @@ async def health():
 
 @app.post("/service")
 async def service(property_request: dict):
-    # user request is for property prediction
-    if property_request.get("service_type") in PropertyFactory.AVAILABLE_PROPERTY_PREDICTOR_TYPES():
-        result = prop_requester.route_service(property_request)
-    # user request is for generation
-    elif property_request.get("service_type") == "generate_data":
-        result = gen_requester.route_service(property_request)
-    else:
-        return JSONResponse(
-            {"message": "service not supported", "service_type": property_request.get("service_type")},
-        )
-    # cleanup resources before returning request
-    clean_gpu_mem()
-    if result is None:
-        return JSONResponse(
-            {"message": "could not process service request", "service": property_request.get("parameters",{}).get("property_type")},
-        )
-    if isinstance(result, DataFrame):
-        return result.to_dict(orient="records")
-    else:
-        return result
+    try:
+        # user request is for property prediction
+        if property_request.get("service_type") in PropertyFactory.AVAILABLE_PROPERTY_PREDICTOR_TYPES():
+            result = prop_requester.route_service(property_request)
+        # user request is for generation
+        elif property_request.get("service_type") == "generate_data":
+            result = gen_requester.route_service(property_request)
+        else:
+            return JSONResponse(
+                {"message": "service not supported", "service_type": property_request.get("service_type")},
+            )
+        # cleanup resources before returning request
+        clean_gpu_mem()
+        if result is None:
+            return JSONResponse(
+                {"message": "could not process service request", "service": property_request.get("parameters",{}).get("property_type")},
+            )
+        if isinstance(result, DataFrame):
+            return result.to_dict(orient="records")
+        else:
+            return result
+    except Exception as e:
+        logging.error(f"Error processing request: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.get("/service")
@@ -96,7 +100,7 @@ def run_main_service(host, port, log_level, max_workers):
 
 
 def run_health_service(host, port, log_level, max_workers):
-    uvicorn.run("openad_service_utils.api.server:health_app", host=host, port=port, log_level=log_level, workers=max_workers)
+    uvicorn.run("openad_service_utils.api.server:kube_probe", host=host, port=port, log_level=log_level, workers=max_workers)
 
 
 def signal_handler(signum, frame, executor):
@@ -104,9 +108,14 @@ def signal_handler(signum, frame, executor):
     executor.shutdown(wait=True)
     sys.exit(0)
 
+
 def ignore_winch_signal(signum, frame):
     # ignore signal. do nothing
     return
+
+
+def is_running_in_kubernetes():
+    return "KUBERNETES_SERVICE_HOST" in os.environ
 
 
 def start_server(host="0.0.0.0", port=8080, log_level="info", max_workers=1, worker_gpu_min=2000):
@@ -143,7 +152,9 @@ def start_server(host="0.0.0.0", port=8080, log_level="info", max_workers=1, wor
     multiprocessing.set_start_method("spawn")
     with ProcessPoolExecutor() as executor:
         executor.submit(run_main_service, host, port, log_level, max_workers)
-        executor.submit(run_health_service, host, port+1, log_level, 1)
+        if is_running_in_kubernetes():
+            print("[I] Running in Kubernetes, starting health probe")
+            executor.submit(run_health_service, host, port+1, log_level, 1)
         signal.signal(signal.SIGINT, lambda s, f: signal_handler(s, f, executor))
         signal.signal(signal.SIGTERM, lambda s, f: signal_handler(s, f, executor))
         signal.signal(signal.SIGWINCH, ignore_winch_signal)
