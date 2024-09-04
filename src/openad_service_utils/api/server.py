@@ -152,7 +152,7 @@ def start_server(host="0.0.0.0", port=8080, log_level="info", max_workers=1, wor
     multiprocessing.set_start_method("spawn")
     with ProcessPoolExecutor() as executor:
         executor.submit(run_main_service, host, port, log_level, max_workers)
-        if not is_running_in_kubernetes():
+        if is_running_in_kubernetes():
             print("[I] Running in Kubernetes, starting health probe")
             executor.submit(run_health_service, host, port+1, log_level, 1)
         signal.signal(signal.SIGINT, lambda s, f: signal_handler(s, f, executor))
