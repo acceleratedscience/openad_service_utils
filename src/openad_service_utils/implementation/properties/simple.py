@@ -1,7 +1,7 @@
 import logging
 import os
 from abc import ABC, abstractmethod
-from typing import ClassVar, List, Optional, TypedDict, Dict
+from typing import ClassVar, List, Optional, TypedDict, Dict, Any
 
 from pydantic.v1 import BaseModel, Field
 
@@ -22,6 +22,19 @@ class PropertyInfo(TypedDict):
     name: str
     description: str
 
+
+class BasePredictorParameters:
+    # TODO: change all this into 1 base_model_path or have user implement their style of downloading e.g. remove configuration dependency
+    algorithm_type: str = "prediction"
+
+    domain: DomainSubmodule = Field(
+        ..., example="molecules", description="Submodule of gt4sd.properties"
+    )
+    algorithm_name: str = Field(..., example="MCA", description="Name of the algorithm")
+    algorithm_version: str = Field(
+        ..., example="v0", description="Version of the algorithm"
+    )
+    algorithm_application: str = Field(..., example="Tox21")
 
 
 class PredictorParameters(BaseModel):
@@ -48,10 +61,12 @@ class PredictorParameters(BaseModel):
         ..., example="v0", description="Version of the algorithm"
     )
     algorithm_application: str = Field(..., example="Tox21")
+    # this is used to select a var::PropertyInfo.name available_properties. User selected property from api.
+    # this is not harcoded in the class, but is added to the class when registering the predictor
     selected_property: str = ""
 
 
-class SimplePredictor(PredictorAlgorithm, ABC):
+class SimplePredictor(PredictorAlgorithm, BasePredictorParameters):
     """Interface for automated prediction via an :class:`ConfigurablePropertyAlgorithmConfiguration`.
 
     Do not implement __init__()
@@ -64,42 +79,42 @@ class SimplePredictor(PredictorAlgorithm, ABC):
         from openad_service_utils import SimplePredictor
 
         class YourApplicationName(SimplePredictor):
+            # necessary s3 paramters
             domain: str = "molecules"
-            algorithm_name = "MyGeneratorAlgorithm"
-            algorithm_application: str = "MyApplication"
+            algorithm_name = "MyAlgorithmName"
+            algorithm_application: str = "MyApplicationName"
             algorithm_version: str = "v0"
+            # necessary api types
+            property_type: PredictorTypes
+            available_properties: List[PropertyInfo] = []
+            # your custom api paramters
+            some_parameter1: float = 1.61
+            some_parameter2: float = 1.61
 
-            actual_parameter1: float = 1.61
-            actual_parameter2: float = 1.61
-            ...
-
-            # no __init__ definition required
-        def setup_model(self) -> List[Any]:
-            # implementation goes here
-            def informative_model(samples):
-                predictions = [1,2,3]
-                return predictions
-            
-            return informative_model
+        def setup(self) -> List[Any]:
+            # load model
+        
+        def predict(sample: Any):
+            # setup model prediction
     
     2. Register the Predictor::
 
         YourApplicationName.register()
     
     """
-    algorithm_type: ClassVar[str] = ""  # hardcoded because we dont care about it. does nothing.
-    property_type: ClassVar[PredictorTypes]
-    available_properties: ClassVar[List[PropertyInfo]] = []
-    # available_properties: ClassVar[List] = []
+    # algorithm_type: ClassVar[str] = ""  # hardcoded because we dont care about it. does nothing.
+    property_type: PredictorTypes
+    available_properties: Optional[List[PropertyInfo]] = []
 
     __artifacts_downloaded__: bool = False
 
-    def __init__(self, parameters: S3Parameters):
+    def __init__(self, parameters: PredictorParameters):
+        """Do not implement or instatiate"""
         # revert class level parameters from pydantic Fields to class attributes
         # this lets you access them when instantiated e.g. self.device
         for key, value in vars(parameters).items():
-            # print("setting ", key)
             setattr(self, key, value)
+        # set up the configuration
         configuration = ConfigurablePropertyAlgorithmConfiguration(
             algorithm_type=parameters.algorithm_type,
             domain=parameters.domain,
@@ -143,16 +158,12 @@ class SimplePredictor(PredictorAlgorithm, ABC):
     
     @abstractmethod
     def setup(self):
-        """
-        Setup you model load.
-        """
+        """Set up the model."""
         raise NotImplementedError("Not implemented in baseclass.")
     
     @abstractmethod
-    def predict(self):
-        """
-        Implement your prediction method
-        """
+    def predict(self, sample: Any):
+        """Run predictions and return results."""
         raise NotImplementedError("Not implemented in baseclass.")
 
     @classmethod

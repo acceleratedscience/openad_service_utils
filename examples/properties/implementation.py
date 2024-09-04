@@ -1,5 +1,5 @@
 import os
-from typing import List, Union, Dict
+from typing import List, Union, Dict, Any
 from openad_service_utils.common.algorithms.core import Predictor
 from pydantic.v1 import Field
 from openad_service_utils import SimplePredictor, PredictorTypes, DomainSubmodule, PropertyInfo
@@ -24,8 +24,7 @@ class MySimplePredictor(SimplePredictor):
     algorithm_application: str = "MySimplePredictor"
     algorithm_version: str = "v0"
     property_type: PredictorTypes = PredictorTypes.MOLECULE
-    # OPTIONAL (available_properties). Use only if your class implements many models
-    # the user can choose from.
+    # OPTIONAL (available_properties). Use only if your class implements many models the user can choose from.
     available_properties: List[PropertyInfo] = [PropertyInfo(name="property1", description=""), PropertyInfo(name="property2", description="")]
 
     # user proviced params for api / model inference
@@ -42,7 +41,7 @@ class MySimplePredictor(SimplePredictor):
         model.to(self.device)
         model.eval()
     
-    def predict(self):
+    def predict(self, sample: Any):
         """run predictions on your model"""
         selected_property = self.get_selected_property()
         return [1,0,1]
