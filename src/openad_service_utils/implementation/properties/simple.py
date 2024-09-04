@@ -130,18 +130,24 @@ class SimplePredictor(PredictorAlgorithm, BasePredictorParameters):
             self.configuration.algorithm_version,
         )
         return get_cached_algorithm_path(prefix, module="properties")
+
+    def __download_model(self):
+        """download model from s3"""
+        if not self.__artifacts_downloaded__:
+            logger.info(f"[I] Downloading model: {self.configuration.algorithm_application}/{self.configuration.algorithm_version}")
+            if self.configuration.ensure_artifacts():
+                SimplePredictor.__artifacts_downloaded__ = True
+                logger.info(f"[I] model downloaded")
+            else:
+                logger.error("[E] could not download model")
+        else:
+            logger.info(f"[I] model already downloaded")
     
     def get_predictor(self, configuration: AlgorithmConfiguration):
         """overwrite existing function to download model only once"""
-        logger.info("ensure artifacts for the application are present.")
-        if not self.__artifacts_downloaded__:
-            print(f"[I] Downloading model: {configuration.algorithm_application}/{configuration.algorithm_version}")
-            if configuration.ensure_artifacts():
-                SimplePredictor.__artifacts_downloaded__ = True
-            else:
-                print("[E] could not download model")
-        else:
-            logger.info(f"[I] model already downloaded")
+        # download model
+        self.__download_model()
+        # get prediction function
         model: Predictor = self.get_model(self.get_model_location())
         return model
     
