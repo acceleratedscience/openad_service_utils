@@ -24,7 +24,7 @@ from openad_service_utils.common.properties.property_factory import \
 
 
 app = FastAPI()
-health_app = FastAPI()
+kube_probe = FastAPI()
 
 # Configure logging
 # logging.basicConfig(level=logging.DEBUG,
@@ -47,7 +47,7 @@ def clean_gpu_mem():
         gc.collect()
 
 
-@health_app.get("/health", response_class=HTMLResponse)
+@kube_probe.get("/health", response_class=HTMLResponse)
 async def healthz(request: Request):
     return "UP"
 
@@ -100,7 +100,7 @@ def run_main_service(host, port, log_level, max_workers):
 
 
 def run_health_service(host, port, log_level, max_workers):
-    uvicorn.run("openad_service_utils.api.server:health_app", host=host, port=port, log_level=log_level, workers=max_workers)
+    uvicorn.run("openad_service_utils.api.server:kube_probe", host=host, port=port, log_level=log_level, workers=max_workers)
 
 
 def signal_handler(signum, frame, executor):
@@ -108,9 +108,14 @@ def signal_handler(signum, frame, executor):
     executor.shutdown(wait=True)
     sys.exit(0)
 
+
 def ignore_winch_signal(signum, frame):
     # ignore signal. do nothing
     return
+
+
+def is_running_in_kubernetes():
+    return "KUBERNETES_SERVICE_HOST" in os.environ
 
 
 def start_server(host="0.0.0.0", port=8080, log_level="info", max_workers=1, worker_gpu_min=2000):
@@ -147,7 +152,9 @@ def start_server(host="0.0.0.0", port=8080, log_level="info", max_workers=1, wor
     multiprocessing.set_start_method("spawn")
     with ProcessPoolExecutor() as executor:
         executor.submit(run_main_service, host, port, log_level, max_workers)
-        executor.submit(run_health_service, host, port+1, log_level, 1)
+        if not is_running_in_kubernetes():
+            print("[I] Running in Kubernetes, starting health probe")
+            executor.submit(run_health_service, host, port+1, log_level, 1)
         signal.signal(signal.SIGINT, lambda s, f: signal_handler(s, f, executor))
         signal.signal(signal.SIGTERM, lambda s, f: signal_handler(s, f, executor))
         signal.signal(signal.SIGWINCH, ignore_winch_signal)
