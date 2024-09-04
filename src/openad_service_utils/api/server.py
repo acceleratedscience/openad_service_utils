@@ -7,7 +7,7 @@ import sys
 from concurrent.futures import ProcessPoolExecutor
 
 import uvicorn
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import HTMLResponse, JSONResponse
 from pandas import DataFrame
 
@@ -59,26 +59,30 @@ async def health():
 
 @app.post("/service")
 async def service(property_request: dict):
-    # user request is for property prediction
-    if property_request.get("service_type") in PropertyFactory.AVAILABLE_PROPERTY_PREDICTOR_TYPES():
-        result = prop_requester.route_service(property_request)
-    # user request is for generation
-    elif property_request.get("service_type") == "generate_data":
-        result = gen_requester.route_service(property_request)
-    else:
-        return JSONResponse(
-            {"message": "service not supported", "service_type": property_request.get("service_type")},
-        )
-    # cleanup resources before returning request
-    clean_gpu_mem()
-    if result is None:
-        return JSONResponse(
-            {"message": "could not process service request", "service": property_request.get("parameters",{}).get("property_type")},
-        )
-    if isinstance(result, DataFrame):
-        return result.to_dict(orient="records")
-    else:
-        return result
+    try:
+        # user request is for property prediction
+        if property_request.get("service_type") in PropertyFactory.AVAILABLE_PROPERTY_PREDICTOR_TYPES():
+            result = prop_requester.route_service(property_request)
+        # user request is for generation
+        elif property_request.get("service_type") == "generate_data":
+            result = gen_requester.route_service(property_request)
+        else:
+            return JSONResponse(
+                {"message": "service not supported", "service_type": property_request.get("service_type")},
+            )
+        # cleanup resources before returning request
+        clean_gpu_mem()
+        if result is None:
+            return JSONResponse(
+                {"message": "could not process service request", "service": property_request.get("parameters",{}).get("property_type")},
+            )
+        if isinstance(result, DataFrame):
+            return result.to_dict(orient="records")
+        else:
+            return result
+    except Exception as e:
+        logging.error(f"Error processing request: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.get("/service")
