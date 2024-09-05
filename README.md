@@ -1,6 +1,11 @@
-# utilities for onboarding models to openad toolkit
-
+# library for onboarding models to openad toolkit
 ⚠️ Under construction
+
+## Installation
+Install the latest version by tag, such as
+```shell
+pip install git+https://github.com/acceleratedscience/openad_service_utils.git@0.2.0
+```
 
 ## Model Implementations
 
