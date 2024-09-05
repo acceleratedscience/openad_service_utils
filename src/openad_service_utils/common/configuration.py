@@ -43,8 +43,8 @@ class GT4SDConfiguration(BaseSettings):
     Default configurations for gt4sd including a read-only COS for algorithms' artifacts.
     Default configuration for gt4sd hub including a read-write COS for algorithms' artifacts uploaded by users.
     """
-
-    gt4sd_local_cache_path: str = os.path.join(os.path.expanduser("~"), ".gt4sd")
+    # reimplemented .gt4sd to .openad_models
+    gt4sd_local_cache_path: str = os.path.join(os.path.expanduser("~"), ".openad_models")
     gt4sd_local_cache_path_algorithms: str = "algorithms"
     gt4sd_local_cache_path_properties: str = "properties"
     gt4sd_max_number_of_stuck_calls: int = 50

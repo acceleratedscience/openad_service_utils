@@ -12,7 +12,7 @@ from typing import List, Any
 class YourApplicationName(SimpleGenerator):
     # necessary s3 paramters
     algorithm_type: str = "conditional_generation"
-    algorithm_name = "MyGeneratorAlgorithm"
+    algorithm_name: str = "MyGeneratorAlgorithm"
     algorithm_application: str = "MySimpleGenerator"
     algorithm_version: str = "v0"
     # your custom api paramters
@@ -37,7 +37,11 @@ if __name__ == "__main__":
     start_server()
 ```
 
-> IMPORTANT: Local cache path gets checked first then s3 if it doesnt exist. For local development add your checkpoint and other model files to the following path in you machine replacing the `<>` names with yours: `~/.gt4sd/properties/<domain>/<algorithm_name>/<algorithm_application>/<algorithm_version>`. So in this example the path would be `~/.gt4sd/algorithms/conditional_generation/MyGeneratorAlgorithm/MySimpleGenerator/v0`
+## Generation Models Cache
+
+location based off the template schema
+
+`~/.openad_models / algorithms / algorithm_type / algorithm_name / algorithm_application / algorithm_version`
 
 
 ## Test your api with the openad-toolkit cli. assuming server is localhost

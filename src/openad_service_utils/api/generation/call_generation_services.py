@@ -190,14 +190,14 @@ class request_generation:
         # print(generator_type)
         parms.update(generator_type)
         # print(parms)
-
+        # take parms and concatenate key and value to create a unique model id
         try:
             model = None
-            print(self.generate_name(parms))
-            model_type = "_".join(self.generate_name(parms))
+            # print(self.generate_name(parms))
+            # model_type = "_".join(self.generate_name(parms))
+            model_type = generator_type + "".join([str(parms[x]) for x in parms.keys() if x in ['algorithm_type','domain','algorithm_name','algorithm_version','algorithm_application']])
             for model in self.models_cache:
                 if model_type in model:
-                    print(">>>> getting cached!!!!!")
                     model = model[model_type]
             if not model:
                 if "target" in parms:

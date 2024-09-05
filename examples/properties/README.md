@@ -11,7 +11,7 @@ from typing import Optional, List, Any
 class YourApplicationName(SimplePredictor):
     # necessary s3 paramters
     domain: str = "molecules"
-    algorithm_name = "MyAlgorithm"
+    algorithm_name: str = "MyAlgorithm"
     algorithm_application: str = "mypredictor"
     algorithm_version: str = "v0"
     # necessary api types to define
@@ -39,7 +39,11 @@ if __name__ == "__main__":
     start_server()
 ```
 
-> IMPORTANT: Local cache path gets checked first then s3 if it doesnt exist. For local development add your checkpoint and other model files to the following path in you machine replacing the `<>` names with yours: `~/.gt4sd/properties/<domain>/<algorithm_name>/<algorithm_application>/<algorithm_version>`. So in this example the path would be `~/.gt4sd/properties/molecules/MyAlgorithm/mypredictor/v0`
+## Property Models Cache
+
+location based off the template schema
+
+`~/.openad_models / properties / domain / algorithm_name / algorithm_application / algorithm_version`
 
 ## Test your api with the openad-toolkit cli. assuming server is localhost
 ```bash

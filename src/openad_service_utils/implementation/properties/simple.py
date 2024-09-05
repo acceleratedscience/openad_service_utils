@@ -1,5 +1,6 @@
 import logging
 import os
+import pprint
 from abc import ABC, abstractmethod
 from typing import ClassVar, List, Optional, TypedDict, Dict, Any
 
@@ -18,6 +19,17 @@ logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
 
 
+def get_properties_model_path(domain: str, algorithm_name: str, algorithm_application: str, algorithm_version: str) -> str:
+    """generate the model path location"""
+    prefix = os.path.join(
+        domain,
+        algorithm_name,
+        algorithm_application,
+        algorithm_version,
+        )
+    return get_cached_algorithm_path(prefix, module="properties")
+
+
 class PropertyInfo(TypedDict):
     name: str
     description: str
@@ -26,7 +38,6 @@ class PropertyInfo(TypedDict):
 class BasePredictorParameters:
     # TODO: change all this into 1 base_model_path or have user implement their style of downloading e.g. remove configuration dependency
     algorithm_type: str = "prediction"
-
     domain: DomainSubmodule = Field(
         ..., example="molecules", description="Submodule of gt4sd.properties"
     )
@@ -52,7 +63,6 @@ class PredictorParameters(BaseModel):
         MyPredictor.register(MyParams)
     """
     algorithm_type: str = "prediction"
-
     domain: DomainSubmodule = Field(
         ..., example="molecules", description="Submodule of gt4sd.properties"
     )
@@ -78,7 +88,7 @@ class SimplePredictor(PredictorAlgorithm, BasePredictorParameters):
         class YourApplicationName(SimplePredictor):
             # necessary s3 paramters
             domain: str = "molecules"
-            algorithm_name = "MyAlgorithmName"
+            algorithm_name: str = "MyAlgorithmName"
             algorithm_application: str = "MyApplicationName"
             algorithm_version: str = "v0"
             # necessary api types
@@ -130,18 +140,24 @@ class SimplePredictor(PredictorAlgorithm, BasePredictorParameters):
             self.configuration.algorithm_version,
         )
         return get_cached_algorithm_path(prefix, module="properties")
+
+    def __download_model(self):
+        """download model from s3"""
+        if not self.__artifacts_downloaded__:
+            logger.info(f"[I] Downloading model: {self.configuration.algorithm_application}/{self.configuration.algorithm_version}")
+            if self.configuration.ensure_artifacts():
+                SimplePredictor.__artifacts_downloaded__ = True
+                logger.info(f"[I] model downloaded")
+            else:
+                logger.error("[E] could not download model")
+        else:
+            logger.info(f"[I] model already downloaded")
     
     def get_predictor(self, configuration: AlgorithmConfiguration):
         """overwrite existing function to download model only once"""
-        logger.info("ensure artifacts for the application are present.")
-        if not self.__artifacts_downloaded__:
-            print(f"[I] Downloading model: {configuration.algorithm_application}/{configuration.algorithm_version}")
-            if configuration.ensure_artifacts():
-                SimplePredictor.__artifacts_downloaded__ = True
-            else:
-                print("[E] could not download model")
-        else:
-            logger.info(f"[I] model already downloaded")
+        # download model
+        self.__download_model()
+        # get prediction function
         model: Predictor = self.get_model(self.get_model_location())
         return model
     
@@ -179,8 +195,7 @@ class SimplePredictor(PredictorAlgorithm, BasePredictorParameters):
         # update class name to be `algorithm_application`
         cls.__name__ = class_fields.get("algorithm_application")
         # setup s3 class params
-        model_params = type(cls.__name__+"Parameters", (PredictorParameters, ), class_fields)
-        print(f"[i] registering simple predictor: {'/'.join([class_fields.get('domain'), class_fields.get('algorithm_name'), cls.__name__, class_fields.get('algorithm_version')])}\n")
+        model_param_class: PredictorParameters = type(cls.__name__+"Parameters", (PredictorParameters, ), class_fields)
         if class_fields.get("available_properties"):
             if not isinstance(class_fields.get("available_properties"), list):
                 raise ValueError("available_properties must be of List[PropertyInfo]")
@@ -188,7 +203,10 @@ class SimplePredictor(PredictorAlgorithm, BasePredictorParameters):
             for predictor_name in class_fields.get("available_properties"):
                 if isinstance(predictor_name, dict):
                     predictor_name = predictor_name.get("name")
-                PropertyFactory.add_predictor(name=predictor_name, property_type=class_fields.get("property_type"), predictor=(cls, model_params))
+                PropertyFactory.add_predictor(name=predictor_name, property_type=class_fields.get("property_type"), predictor=(cls, model_param_class))
         else:
             # set class name as property type in PropertyFactory
-            PropertyFactory.add_predictor(name=cls.__name__, property_type=class_fields.get("property_type"), predictor=(cls, model_params))
+            PropertyFactory.add_predictor(name=cls.__name__, property_type=class_fields.get("property_type"), predictor=(cls, model_param_class))
+        model_location = get_properties_model_path(class_fields.get("domain"), class_fields.get("algorithm_name"), cls.__name__, class_fields.get("algorithm_version"))
+        print(f"[i] registering predictor model: {model_location}")
+        # print(cls(model_param_class(**model_param_class().dict())).get_model_location())

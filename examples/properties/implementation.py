@@ -2,8 +2,12 @@ import os
 from typing import List, Union, Dict, Any
 from openad_service_utils.common.algorithms.core import Predictor
 from pydantic.v1 import Field
-from openad_service_utils import SimplePredictor, PredictorTypes, DomainSubmodule, PropertyInfo
-
+from openad_service_utils import (
+    SimplePredictor, 
+    PredictorTypes, 
+    DomainSubmodule, 
+    PropertyInfo
+)
 
 class ClassificationModel:
     """Does nothing. example for a torch model"""

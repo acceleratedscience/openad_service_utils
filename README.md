@@ -2,11 +2,12 @@
 
 ⚠️ Under construction
 
-### Model implementations
+## Model Implementations
 
-model implementation for [generation example](examples/generation)
+Look under the examples folder for implementations of models.
 
-model implementation for [properties example](examples/properties)
+- implementation for generation models [readme](examples/generation)
+- implementation for properties example [readme](examples/properties)
 
 
 ## Use your own private model not hosted on gt4sd
@@ -22,10 +23,12 @@ os.environ["GT4SD_S3_ACCESS_KEY_HUB"] = ""
 os.environ["GT4SD_S3_SECRET_KEY_HUB"] = ""
 ```
 
-the bucket should follow the gt4sd path scheme
+## Local Cache locations for models
 
-`algorithm_type / algorithm_name / algorithm_application / algorithm_version`
+### Generation Models location
 
-For testing you can create the path locally to skip downloading from s3. the same scheme applies under the users home directory `.gt4sd` directory:
+`~/.openad_models / algorithms / algorithm_type / algorithm_name / algorithm_application / algorithm_version`
 
-`.gt4sd / (algorithms, properties) / algorithm_type / algorithm_name / algorithm_application / algorithm_version`
+### Property Models location
+
+`~/.openad_models / properties / domain / algorithm_name / algorithm_application / algorithm_version`
