@@ -4,6 +4,7 @@ import multiprocessing
 import os
 import signal
 import sys
+import json
 from concurrent.futures import ProcessPoolExecutor
 
 import uvicorn
@@ -67,15 +68,13 @@ async def service(property_request: dict):
         elif property_request.get("service_type") == "generate_data":
             result = gen_requester.route_service(property_request)
         else:
-            return JSONResponse(
-                {"message": "service not supported", "service_type": property_request.get("service_type")},
-            )
+            logging.error(f"Error processing request: {property_request}")
+            raise HTTPException(status_code=500, detail=f"service request error: {property_request}")
         # cleanup resources before returning request
         clean_gpu_mem()
         if result is None:
-            return JSONResponse(
-                {"message": "could not process service request", "service": property_request.get("parameters",{}).get("property_type")},
-            )
+            raise HTTPException(status_code=500, detail=f"service request error: {property_request}")
+
         if isinstance(result, DataFrame):
             return result.to_dict(orient="records")
         else:
