@@ -19,7 +19,7 @@ class MySimpleGenerator(SimpleGenerator):
     # metadata parameters for registry to fetch models from s3
     # s3 path: algorithm_type / algorithm_name / algorithm_application / algorithm_version
     algorithm_type: str = "conditional_generation"
-    algorithm_name = "MyGeneratorAlgorithm"
+    algorithm_name: str = "MyGeneratorAlgorithm"
     algorithm_application: str = "MySimpleGenerator"
     algorithm_version: str = "v0"
 

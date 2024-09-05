@@ -12,7 +12,7 @@ from typing import List, Any
 class YourApplicationName(SimpleGenerator):
     # necessary s3 paramters
     algorithm_type: str = "conditional_generation"
-    algorithm_name = "MyGeneratorAlgorithm"
+    algorithm_name: str = "MyGeneratorAlgorithm"
     algorithm_application: str = "MySimpleGenerator"
     algorithm_version: str = "v0"
     # your custom api paramters

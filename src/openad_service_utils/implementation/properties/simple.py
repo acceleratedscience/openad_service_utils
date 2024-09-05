@@ -88,7 +88,7 @@ class SimplePredictor(PredictorAlgorithm, BasePredictorParameters):
         class YourApplicationName(SimplePredictor):
             # necessary s3 paramters
             domain: str = "molecules"
-            algorithm_name = "MyAlgorithmName"
+            algorithm_name: str = "MyAlgorithmName"
             algorithm_application: str = "MyApplicationName"
             algorithm_version: str = "v0"
             # necessary api types

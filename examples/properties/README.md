@@ -11,7 +11,7 @@ from typing import Optional, List, Any
 class YourApplicationName(SimplePredictor):
     # necessary s3 paramters
     domain: str = "molecules"
-    algorithm_name = "MyAlgorithm"
+    algorithm_name: str = "MyAlgorithm"
     algorithm_application: str = "mypredictor"
     algorithm_version: str = "v0"
     # necessary api types to define
