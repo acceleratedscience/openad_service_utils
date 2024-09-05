@@ -153,29 +153,20 @@ class request_properties:
                         }
                     )
                     continue
-                # get handle to predictor, if there is not one for the specific propoerty type and Parameter combination then create on
-                # for handle in self.models_cache:
-                #     if (
-                #         handle["parms"] == parms
-                #         and handle["property_type"] == property_type
-                #     ):
-                #         predictor = handle["predictor"]
+                # take parms and concatenate key and value to create a unique model id
+                using_model = property_type + "".join([str(parms[x]) for x in parms.keys() if x in ['algorithm_type','domain','algorithm_name','algorithm_version','algorithm_application']])
+                # look through model cache in memory
                 for model in self.models_cache:
-                    if property_type in model:
+                    if using_model in model:
                         # get model from cache
-                        predictor = model[property_type]
+                        predictor = model[using_model]
                 if predictor is None:
                     predictor = PropertyPredictorRegistry.get_property_predictor(
                         name=property_type, parameters=parms
                     )
-                    self.models_cache.append({property_type: predictor})
-                    # self.models_cache.append(
-                    #     {
-                    #         "property_type": property_type,
-                    #         "parms": parms,
-                    #         "predictor": predictor,
-                    #     }
-                    # )
+                    if predictor:
+                        # add model to cache in memory
+                        self.models_cache.append({using_model: predictor})
 
                 # Crystaline structure models take data as file sets, the following manages this for the Crystaline property requests
                 if service_type == "get_crystal_property":
