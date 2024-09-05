@@ -43,7 +43,7 @@ if __name__ == "__main__":
 
 location based off the template schema
 
-`~/.gt4sd / properties / domain / algorithm_name / algorithm_application / algorithm_version`
+`~/.openad_models / properties / domain / algorithm_name / algorithm_application / algorithm_version`
 
 ## Test your api with the openad-toolkit cli. assuming server is localhost
 ```bash

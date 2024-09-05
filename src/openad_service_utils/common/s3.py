@@ -249,7 +249,7 @@ def sync_folder_with_s3(
         S3SyncError: in case of S3 syncing errors.
     """
     path = os.path.join(folder_path, prefix) if prefix else folder_path
-    print(f"using bucket={bucket} path={path} prefix={prefix}")
+    print(f"[i] using bucket={bucket} path={path} prefix={prefix}")
     try:
         client = GT4SDS3Client(
             host=host, access_key=access_key, secret_key=secret_key, secure=secure

@@ -27,8 +27,8 @@ os.environ["GT4SD_S3_SECRET_KEY_HUB"] = ""
 
 ### Generation Models location
 
-`~/.gt4sd / algorithms / algorithm_type / algorithm_name / algorithm_application / algorithm_version`
+`~/.openad_models / algorithms / algorithm_type / algorithm_name / algorithm_application / algorithm_version`
 
 ### Property Models location
 
-`~/.gt4sd / properties / domain / algorithm_name / algorithm_application / algorithm_version`
+`~/.openad_models / properties / domain / algorithm_name / algorithm_application / algorithm_version`
