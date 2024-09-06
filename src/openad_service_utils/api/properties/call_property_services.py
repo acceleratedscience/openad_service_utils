@@ -208,13 +208,31 @@ class request_properties:
             # All other propoerty Requests handled here.
             model_predictions = predictor(subjects)
             # assert len(model_predictions) == (len(subjects) * len(selected_props)), f"Prediction length mismatch: predictions({len(model_predictions)}) != expected({len(subjects) * len(selected_props)})"
-            results.append(
-                {
-                    "subjects": subjects,
-                    "properties": selected_props,
-                    "result": model_predictions,
-                }
-            )
+            assert len(model_predictions) == len(selected_props), f"Prediction length mismatch: predictions({len(model_predictions)}) != expected({len(selected_props)}). make sure to return 1 prediction per property requested"
+            for i, prop in enumerate(selected_props):
+                results.append(
+                    {
+                        "property": prop,
+                        "subjects": subjects,
+                        "results": model_predictions[i],
+                    }
+                )
+                # for j, subject in enumerate(subjects):
+                #     results.append(
+                #         {
+                #             "subject": subject,
+                #             "property": prop,
+                #             "result": model_predictions[i][j],
+                #         }
+                #     )
+
+            # results.append(
+            #     {
+            #         "subjects": subjects,
+            #         "properties": selected_props,
+            #         "result": model_predictions,
+            #     }
+            # )
             # try:
             #     model_predictions = predictor(subjects)
             #     assert len(model_predictions) == (len(subjects) * len(selected_props)), "Prediction length mismatch"
