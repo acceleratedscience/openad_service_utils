@@ -212,7 +212,6 @@ class request_properties:
                         {
                             "properties": selected_props,
                             "subjects": subjects,
-                            "parameters": parameters,
                             "results": model_predictions,
                         }
                     )
