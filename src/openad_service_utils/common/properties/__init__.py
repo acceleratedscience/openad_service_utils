@@ -93,13 +93,18 @@ class PropertyPredictorRegistry:
         try:
             # BUG: if based on property type 2 models with same parms will be treated as same model
             # https://github.com/acceleratedscience/openad_service_utils/issues/5
+            for i in properties:
+                if i not in PropertyFactory.AVAILABLE_PROPERTY_PREDICTORS():
+                    raise ValueError(
+                        f"Property predictor properties='{i}' not supported. Choose from {PropertyFactory.AVAILABLE_PROPERTY_PREDICTORS()}"
+                    )
             property_class, parameters_class = PropertyFactory.PROPERTY_PREDICTOR_FACTORY()[properties[0]]
             # pass along chosen property so it can be selectable
             parameters["selected_properties"] = properties
             return property_class(parameters_class(**parameters))
         except KeyError:
             raise ValueError(
-                f"Property predictor properties={properties} not supported. Pick one from {PropertyFactory.AVAILABLE_PROPERTY_PREDICTORS()}"
+                f"Property predictor properties={properties} not supported. Choose from {PropertyFactory.AVAILABLE_PROPERTY_PREDICTORS()}"
             )
     
     @staticmethod
