@@ -11,6 +11,7 @@ import uvicorn
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import HTMLResponse, JSONResponse
 from pandas import DataFrame
+import copy
 
 from openad_service_utils.api.generation.call_generation_services import \
     get_services as get_generation_services  # noqa: E402
@@ -61,6 +62,7 @@ async def health():
 
 @app.post("/service")
 async def service(property_request: dict):
+    original_request = copy.deepcopy(property_request)
     try:
         # user request is for property prediction
         if property_request.get("service_type") in PropertyFactory.AVAILABLE_PROPERTY_PREDICTOR_TYPES():
@@ -70,11 +72,11 @@ async def service(property_request: dict):
             result = gen_requester.route_service(property_request)
         else:
             logging.error(f"Error processing request: {property_request}")
-            raise HTTPException(status_code=500, detail={"error": "service mismatch", "input": property_request})
+            raise HTTPException(status_code=500, detail={"error": "service mismatch", "input": original_request})
         # cleanup resources before returning request
         clean_gpu_mem()
         if result is None:
-            raise HTTPException(status_code=500, detail={"error": "service not found", "input": property_request})
+            raise HTTPException(status_code=500, detail={"error": "service not found", "input": original_request})
         if isinstance(result, DataFrame):
             return result.to_dict(orient="records")
         else:
@@ -86,7 +88,7 @@ async def service(property_request: dict):
         simple_error = f"{type(e).__name__}: {e}"
         logging.error(f"Error processing request: {simple_error}")
         traceback.print_exc()
-        raise HTTPException(status_code=500, detail={"error": str(simple_error), "input": property_request})
+        raise HTTPException(status_code=500, detail={"error": str(simple_error), "input": original_request})
 
 
 @app.get("/service")
