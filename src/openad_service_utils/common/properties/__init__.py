@@ -88,16 +88,18 @@ class PropertyPredictorRegistry:
 
     @staticmethod
     def get_property_predictor(
-        name: str, parameters: Dict[str, Any] = {}
+        properties: List[str], parameters: Dict[str, Any] = {}
     ) -> PropertyPredictor:
         try:
-            property_class, parameters_class = PropertyFactory.PROPERTY_PREDICTOR_FACTORY()[name]
-            # pass along chosen property
-            parameters["selected_property"] = name
+            # BUG: if based on property type 2 models with same parms will be treated as same model
+            # https://github.com/acceleratedscience/openad_service_utils/issues/5
+            property_class, parameters_class = PropertyFactory.PROPERTY_PREDICTOR_FACTORY()[properties[0]]
+            # pass along chosen property so it can be selectable
+            parameters["selected_properties"] = properties
             return property_class(parameters_class(**parameters))
         except KeyError:
             raise ValueError(
-                f"Property predictor name={name} not supported. Pick one from {PropertyFactory.AVAILABLE_PROPERTY_PREDICTORS()}"
+                f"Property predictor properties={properties} not supported. Pick one from {PropertyFactory.AVAILABLE_PROPERTY_PREDICTORS()}"
             )
     
     @staticmethod

@@ -6,6 +6,7 @@ from pathlib import Path
 
 from pandas import DataFrame
 from pydantic import BaseModel
+from typing import List, Optional
 
 from openad_service_utils.api.properties.generate_property_service_defs import \
     generate_property_service_defs
@@ -135,11 +136,107 @@ class request_properties:
     def __init__(self) -> None:
         pass
 
-    def request(self, service_type, parameters: dict, apikey: str):
-        results = []
-        if service_type not in PropertyFactory.AVAILABLE_PROPERTY_PREDICTOR_TYPES():
-            return {f"No service of type {service_type} available "}
 
+
+    def find_requested_models(self, property: str, parameters: dict) -> str:
+        """returns a key of the requested model class. detects if user makes changes and want to use a different model"""
+        model_key = ""
+        # get the predictor class name
+        model_class_name = PropertyPredictorRegistry.get_property_predictor_meta_class(property).__name__
+        # get the updated parameters
+        updated_params = "_".join([str(parameters[x]) for x in sorted(parameters.keys()) if x in ['algorithm_type','domain','algorithm_name','algorithm_version','algorithm_application']])
+        if updated_params:
+            model_key = model_class_name + "_" + updated_params
+        return model_key or model_class_name
+    
+    def run_prediction(self, service_type, parameters: dict):
+        # initialize defaults
+        predictor = None
+        results = []
+        # remove params not needed for model itself
+        selected_props: List[str] = parameters.pop("property_type")
+        property_type: str = selected_props[0]
+        subjects: List[str] = parameters.pop("subjects")
+        model_key = self.find_requested_models(property_type, parameters)
+        # [print(f"{k}: {v}") for k,v in locals().items()]
+        # look through model cache in memory
+        for model in self.models_cache:
+            if model_key in model:
+                # get model from cache
+                predictor = model[model_key]
+                print("[i] getting model from cache: '{}'".format(model_key))
+        if predictor is None:
+            predictor = PropertyPredictorRegistry.get_property_predictor(
+                properties=selected_props, parameters=parameters
+            )
+            if predictor:
+                # add model to cache in memory
+                self.models_cache.append({model_key: predictor})
+                print("[i] adding model to cache: '{}'".format(model_key))
+        # Crystaline structure models take data as file sets, the following manages this for the Crystaline property requests
+        if service_type == "get_crystal_property":
+            tmpdir_cif = subject_files_repository(
+                "cif", subjects
+            )
+            tmpdir_csv = subject_files_repository(
+                "csv", subjects
+            )
+            if property_type == "metal_nonmetal_classifier" and subjects[
+                0
+            ].endswith("csv"):
+                data_module = Path(tmpdir_csv.name + "/crf_data.csv")
+                print(tmpdir_csv.name + "/crf_data.csv")
+                result_fields = ["formulas", "predictions"]
+            elif not property_type == "metal_nonmetal_classifier" and subjects[
+                0
+            ].endswith("cif"):
+                data_module = Path(tmpdir_cif.name + "/")
+                result_fields = ["cif_ids", "predictions"]
+            out = predictor(input=data_module)
+            pred_dict = dict(zip(out[result_fields[0]], out[result_fields[1]]))
+            for key in pred_dict:
+                results.append(
+                    {
+                        "subject": subjects[0],
+                        "property": property_type,
+                        "key": key,
+                        "result": str(pred_dict[key]),
+                    }
+                )
+        else:
+            # All other propoerty Requests handled here.
+            model_predictions = predictor(subjects)
+            # assert len(model_predictions) == (len(subjects) * len(selected_props)), f"Prediction length mismatch: predictions({len(model_predictions)}) != expected({len(subjects) * len(selected_props)})"
+            results.append(
+                {
+                    "subjects": subjects,
+                    "properties": selected_props,
+                    "result": model_predictions,
+                }
+            )
+            # try:
+            #     model_predictions = predictor(subjects)
+            #     assert len(model_predictions) == (len(subjects) * len(selected_props)), "Prediction length mismatch"
+            #     results.append(
+            #         {
+            #             "subjects": subjects,
+            #             "properties": selected_props,
+            #             "result": model_predictions,
+            #         }
+            #     )
+            # except Exception:
+            #     results.append(
+            #         {
+            #             "subjects": subjects,
+            #             "properties": selected_props,
+            #             "result": None,
+            #         }
+            #     )
+        return results
+
+    def request(self, service_type, parameters: dict, apikey: str):
+        return self.run_prediction(service_type, parameters)
+        results = []
         for property_type in parameters["property_type"]:
             predictor = None
             for subject in parameters["subjects"]:
@@ -154,19 +251,19 @@ class request_properties:
                     )
                     continue
                 # take parms and concatenate key and value to create a unique model id
-                using_model = property_type + "".join([str(parms[x]) for x in parms.keys() if x in ['algorithm_type','domain','algorithm_name','algorithm_version','algorithm_application']])
+                model_key = property_type + "".join([str(parms[x]) for x in parms.keys() if x in ['algorithm_type','domain','algorithm_name','algorithm_version','algorithm_application']])
                 # look through model cache in memory
                 for model in self.models_cache:
-                    if using_model in model:
+                    if model_key in model:
                         # get model from cache
-                        predictor = model[using_model]
+                        predictor = model[model_key]
                 if predictor is None:
                     predictor = PropertyPredictorRegistry.get_property_predictor(
                         name=property_type, parameters=parms
                     )
                     if predictor:
                         # add model to cache in memory
-                        self.models_cache.append({using_model: predictor})
+                        self.models_cache.append({model_key: predictor})
 
                 # Crystaline structure models take data as file sets, the following manages this for the Crystaline property requests
                 if service_type == "get_crystal_property":
@@ -220,6 +317,8 @@ class request_properties:
                                 "result": None,
                             }
                         )
+        print()
+        print(locals())
         return results
 
     def set_parms(self, property_type, parameters):

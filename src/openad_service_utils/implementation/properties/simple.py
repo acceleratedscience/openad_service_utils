@@ -73,7 +73,7 @@ class PredictorParameters(BaseModel):
     algorithm_application: str = Field(..., example="Tox21")
     # this is used to select a var::PropertyInfo.name available_properties. User selected property from api.
     # this is not harcoded in the class, but is added to the class when registering the predictor
-    selected_property: str = ""
+    selected_properties: List[str] = []
 
 
 class SimplePredictor(PredictorAlgorithm, BasePredictorParameters):
@@ -161,8 +161,8 @@ class SimplePredictor(PredictorAlgorithm, BasePredictorParameters):
         model: Predictor = self.get_model(self.get_model_location())
         return model
     
-    def get_selected_property(self) -> str:
-        return self.selected_property
+    def get_selected_properties(self) -> List[str]:
+        return self.selected_properties
     
     def get_model(self, resources_path: str):
         """do not use. do not overwrite!"""
@@ -175,7 +175,7 @@ class SimplePredictor(PredictorAlgorithm, BasePredictorParameters):
         raise NotImplementedError("Not implemented in baseclass.")
     
     @abstractmethod
-    def predict(self, sample: Any):
+    def predict(self, samples: Any):
         """Run predictions and return results."""
         raise NotImplementedError("Not implemented in baseclass.")
 
