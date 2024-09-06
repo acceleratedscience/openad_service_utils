@@ -164,6 +164,7 @@ class request_properties:
             if model_key in model:
                 # get model from cache
                 predictor = model[model_key]
+                predictor.selected_properties = selected_props  # update selected properties
                 print("[i] getting model from cache: '{}'".format(model_key))
         if predictor is None:
             predictor = PropertyPredictorRegistry.get_property_predictor(
