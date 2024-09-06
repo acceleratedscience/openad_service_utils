@@ -23,6 +23,7 @@ from openad_service_utils.api.properties.call_property_services import \
 from openad_service_utils.common.properties.property_factory import \
     PropertyFactory
 
+import traceback
 
 app = FastAPI()
 kube_probe = FastAPI()
@@ -69,19 +70,23 @@ async def service(property_request: dict):
             result = gen_requester.route_service(property_request)
         else:
             logging.error(f"Error processing request: {property_request}")
-            raise HTTPException(status_code=500, detail=f"service request error: {property_request}")
+            raise HTTPException(status_code=500, detail={"error": "service mismatch", "input": property_request})
         # cleanup resources before returning request
         clean_gpu_mem()
         if result is None:
-            raise HTTPException(status_code=500, detail=f"service request error: {property_request}")
-
+            raise HTTPException(status_code=500, detail={"error": "service not found", "input": property_request})
         if isinstance(result, DataFrame):
             return result.to_dict(orient="records")
         else:
             return result
+    except HTTPException as e:
+        # reraise HTTPException to maintain the original status code and detail
+        raise e
     except Exception as e:
-        logging.error(f"Error processing request: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        simple_error = f"{type(e).__name__}: {e}"
+        logging.error(f"Error processing request: {simple_error}")
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail={"error": str(traceback.format_exc()), "input": property_request})
 
 
 @app.get("/service")
