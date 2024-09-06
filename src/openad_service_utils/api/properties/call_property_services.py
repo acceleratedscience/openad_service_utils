@@ -208,25 +208,26 @@ class request_properties:
         else:
             # All other propoerty Requests handled here.
             model_predictions = predictor(subjects)
-            # results.append(
-            #             {
-            #                 "properties": selected_props,
-            #                 "subjects": subjects,
-            #                 "results": model_predictions,
-            #             }
-            #         )
-            total_length = sum(len(sublist) for sublist in model_predictions)
-            assert total_length == (len(subjects) * len(selected_props)), f"Prediction length mismatch: predictions({total_length}) != expected({len(subjects) * len(selected_props)}). model output: {model_predictions}"
-            # assert len(model_predictions) == len(selected_props), f"Prediction length mismatch: properties({len(model_predictions)}) != expected({len(selected_props)}). make sure to return 1 prediction per property requested. predictions: {model_predictions}"
-            for i, prop in enumerate(selected_props):  # properties are columns
-                for j, subject in enumerate(subjects):  # subjects are rows
-                    results.append(
+            results.append(
                         {
-                            "subject": subject,
-                            "property": prop,
-                            "result": model_predictions[i][j],
+                            "properties": selected_props,
+                            "subjects": subjects,
+                            "parameters": parameters,
+                            "results": model_predictions,
                         }
                     )
+            # total_length = sum(len(sublist) for sublist in model_predictions)
+            # assert total_length == (len(subjects) * len(selected_props)), f"Prediction length mismatch: predictions({total_length}) != expected({len(subjects) * len(selected_props)}). model output: {model_predictions}"
+            # # assert len(model_predictions) == len(selected_props), f"Prediction length mismatch: properties({len(model_predictions)}) != expected({len(selected_props)}). make sure to return 1 prediction per property requested. predictions: {model_predictions}"
+            # for i, prop in enumerate(selected_props):  # properties are columns
+            #     for j, subject in enumerate(subjects):  # subjects are rows
+            #         results.append(
+            #             {
+            #                 "property": prop,
+            #                 "subject": subject,
+            #                 "result": model_predictions[i][j],
+            #             }
+            #         )
 
             # results.append(
             #     {
