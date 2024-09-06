@@ -86,7 +86,7 @@ async def service(property_request: dict):
         simple_error = f"{type(e).__name__}: {e}"
         logging.error(f"Error processing request: {simple_error}")
         traceback.print_exc()
-        raise HTTPException(status_code=500, detail={"error": str(traceback.format_exc()), "input": property_request})
+        raise HTTPException(status_code=500, detail={"error": str(simple_error), "input": property_request})
 
 
 @app.get("/service")
