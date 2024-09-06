@@ -19,6 +19,17 @@ T = TypeVar("T")  # used for target of generation
 U = TypeVar("U")  # used for additional context (e.g. part of target definition)
 
 
+def get_generation_model_path(algorithm_type: str, algorithm_name: str, algorithm_application: str, algorithm_version: str) -> str:
+    """generate the model path location"""
+    prefix = os.path.join(
+        algorithm_type,
+        algorithm_name,
+        algorithm_application,
+        algorithm_version,
+        )
+    return get_cached_algorithm_path(prefix, module="algorithms")
+
+
 class SimpleGenerator(AlgorithmConfiguration[S, T], ABC):
     """Class to create an api for a generator algorithm.
 
@@ -70,10 +81,12 @@ class SimpleGenerator(AlgorithmConfiguration[S, T], ABC):
         # create during runtime so that user doesnt have to write separate algorithm class
         algorithm = type(cls.algorithm_name, (BaseAlgorithm,), {})
         # update class name to application name
+        original_name = cls.__name__
         if cls.algorithm_application:
             logger.debug(f"updating application name from '{cls.__name__}' to '{cls.algorithm_application}'")
             cls.__name__ = cls.algorithm_application
-        print(f"[i] registering simple generator: {'/'.join([cls.algorithm_type, cls.algorithm_name, cls.__name__, cls.algorithm_version])}\n")
+        model_location = get_generation_model_path(cls.algorithm_type, cls.algorithm_name, cls.algorithm_application, cls.algorithm_version)
+        print(f"[i] registering generator class '{original_name}' cache_path={model_location}\n")
         ApplicationsRegistry.register_algorithm_application(algorithm)(cls)
     
     @abstractmethod

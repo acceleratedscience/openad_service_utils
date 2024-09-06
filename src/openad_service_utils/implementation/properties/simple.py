@@ -193,6 +193,7 @@ class SimplePredictor(PredictorAlgorithm, BasePredictorParameters):
             if field not in class_fields:
                 raise TypeError(f"Can't instantiate class ({cls.__name__}) without '{field}' class variable")
         # update class name to be `algorithm_application`
+        original_name = cls.__name__
         cls.__name__ = class_fields.get("algorithm_application")
         # setup s3 class params
         model_param_class: PredictorParameters = type(cls.__name__+"Parameters", (PredictorParameters, ), class_fields)
@@ -208,5 +209,5 @@ class SimplePredictor(PredictorAlgorithm, BasePredictorParameters):
             # set class name as property type in PropertyFactory
             PropertyFactory.add_predictor(name=cls.__name__, property_type=class_fields.get("property_type"), predictor=(cls, model_param_class))
         model_location = get_properties_model_path(class_fields.get("domain"), class_fields.get("algorithm_name"), cls.__name__, class_fields.get("algorithm_version"))
-        print(f"[i] registering predictor model: {model_location}")
+        print(f"[i] registering predictor class '{original_name}' cache_path='{model_location}'")
         # print(cls(model_param_class(**model_param_class().dict())).get_model_location())
