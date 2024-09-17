@@ -1,6 +1,5 @@
 import logging
 import os
-import pprint
 from abc import ABC, abstractmethod
 from typing import ClassVar, List, Optional, TypedDict, Dict, Any
 
@@ -208,5 +207,9 @@ class SimplePredictor(PredictorAlgorithm, BasePredictorParameters):
             # set class name as property type in PropertyFactory
             PropertyFactory.add_predictor(name=cls.__name__, property_type=class_fields.get("property_type"), predictor=(cls, model_param_class))
         model_location = get_properties_model_path(class_fields.get("domain"), class_fields.get("algorithm_name"), cls.__name__, class_fields.get("algorithm_version"))
+        try:
+            os.makedirs(model_location, exist_ok=True)
+        except Exception:
+            print(f"[E] could not create model cache location: {model_location}")
         print(f"[i] registering predictor model: {model_location}")
         # print(cls(model_param_class(**model_param_class().dict())).get_model_location())
