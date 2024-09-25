@@ -13,9 +13,13 @@ from openad_service_utils.common.properties.core import (DomainSubmodule,
                                                          S3Parameters)
 from openad_service_utils.common.properties.property_factory import (
     PredictorTypes, PropertyFactory)
+from openad_service_utils.utils.logging_config import setup_logging
 
+# Set up logging configuration
+setup_logging()
+
+# Create a logger
 logger = logging.getLogger(__name__)
-logger.addHandler(logging.NullHandler())
 
 
 def get_properties_model_path(domain: str, algorithm_name: str, algorithm_application: str, algorithm_version: str) -> str:
@@ -143,14 +147,14 @@ class SimplePredictor(PredictorAlgorithm, BasePredictorParameters):
     def __download_model(self):
         """download model from s3"""
         if not self.__artifacts_downloaded__:
-            logger.info(f"[I] Downloading model: {self.configuration.algorithm_application}/{self.configuration.algorithm_version}")
+            logger.info(f"Downloading model: {self.configuration.algorithm_application}/{self.configuration.algorithm_version}")
             if self.configuration.ensure_artifacts():
                 SimplePredictor.__artifacts_downloaded__ = True
-                logger.info(f"[I] model downloaded")
+                logger.info(f"model downloaded")
             else:
-                logger.error("[E] could not download model")
+                logger.error("could not download model")
         else:
-            logger.info(f"[I] model already downloaded")
+            logger.info(f"model already downloaded")
     
     def get_predictor(self, configuration: AlgorithmConfiguration):
         """overwrite existing function to download model only once"""
@@ -210,6 +214,6 @@ class SimplePredictor(PredictorAlgorithm, BasePredictorParameters):
         try:
             os.makedirs(model_location, exist_ok=True)
         except Exception:
-            print(f"[E] could not create model cache location: {model_location}")
-        print(f"[i] registering predictor model: {model_location}")
-        # print(cls(model_param_class(**model_param_class().dict())).get_model_location())
+            logger.error(f"could not create model cache location: {model_location}")
+        logger.info(f"registering predictor model: {model_location}")
+        # logger.debug(cls(model_param_class(**model_param_class().dict())).get_model_location())

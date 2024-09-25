@@ -31,9 +31,13 @@ from minio import Minio
 from minio.error import S3Error
 
 from .exceptions import S3SyncError
+from openad_service_utils.utils.logging_config import setup_logging
 
+# Set up logging configuration
+setup_logging()
+
+# Create a logger
 logger = logging.getLogger(__name__)
-logger.addHandler(logging.NullHandler())
 
 
 class GT4SDS3Client:
@@ -163,12 +167,12 @@ class GT4SDS3Client:
             # create empty directory if it doesn't exist
             if is_directory and not os.path.isdir(filepath):
                 os.makedirs(filepath)
-                logger.info(f"[I] creating empty directory: '{filepath}'")
+                logger.debug(f"creating empty directory: '{filepath}'")
                 continue  # no file just an empty directory
             # create parent directories for file it doesn't exist
             if not is_directory and not os.path.exists(filepath):
                 parent_dir = os.path.dirname(filepath)
-                logger.info(f"[I] creating parent directory: '{parent_dir}'")
+                logger.debug(f"creating parent directory: '{parent_dir}'")
                 try:
                     os.makedirs(parent_dir)
                 except FileExistsError:
@@ -212,9 +216,9 @@ def upload_file_to_s3(
         client = GT4SDS3Client(
             host=host, access_key=access_key, secret_key=secret_key, secure=secure
         )
-        logger.info("starting syncing")
+        logger.debug("starting syncing")
         client.upload_file(bucket, target_filepath, source_filepath)
-        logger.info("syncing complete")
+        logger.debug("syncing complete")
     except Exception:
         logger.exception("generic syncing error")
         raise S3SyncError(
@@ -249,18 +253,18 @@ def sync_folder_with_s3(
         S3SyncError: in case of S3 syncing errors.
     """
     path = os.path.join(folder_path, prefix) if prefix else folder_path
-    print(f"[i] using bucket={bucket} path={path} prefix={prefix}")
+    logger.debug(f"using bucket={bucket} path={path} prefix={prefix}")
     try:
         client = GT4SDS3Client(
             host=host, access_key=access_key, secret_key=secret_key, secure=secure
         )
         client.list_bucket_names() # test connection. do nothing.
-        logger.info("starting syncing")
+        logger.debug("starting syncing")
         client.sync_folder(bucket=bucket, path=path, prefix=prefix)
-        logger.info("syncing complete")
+        logger.debug("syncing complete")
     except Exception as e:
         logger.exception("generic syncing error")
-        print(f"====================================\nError in syncing:\n{str(e)}\n====================================n")
+        logger.error(f"Error in syncing: {str(e)}")
         raise S3SyncError(
             "CacheSyncingError",
             f"error in syncing path={path} with host={host} access_key={access_key} secret_key={secret_key} secure={secure} bucket={bucket}",

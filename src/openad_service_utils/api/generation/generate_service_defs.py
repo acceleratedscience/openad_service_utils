@@ -3,6 +3,14 @@ import json
 
 from .generation_applications import (ApplicationsRegistry,
                                       get_algorithm_applications)
+import logging
+from openad_service_utils.utils.logging_config import setup_logging
+
+# Set up logging configuration
+setup_logging()
+
+# Create a logger
+logger = logging.getLogger(__name__)
 
 
 def generate_service_defs(target_type):
@@ -38,10 +46,10 @@ def generate_service_defs(target_type):
             algorithm_type=algorithm["algorithm_type"],
         ).configuration_class
 
-        # print(algorithm["algorithm_name"])
+        # logger.debug(algorithm["algorithm_name"])
 
         schema = dict(app.__pydantic_model__.schema())
-        # print(schema)
+        # logger.debug(schema)
         property_type = algorithm["algorithm_application"]
         if property_type not in service_types.keys():
 
@@ -64,7 +72,7 @@ def generate_service_defs(target_type):
                 "algorithm_type": algorithm["algorithm_type"],
             }
             if "algorithm_versions" not in service_types[property_type].keys():
-                # print(property_type)
+                # logger.debug(property_type)
                 service_types[property_type]["algorithm_versions"] = []
         service_types[property_type]["algorithm_versions"].append(algorithm["algorithm_version"])
 
@@ -77,24 +85,24 @@ def generate_service_defs(target_type):
             )
             app_inst.__init__.__annotations__
         except Exception as e:
-            print(e)
-            # print("--------------------------------------------")
-            print("need more installed")
+            logger.error(e)
+            # logger.debug("--------------------------------------------")
+            logger.debug("need more installed")
 
         try:
 
-            # print("--------------------------------------------")
-            # print("============================================")
-            # print(property_type)
+            # logger.debug("--------------------------------------------")
+            # logger.debug("============================================")
+            # logger.debug(property_type)
             target_description = app_inst.get_target_description()
 
-            # print(target_description)
-            # print(app_inst.__doc__)
+            # logger.debug(target_description)
+            # logger.debug(app_inst.__doc__)
         except:
-            print("no/;")
+            logger.debug("no/;")
             pass
-        # print("============================================")
-        # print("--------------------------------------------")
+        # logger.debug("============================================")
+        # logger.debug("--------------------------------------------")
         service_types[property_type]["target"] = target_description
         service_types[property_type]["description"] = app_inst.__doc__
     prime_list = []
@@ -144,5 +152,5 @@ def create_service_defs(target_type, def_locations):
             handle.write(json.dumps(x))
             handle.close()
         except:
-            print("fail:---------------" + str(x))
+            logger.error(str(x))
 

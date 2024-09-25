@@ -27,9 +27,9 @@ from typing import Dict, List
 
 from openad_service_utils.common.algorithms.registry import (
     ApplicationsRegistry, ConfigurationTuple)
-from openad_service_utils.common.configuration import reset_logging_root_logger
+# from openad_service_utils.common.configuration import reset_logging_root_logger
 
-reset_logging_root_logger()
+# reset_logging_root_logger()
 
 def get_algorithm_applications() -> List[Dict[str, str]]:
     return sorted(

@@ -13,6 +13,14 @@ from openad_service_utils.common.exceptions import InvalidItem
 
 from .generation_applications import ApplicationsRegistry as GeneratorRegistry
 from .generation_applications import get_algorithm_applications
+import logging
+from openad_service_utils.utils.logging_config import setup_logging
+
+# Set up logging configuration
+setup_logging()
+
+# Create a logger
+logger = logging.getLogger(__name__)
 
 
 class Info(BaseModel):
@@ -49,7 +57,7 @@ def is_valid_service(service: dict):
 
     for x in required_fields:
         if x not in service.keys():
-            print("not valid service " + service["service_name"] + "   " + x)
+            logger.error("not valid service " + service["service_name"] + "   " + x)
             return False
     return True
 
@@ -60,15 +68,15 @@ def is_valid_service(service: dict):
 #     service_files = glob.glob(os.path.abspath(os.path.dirname(new_prop_services.__file__) + "/*.json"))
 
 #     for file in service_files:
-#         # print(file)
+#         # logger.debug(file)
 #         with open(file, "r") as file_handle:
 #             try:
 #                 jdoc = json.load(file_handle)
 #                 if is_valid_service(jdoc):
 #                     service_list.append(jdoc)
 #             except Exception as e:
-#                 print(e)
-#                 print("invalid service json definition  " + file)
+#                 logger.debug(e)
+#                 logger.debug("invalid service json definition  " + file)
 #     return service_list
 
 ALL_AVAILABLE_SERVICES = []
@@ -113,7 +121,7 @@ class service_requester:
                 break
 
         if current_service is None:
-            print("service mismatch")
+            logger.debug("service mismatch")
             return None
         if current_service["service_name"] in []:
             return [current_service["service_name"] + "   Not Currently Available"]
@@ -121,7 +129,6 @@ class service_requester:
         if "sample_size" in request:
             try:
                 SAMPLE_SIZE = int(request["sample_size"])
-
             except:
                 SAMPLE_SIZE = 10
         else:
@@ -151,8 +158,6 @@ def get_generator_type(generator_application: str, parameters):
             generator_application == service["service_type"]
             and service["generator_type"]["algorithm_application"] == parameters["property_type"][0]
         ):
-            # print("Generator")
-            # print(service)
             return service["generator_type"]
 
     return None
@@ -166,7 +171,7 @@ class request_generation:
 
     def request(self, generator_application, parameters: dict, apikey: str, sample_size=10):
         results = []
-        print("generator_application :" + generator_application + " params" + str(parameters))
+        logger.debug("generator_application :" + generator_application + " params" + str(parameters))
         generator_type = get_generator_type(generator_application, parameters)
         if len(parameters["subjects"]) > 0:
             subject = parameters["subjects"][0]
@@ -180,87 +185,41 @@ class request_generation:
                     "result": "check Parameters",
                 }
             )
-        try:
-            parms = self.set_parms(generator_type=generator_type, parameters=parameters)
-        except Exception as e:
-            result = {"exception": str(e)}
-            result = {"error": result}
-            return result
+        # TODO: validate
+        parms = self.set_parms(generator_type=generator_type, parameters=parameters)
 
-        # print(generator_type)
         parms.update(generator_type)
-        # print(parms)
         # take parms and concatenate key and value to create a unique model id
-        try:
-            model = None
-            # print(self.generate_name(parms))
-            # model_type = "_".join(self.generate_name(parms))
-            model_type = generator_type + "".join([str(parms[x]) for x in parms.keys() if x in ['algorithm_type','domain','algorithm_name','algorithm_version','algorithm_application']])
-            for model in self.models_cache:
-                if model_type in model:
-                    model = model[model_type]
-            if not model:
-                if "target" in parms:
-                    target = copy.deepcopy(parms["target"])
-                    parms.pop("target")
-                    if isinstance(target, list):
-                        if len(target) == 1:
-                            target = target[0]
-                    print("-----------------------------------------")
-                    print(parms)
-                    print("-----------------------------------------")
-                    print(target)
-                    print(sample_size)
-                    print("-----------------------------------------")
-                    model = GeneratorRegistry.get_application_instance(**parms, target=target)
-                    self.models_cache.append({model_type: model})
-                else:
-                    model = GeneratorRegistry.get_application_instance(**parms)
-                    self.models_cache.append({model_type: model})
-        except TypeError as e:
-            print(traceback.print_tb(e.__traceback__))
-            return {"error": {"Type Error: ": str(e)}}
-        except IndexError as e:
-            print(traceback.print_tb(e.__traceback__))
-            return {"error": {"Module Index Error: ": str(e)}}
-        except InvalidItem as e:
-            print(traceback.print_tb(e.__traceback__))
-            return {"error": {"Invaliditem: ": str(e)}}
-        except ValueError as e:
-            print(traceback.print_tb(e.__traceback__))
-            return {"error": {"Incorrect value: ": str(e)}}
-        except OSError as e:
-            print(traceback.print_tb(e.__traceback__))
-            return {"error": {"OS ERROR: ": str(e)}}
-        except Exception as e:
-            print(traceback.print_tb(e.__traceback__))
-            return {"error": {"Unknown Error": str(e)}}
+        model = None
+        # TODO: fix model cache
+        # model_type = generator_application + "_" + "_".join([str(parms[x]) for x in parms.keys() if x in ['algorithm_type','domain','algorithm_name','algorithm_version','algorithm_application']])
+        # logger.debug(f"model cache lookup key: {model_type}")
+        # for model in self.models_cache:
+        #     if model_type in model:
+        #         model = model[model_type]
 
-        try:
-            result = list(model.sample(sample_size))
-            # return result
-            result = pd.DataFrame(result)
-            if len(result.columns) == 1:
-                result.columns = ["result"]
-            return result
-        except TypeError as e:
-            print(traceback.print_tb(e.__traceback__))
-            return {"error": {"Type Error: ": str(e)}}
-        except IndexError as e:
-            print(traceback.print_tb(e.__traceback__))
-            return {"error": {"Module Index Error: ": str(e)}}
-        except InvalidItem as e:
-            print(traceback.print_tb(e.__traceback__))
-            return {"error": {"Invaliditem: ": str(e)}}
-        except ValueError as e:
-            print(traceback.print_tb(e.__traceback__))
-            return {"error": {"Incorrect value: ": str(e)}}
-        except OSError as e:
-            print(traceback.print_tb(e.__traceback__))
-            return {"error": {"OS ERROR: ": str(e)}}
-        except Exception as e:
-            print(traceback.print_tb(e.__traceback__))
-            return {"error": {"Unknown Error": str(e)}}
+        if not model:
+            if "target" in parms:
+                target = copy.deepcopy(parms["target"])
+                parms.pop("target")
+                if isinstance(target, list):
+                    if len(target) == 1:
+                        target = target[0]
+                logger.debug(f"running sample: {target=} {parms=} {sample_size=}")
+                model = GeneratorRegistry.get_application_instance(**parms, target=target)
+                # self.models_cache.append({model_type: model})
+            else:
+                logger.debug(f"running sample: {parms=} {sample_size=}")
+                model = GeneratorRegistry.get_application_instance(**parms)
+                # self.models_cache.append({model_type: model})
+
+        # run model inference
+        result = list(model.sample(sample_size))
+        # return result
+        result = pd.DataFrame(result)
+        if len(result.columns) == 1:
+            result.columns = ["result"]
+        return result
     
     def generate_name(self, params: dict):
         valid_keys = [
@@ -284,7 +243,7 @@ class request_generation:
                 elif param in parameters.keys():
                     continue
                 else:
-                    print("no required " + param)
+                    logger.debug("no required " + param)
                     return None
         for param in parameters.keys():
             if param == "subjects":
@@ -304,7 +263,7 @@ if __name__ == "__main__":
 
     dt = datetime.now()
     ts = datetime.timestamp(dt)
-    print("Starting", datetime.fromtimestamp(ts))
+    logger.debug("Starting", datetime.fromtimestamp(ts))
     import pandas as pd
     import test_request_generator
 
@@ -312,23 +271,23 @@ if __name__ == "__main__":
     dt = datetime.now()
     ts = datetime.timestamp(dt)
 
-    print("Service Requestor Loaded ", datetime.fromtimestamp(ts))
-    print("----------RUN SERVICES----------------------------------------")
+    logger.debug("Service Requestor Loaded ", datetime.fromtimestamp(ts))
+    logger.debug("----------RUN SERVICES----------------------------------------")
 
     for request in test_request_generator.tests:
         dt = datetime.now()
         ts = datetime.timestamp(dt)
         if request["service_type"] != "get_crystal_property":
-            print(
+            logger.debug(
                 "\n\n Properties for subject:  " + ", ".join(request["parameters"]["subjects"]) + "   ",
                 datetime.fromtimestamp(ts),
             )
             result = requestor.route_service(request)
             if result == None:  # noqa: E711
-                print("Not Supported")
+                logger.debug("Not Supported")
             else:
-                print(pd.DataFrame(result))
+                logger.debug(pd.DataFrame(result))
         else:
-            print("\n\n Properties for crystals")
-            print()
-            print(pd.DataFrame(requestor.route_service(request)))
+            logger.debug("\n\n Properties for crystals")
+            logger.debug()
+            logger.debug(pd.DataFrame(requestor.route_service(request)))

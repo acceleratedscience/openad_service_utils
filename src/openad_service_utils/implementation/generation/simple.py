@@ -9,9 +9,13 @@ from openad_service_utils import ApplicationsRegistry
 from openad_service_utils.common.algorithms.core import (
     AlgorithmConfiguration, GeneratorAlgorithm, Targeted, Untargeted)
 from openad_service_utils.common.configuration import get_cached_algorithm_path
+from openad_service_utils.utils.logging_config import setup_logging
 
+# Set up logging configuration
+setup_logging()
+
+# Create a logger
 logger = logging.getLogger(__name__)
-# logger.setLevel(logging.DEBUG)
 
 # leave typing generic for algorithm implementation
 S = TypeVar("S")  # used for generated items
@@ -85,11 +89,11 @@ class SimpleGenerator(AlgorithmConfiguration[S, T], ABC):
             logger.debug(f"updating application name from '{cls.__name__}' to '{cls.algorithm_application}'")
             cls.__name__ = cls.algorithm_application
         model_location = get_properties_model_path(cls.algorithm_type, cls.algorithm_name, cls.__name__, cls.algorithm_version)
-        print(f"[i] registering generator model: {model_location}")
+        logger.info(f"registering generator model: {model_location}")
         try:
             os.makedirs(model_location, exist_ok=True)
         except Exception:
-            print(f"[E] could not create model cache location: {model_location}")
+            logger.error(f"could not create model cache location: {model_location}")
         ApplicationsRegistry.register_algorithm_application(algorithm)(cls)
     
     @abstractmethod
@@ -100,7 +104,7 @@ class SimpleGenerator(AlgorithmConfiguration[S, T], ABC):
         raise NotImplementedError("Not implemented in baseclass.")
 
     @abstractmethod
-    def predict(self, sample: Optional[Any]=None):
+    def predict(self, samples: list):
         """
         This is the major method to implement in child classes, it is called
         at instantiation of the SimpleGenerator and must return a List[Any]:
@@ -112,6 +116,9 @@ class SimpleGenerator(AlgorithmConfiguration[S, T], ABC):
 
     def generate(self, target: Optional[T]=None) -> List[Any]:
         """do not implement. implement predict instead."""
+        if isinstance(target, str):
+            # TODO: validate
+            target = [target]
         return self.predict(target)
 
 
@@ -151,7 +158,7 @@ class BaseAlgorithm(GeneratorAlgorithm[S, T]):
         """
         # check if model is downloaded only once.
         if not SimpleGenerator.__artifacts_downloaded__:
-            logger.info(f"[I] Downloading model: {configuration.algorithm_application}/{configuration.algorithm_version}")
+            logger.debug(f"Downloading model: {configuration.algorithm_application}/{configuration.algorithm_version}")
             # download model
             self.local_artifacts = configuration.ensure_artifacts()
             if self.local_artifacts:

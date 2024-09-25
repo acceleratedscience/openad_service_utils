@@ -36,7 +36,7 @@ from functools import partial
 from time import time
 from typing import (Any, Callable, ClassVar, Dict, Generic, Iterable, Iterator,
                     Optional, Set, Type, TypeVar, Union)
-
+from openad_service_utils.utils.logging_config import setup_logging
 from openad_service_utils.common.configuration import (
     GT4SDConfiguration, get_algorithm_subdirectories_in_cache,
     get_algorithm_subdirectories_with_s3, get_cached_algorithm_path,
@@ -51,8 +51,11 @@ try:
 except:  # noqa: E722
     pass
 
+# Set up logging configuration
+setup_logging()
+
+# Create a logger
 logger = logging.getLogger(__name__)
-logger.addHandler(logging.NullHandler())
 
 gt4sd_configuration_instance = GT4SDConfiguration.get_instance()
 
@@ -94,7 +97,7 @@ class GeneratorAlgorithm(ABC, Generic[S, T]):
                 generator.
             target: context or condition for the generation. Defaults to None.
         """
-        logger.info(
+        logger.debug(
             f"runnning {self.__class__.__name__} with configuration={configuration}"
         )
         generator = self.get_generator(configuration, target)
@@ -290,7 +293,7 @@ class PredictorAlgorithm(ABC, Generic[S, T]):
             configuration: application specific helper that allows to setup the
                 generator.
         """
-        logger.info(
+        logger.debug(
             f"runnning {self.__class__.__name__} with configuration={configuration}"
         )
         self.configuration = configuration
@@ -349,7 +352,7 @@ class PredictorAlgorithm(ABC, Generic[S, T]):
             )
             logger.warning(detail + " Exiting now!")
         except Exception as e:
-            print(e)
+            logger.error(e)
             raise Exception(f"{self.__class__.__name__} failed with {input}")
         return predicted
 
@@ -513,7 +516,7 @@ class AlgorithmConfiguration(Generic[S, T]):
         """
 
         prefix = cls.get_application_prefix()
-        # print(prefix)
+        # logger.debug(prefix)
         try:
             versions = get_algorithm_subdirectories_with_s3(prefix)
         except (KeyError, S3SyncError) as error:

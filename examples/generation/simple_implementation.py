@@ -32,12 +32,12 @@ class MySimpleGenerator(SimpleGenerator):
         self.model_path = self.get_model_location()
         self.model = MyModel(self.model_path)
     
-    def predict(self, sample: Any) -> List[Any]:
+    def predict(self, samples: list) -> List[Any]:
         """Implement the generation logic for the new model
         Returns:
             List[Any]: return your predictions
         """
-        print(">> sample", sample)
+        print(">> samples", samples)
         # Implement the generation logic for the model
         self.model.net(self.temperature)
         # return value must be an iterable
