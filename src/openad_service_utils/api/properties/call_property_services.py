@@ -15,6 +15,14 @@ from openad_service_utils.common.properties.property_factory import \
     PropertyFactory
 
 from .utils import subject_files_repository
+import logging
+from openad_service_utils.utils.logging_config import setup_logging
+
+# Set up logging configuration
+setup_logging()
+
+# Create a logger
+logger = logging.getLogger(__name__)
 
 
 class Info(BaseModel):
@@ -48,7 +56,7 @@ def is_valid_service(service: dict):
 
     for x in required_fields:
         if x not in service.keys():
-            print("not valid service " + service["service_name"] + "   " + x)
+            logger.debug("not valid service " + service["service_name"] + "   " + x)
             return False
     return True
 
@@ -69,15 +77,15 @@ def get_services() -> list:
 #     )
 
 #     for file in service_files:
-#         print(file)
+#         logger.debug(file)
 #         with open(file, "r") as file_handle:
 #             try:
 #                 jdoc = json.load(file_handle)
 #                 if is_valid_service(jdoc):
 #                     service_list.append(jdoc)
 #             except Exception as e:
-#                 print(e)
-#                 print("invalid service json definition  " + file)
+#                 logger.debug(e)
+#                 logger.debug("invalid service json definition  " + file)
 #     return service_list
 
 class service_requester:
@@ -111,7 +119,7 @@ class service_requester:
                 break
 
         if current_service is None:
-            print("service mismatch")
+            logger.debug("service mismatch")
             return None
         if category == "properties":
             if self.property_requestor is None:
@@ -181,7 +189,7 @@ class request_properties:
                         0
                     ].endswith("csv"):
                         data_module = Path(tmpdir_csv.name + "/crf_data.csv")
-                        print(tmpdir_csv.name + "/crf_data.csv")
+                        logger.debug(tmpdir_csv.name + "/crf_data.csv")
                         result_fields = ["formulas", "predictions"]
                     elif not property_type == "metal_nonmetal_classifier" and subject[
                         0
@@ -190,7 +198,7 @@ class request_properties:
                         result_fields = ["cif_ids", "predictions"]
                     else:
                         continue
-                    out = predictor(input=data_module)
+                    out = predictor(data_module)
                     pred_dict = dict(zip(out[result_fields[0]], out[result_fields[1]]))
                     for key in pred_dict:
                         results.append(
@@ -204,22 +212,13 @@ class request_properties:
 
                 else:
                     # All other propoerty Requests handled here.
-                    try:
-                        results.append(
-                            {
-                                "subject": subject,
-                                "property": property_type,
-                                "result": predictor(subject),
-                            }
-                        )
-                    except Exception:
-                        results.append(
-                            {
-                                "subject": subject,
-                                "property": property_type,
-                                "result": None,
-                            }
-                        )
+                    results.append(
+                        {
+                            "subject": subject,
+                            "property": property_type,
+                            "result": predictor(subject),
+                        }
+                    )
         return results
 
     def set_parms(self, property_type, parameters):
@@ -235,7 +234,7 @@ class request_properties:
                 elif param in parameters.keys():
                     continue
                 else:
-                    print("no required " + param)
+                    logger.debug("no required " + param)
                     return None
         for param in parameters.keys():
             if param in ["property_type", "subjects", "subject_type"]:
@@ -256,7 +255,7 @@ if __name__ == "__main__":
 
     dt = datetime.now()
     ts = datetime.timestamp(dt)
-    print("Starting", datetime.fromtimestamp(ts))
+    logger.debug("Starting", datetime.fromtimestamp(ts))
     import pandas as pd
     import test_request
 
@@ -264,14 +263,14 @@ if __name__ == "__main__":
     dt = datetime.now()
     ts = datetime.timestamp(dt)
 
-    print("Service Requestor Loaded ", datetime.fromtimestamp(ts))
-    print("----------RUN SERVICES----------------------------------------")
+    logger.debug("Service Requestor Loaded ", datetime.fromtimestamp(ts))
+    logger.debug("----------RUN SERVICES----------------------------------------")
 
     for request in test_request.tests:
         dt = datetime.now()
         ts = datetime.timestamp(dt)
         if request["service_type"] != "get_crystal_property":
-            print(
+            logger.debug(
                 "\n\n Properties for subject:  "
                 + ", ".join(request["parameters"]["subjects"])
                 + "   ",
@@ -279,10 +278,10 @@ if __name__ == "__main__":
             )
             result = requestor.route_service(request)
             if result is None:
-                print("Not Supported")
+                logger.debug("Not Supported")
             else:
-                print(pd.DataFrame(result))
+                logger.debug(pd.DataFrame(result))
         else:
-            print("\n\n Properties for crystals")
-            print()
-            print(pd.DataFrame(requestor.route_service(request)))
+            logger.debug("\n\n Properties for crystals")
+            logger.debug()
+            logger.debug(pd.DataFrame(requestor.route_service(request)))

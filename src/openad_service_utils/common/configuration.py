@@ -29,12 +29,15 @@ from functools import lru_cache
 from typing import Dict, Optional, Set
 
 from pydantic_settings import BaseSettings
-
+from openad_service_utils.utils.logging_config import setup_logging
 from .s3 import (GT4SDS3Client, S3SyncError, sync_folder_with_s3,
                  upload_file_to_s3)
 
+# Set up logging configuration
+setup_logging()
+
+# Create a logger
 logger = logging.getLogger(__name__)
-logger.addHandler(logging.NullHandler())
 
 
 class GT4SDConfiguration(BaseSettings):
@@ -128,12 +131,13 @@ gt4sd_artifact_management_configuration = GT4SDArtifactManagementConfiguration(
 )
 
 for key, val in gt4sd_artifact_management_configuration.local_cache_path.items():
-    logger.info(f"using as local cache path for {key}: {val}")
+    # logger.info(f"using as local cache path for {key}: {val}")
     path = os.path.join(gt4sd_configuration_instance.gt4sd_local_cache_path, val)
     try:
         os.makedirs(path)
     except FileExistsError:
-        logger.debug(f"local cache path for {key} already exists at {path}.")
+        pass
+        # logger.debug(f"local cache path for {key} already exists at {path}.")
 
 
 def upload_to_s3(

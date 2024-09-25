@@ -29,7 +29,7 @@ from dataclasses import field, make_dataclass
 from functools import WRAPPER_ASSIGNMENTS, update_wrapper
 from typing import (Any, Callable, ClassVar, Dict, List, NamedTuple, Optional,
                     Type)
-
+from openad_service_utils.utils.logging_config import setup_logging
 import pydantic
 # pyright (pylance in VSCode) does not support pydantic typechecking
 # if typing.TYPE_CHECKING:
@@ -43,8 +43,11 @@ from openad_service_utils.common.algorithms.core import (
 from openad_service_utils.common.exceptions import \
     DuplicateApplicationRegistration
 
+# Set up logging configuration
+setup_logging()
+
+# Create a logger
 logger = logging.getLogger(__name__)
-logger.addHandler(logging.NullHandler())
 
 
 class ConfigurationTuple(NamedTuple):
@@ -362,14 +365,14 @@ class ApplicationsRegistry:
             if found_versions:
                 available.extend(found_versions)
             else:
-                print("[I] could not find any algorithm versions for: ", application.algorithm_class.__name__)
-                logger.info("[I] could not find any algorithm versions for: ", application.algorithm_class.__name__)
+                logger.debug("could not find any algorithm versions for: ", application.algorithm_class.__name__)
         if not available:
-            print("[E] No available generation models found!")
+            pass
+            # logger.debug("No available generation models found")
         return available
 
 if __name__ == "__main__":
     import os
     os.environ["hi"] = "hello"
 
-    print(os.environ["hi"])
+    logger.debug(os.environ["hi"])

@@ -9,9 +9,13 @@ from openad_service_utils import ApplicationsRegistry
 from openad_service_utils.common.algorithms.core import (
     AlgorithmConfiguration, GeneratorAlgorithm, Targeted, Untargeted)
 from openad_service_utils.common.configuration import get_cached_algorithm_path
+from openad_service_utils.utils.logging_config import setup_logging
 
+# Set up logging configuration
+setup_logging()
+
+# Create a logger
 logger = logging.getLogger(__name__)
-logger.addHandler(logging.NullHandler())
 
 
 # leave typing generic for algorithm implementation
@@ -67,7 +71,7 @@ class BaseConfiguration(AlgorithmConfiguration[S, T], ABC):
         """Register the configuration with the ApplicationsRegistry and load the model into runtime."""
         if 'algorithm_class' not in cls.__dict__:
             raise TypeError(f"Can't instantiate class {cls.__name__} without 'algorithm_class' class variable")
-        print(f"[i] registering classic generator: {'/'.join([cls.algorithm_type, cls.algorithm_class.__name__, cls.__name__, cls.algorithm_version])}\n")
+        logger.info(f"registering classic generator: {'/'.join([cls.algorithm_type, cls.algorithm_class.__name__, cls.__name__, cls.algorithm_version])}")
         ApplicationsRegistry.register_algorithm_application(cls.algorithm_class)(cls)
 
 
@@ -118,6 +122,6 @@ class BaseAlgorithm(GeneratorAlgorithm[S, T]):
                     configuration.algorithm_version,
                     )
             self.local_artifacts = get_cached_algorithm_path(prefix)
-        # logger.info("[I] Downloading model: ", configuration.get_application_prefix())
+        # logger.info("Downloading model: ", configuration.get_application_prefix())
         implementation: BaseGenerator = configuration.get_conditional_generator(self.local_artifacts)
         return implementation.generate
