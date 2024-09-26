@@ -159,7 +159,8 @@ class request_properties:
                     )
                     continue
                 # take parms and concatenate key and value to create a unique model id
-                using_model = property_type + "".join([str(parms[x]) for x in parms.keys() if x in ['algorithm_type','domain','algorithm_name','algorithm_version','algorithm_application']])
+                # TODO: sloppy. need to make robust.
+                using_model = property_type + "".join([str(type(parms[x])) + str(parms[x]) for x in parms.keys() if x in ['algorithm_type','domain','algorithm_name','algorithm_version','algorithm_application']])
                 # look through model cache in memory
                 for model in self.models_cache:
                     if using_model in model:

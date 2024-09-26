@@ -1,9 +1,10 @@
 import logging
 import os
 from abc import ABC, abstractmethod
-from typing import ClassVar, List, Optional, TypedDict, Dict, Any
+from typing_extensions import TypedDict
+from typing import ClassVar, List, Optional, Dict, Any
 
-from pydantic.v1 import BaseModel, Field
+from pydantic import BaseModel, Field, create_model
 
 from openad_service_utils.common.algorithms.core import (
     AlgorithmConfiguration, ConfigurablePropertyAlgorithmConfiguration,
@@ -61,7 +62,7 @@ class PredictorParameters(BaseModel):
         
         MyPredictor.register(MyParams)
     """
-    algorithm_type: str = "prediction"
+    algorithm_type: ClassVar[str] = "prediction"
     domain: DomainSubmodule = Field(
         ..., example="molecules", description="Submodule of gt4sd.properties"
     )
@@ -186,6 +187,16 @@ class SimplePredictor(PredictorAlgorithm, BasePredictorParameters):
             class_fields.pop("_abc_impl", "")
         else:
             class_fields = {k: v for k, v in vars(parameters).items() if not callable(v) and not k.startswith('__')}
+        
+        # Ensure all fields have type annotations
+        annotated_class_fields = {}
+        for k, v in class_fields.items():
+            if not hasattr(cls, k):
+                annotated_class_fields[k] = (type(v), v)
+            else:
+                field_type = cls.__annotations__.get(k, type(v))
+                annotated_class_fields[k] = (field_type, v)
+        
         # check if required fields are set
         required = ["algorithm_name", "domain", "algorithm_version", "algorithm_application", "property_type"]
         for field in required:
@@ -193,8 +204,13 @@ class SimplePredictor(PredictorAlgorithm, BasePredictorParameters):
                 raise TypeError(f"Can't instantiate class ({cls.__name__}) without '{field}' class variable")
         # update class name to be `algorithm_application`
         cls.__name__ = class_fields.get("algorithm_application")
-        # setup s3 class params
-        model_param_class: PredictorParameters = type(cls.__name__+"Parameters", (PredictorParameters, ), class_fields)
+        # create the BaseModel to validate against
+        # model_param_class: PredictorParameters = type(cls.__name__+"Parameters", (PredictorParameters, ), annotated_class_fields)
+        model_param_class: PredictorParameters = create_model(
+            cls.__name__+"Parameters",
+            **annotated_class_fields,
+            __base__=PredictorParameters
+        )
         if class_fields.get("available_properties"):
             if not isinstance(class_fields.get("available_properties"), list):
                 raise ValueError("available_properties must be of List[PropertyInfo]")
@@ -212,4 +228,3 @@ class SimplePredictor(PredictorAlgorithm, BasePredictorParameters):
         except Exception:
             logger.error(f"could not create model cache location: {model_location}")
         logger.info(f"registering predictor model: {model_location}")
-        # logger.debug(cls(model_param_class(**model_param_class().dict())).get_model_location())
