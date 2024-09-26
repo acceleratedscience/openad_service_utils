@@ -51,4 +51,7 @@ LOGGING_CONFIG = {
 }
 
 def setup_logging():
-    logging.config.dictConfig(LOGGING_CONFIG)
+    # make sure logger is initialized once. TODO: may need to make singleton to make sure.
+    if not logging.getLogger().hasHandlers():
+        # print("Setting up logging config")  # Debug statement
+        logging.config.dictConfig(LOGGING_CONFIG)
