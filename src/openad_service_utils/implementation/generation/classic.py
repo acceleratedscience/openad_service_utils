@@ -5,7 +5,7 @@ import os
 from abc import ABC, abstractmethod
 from typing import Any, Dict, Generic, List, Optional, Type, TypeVar, Union
 
-from openad_service_utils import ApplicationsRegistry
+from openad_service_utils.common.algorithms.registry import ApplicationsRegistry
 from openad_service_utils.common.algorithms.core import (
     AlgorithmConfiguration, GeneratorAlgorithm, Targeted, Untargeted)
 from openad_service_utils.common.configuration import get_cached_algorithm_path
