@@ -29,7 +29,6 @@ from dataclasses import field, make_dataclass
 from functools import WRAPPER_ASSIGNMENTS, update_wrapper
 from typing import (Any, Callable, ClassVar, Dict, List, NamedTuple, Optional,
                     Type)
-from openad_service_utils.utils.logging_config import setup_logging
 import pydantic
 # pyright (pylance in VSCode) does not support pydantic typechecking
 # if typing.TYPE_CHECKING:
@@ -43,8 +42,6 @@ from openad_service_utils.common.algorithms.core import (
 from openad_service_utils.common.exceptions import \
     DuplicateApplicationRegistration
 
-# Set up logging configuration
-setup_logging()
 
 # Create a logger
 logger = logging.getLogger(__name__)

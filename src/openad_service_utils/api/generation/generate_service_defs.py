@@ -4,10 +4,7 @@ import json
 from .generation_applications import (ApplicationsRegistry,
                                       get_algorithm_applications)
 import logging
-from openad_service_utils.utils.logging_config import setup_logging
 
-# Set up logging configuration
-setup_logging()
 
 # Create a logger
 logger = logging.getLogger(__name__)

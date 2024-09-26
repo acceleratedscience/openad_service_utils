@@ -16,10 +16,7 @@ from openad_service_utils.common.properties.property_factory import \
 
 from .utils import subject_files_repository
 import logging
-from openad_service_utils.utils.logging_config import setup_logging
 
-# Set up logging configuration
-setup_logging()
 
 # Create a logger
 logger = logging.getLogger(__name__)
@@ -169,6 +166,7 @@ class request_properties:
                         # get model from cache
                         predictor = model[using_model]
                 if predictor is None:
+                    # create the callable model
                     predictor = PropertyPredictorRegistry.get_property_predictor(
                         name=property_type, parameters=parms
                     )

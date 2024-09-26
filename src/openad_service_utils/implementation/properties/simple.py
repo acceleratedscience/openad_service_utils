@@ -13,10 +13,6 @@ from openad_service_utils.common.properties.core import (DomainSubmodule,
                                                          S3Parameters)
 from openad_service_utils.common.properties.property_factory import (
     PredictorTypes, PropertyFactory)
-from openad_service_utils.utils.logging_config import setup_logging
-
-# Set up logging configuration
-setup_logging()
 
 # Create a logger
 logger = logging.getLogger(__name__)

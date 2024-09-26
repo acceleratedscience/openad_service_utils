@@ -9,10 +9,7 @@ from openad_service_utils.common.algorithms.registry import ApplicationsRegistry
 from openad_service_utils.common.algorithms.core import (
     AlgorithmConfiguration, GeneratorAlgorithm, Targeted, Untargeted)
 from openad_service_utils.common.configuration import get_cached_algorithm_path
-from openad_service_utils.utils.logging_config import setup_logging
 
-# Set up logging configuration
-setup_logging()
 
 # Create a logger
 logger = logging.getLogger(__name__)
