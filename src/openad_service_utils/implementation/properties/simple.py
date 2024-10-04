@@ -143,6 +143,12 @@ class SimplePredictor(PredictorAlgorithm, BasePredictorParameters):
             self.configuration.algorithm_version,
         )
         return get_cached_algorithm_path(prefix, module="properties")
+    
+    def _update_parameters(self, user_input: dict):
+        """Update model params with user input"""
+        for key, value in user_input.items():
+            if key in self.__dict__:
+                setattr(self, key, value)
 
     def __download_model(self):
         """download model from s3"""
