@@ -162,7 +162,7 @@ class request_properties:
                     )
                     continue
                 # take parms and concatenate key and value to create a unique model id
-                using_model = property_type + "".join([str(parms[x]) for x in parms.keys() if x in ['algorithm_type','domain','algorithm_name','algorithm_version','algorithm_application']])
+                using_model = property_type + "".join([str(type(parms[x])) + str(parms[x]) for x in parms.keys() if x in ['algorithm_type','domain','algorithm_name','algorithm_version','algorithm_application']])
                 # look through model cache in memory
                 for model in self.models_cache:
                     if using_model in model:
@@ -174,7 +174,12 @@ class request_properties:
                     )
                     if predictor:
                         # add model to cache in memory
+                        logger.debug(f"adding model to cache as key: {using_model}")
                         self.models_cache.append({using_model: predictor})
+                else:
+                    # update model params
+                    # logger.debug(f"loading model from cache key: {using_model}")
+                    predictor._update_parameters(parms)
 
                 # Crystaline structure models take data as file sets, the following manages this for the Crystaline property requests
                 if service_type == "get_crystal_property":

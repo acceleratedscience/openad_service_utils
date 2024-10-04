@@ -4,7 +4,7 @@
 ## Installation
 Install the latest version by tag, such as
 ```shell
-pip install git+https://github.com/acceleratedscience/openad_service_utils.git@0.2.2
+pip install git+https://github.com/acceleratedscience/openad_service_utils.git@0.2.3
 ```
 
 ## Model Implementations

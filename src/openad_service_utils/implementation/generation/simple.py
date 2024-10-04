@@ -157,11 +157,11 @@ class BaseAlgorithm(GeneratorAlgorithm[S, T]):
             If the target is None, the generator is assumed to be untargeted.
         """
         # check if model is downloaded only once.
-        if not SimpleGenerator.__artifacts_downloaded__:
+        if not self.__artifacts_downloaded__:
             logger.debug(f"Downloading model: {configuration.algorithm_application}/{configuration.algorithm_version}")
             # download model
             self.local_artifacts = configuration.ensure_artifacts()
             if self.local_artifacts:
-                SimpleGenerator.__artifacts_downloaded__ = True
+                self.__artifacts_downloaded__ = True
         # run model
         return configuration.generate
