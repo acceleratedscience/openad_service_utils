@@ -140,13 +140,19 @@ class SimplePredictor(PredictorAlgorithm, BasePredictorParameters):
             self.configuration.algorithm_version,
         )
         return get_cached_algorithm_path(prefix, module="properties")
+    
+    def _update_parameters(self, user_input: dict):
+        """Update model params with user input"""
+        for key, value in user_input.items():
+            if key in self.__dict__:
+                setattr(self, key, value)
 
     def __download_model(self):
         """download model from s3"""
         if not self.__artifacts_downloaded__:
             logger.info(f"Downloading model: {self.configuration.algorithm_application}/{self.configuration.algorithm_version}")
             if self.configuration.ensure_artifacts():
-                SimplePredictor.__artifacts_downloaded__ = True
+                self.__artifacts_downloaded__ = True
                 logger.info(f"model downloaded")
             else:
                 logger.error("could not download model")
