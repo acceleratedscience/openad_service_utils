@@ -149,7 +149,7 @@ class SimplePredictor(PredictorAlgorithm, BasePredictorParameters):
         if not self.__artifacts_downloaded__:
             logger.info(f"Downloading model: {self.configuration.algorithm_application}/{self.configuration.algorithm_version}")
             if self.configuration.ensure_artifacts():
-                SimplePredictor.__artifacts_downloaded__ = True
+                self.__artifacts_downloaded__ = True
                 logger.info(f"model downloaded")
             else:
                 logger.error("could not download model")
