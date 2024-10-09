@@ -1,8 +1,11 @@
 # logging_config.py
+import os
 import logging
 import logging.config
 import colorlog
 
+
+LOGGING_CONFIG_PATH = os.environ.get('LOGGING_CONFIG_PATH', 'app.log')
 
 LOGGING_CONFIG = {
     'version': 1,
@@ -31,7 +34,7 @@ LOGGING_CONFIG = {
         },
         'file': {
             'class': 'logging.FileHandler',
-            'filename': 'app.log',
+            'filename': LOGGING_CONFIG_PATH,
             'formatter': 'standard',
             'level': 'DEBUG',
         },
