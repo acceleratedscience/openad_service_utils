@@ -165,7 +165,6 @@ def start_server(host="0.0.0.0", port=8080, log_level="info", max_workers=1, wor
                 max_workers = available_workers
                 logger.warn("lowering amount of workers due to resource constraint")
             logger.debug(f"Total GPU memory: {total_memory:.2f} MB")
-            logger.debug(f"Total workers: {max_workers}")
     except ImportError:
         logger.debug("cuda not available. Running on cpu.")
         pass
@@ -173,6 +172,7 @@ def start_server(host="0.0.0.0", port=8080, log_level="info", max_workers=1, wor
         logger.info(f"using private s3 model repository | Host: {os.environ.get('GT4SD_S3_HOST', '')}======")
     else:
         logger.info("using public gt4sd s3 model repository")
+    logger.debug(f"Total workers: {max_workers}")
     # process is run on linux. spawn.
     multiprocessing.set_start_method("spawn")
     with ProcessPoolExecutor() as executor:
