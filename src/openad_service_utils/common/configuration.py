@@ -29,12 +29,9 @@ from functools import lru_cache
 from typing import Dict, Optional, Set
 
 from pydantic_settings import BaseSettings
-from openad_service_utils.utils.logging_config import setup_logging
 from .s3 import (GT4SDS3Client, S3SyncError, sync_folder_with_s3,
                  upload_file_to_s3)
 
-# Set up logging configuration
-setup_logging()
 
 # Create a logger
 logger = logging.getLogger(__name__)

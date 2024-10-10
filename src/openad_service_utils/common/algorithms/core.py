@@ -36,7 +36,6 @@ from functools import partial
 from time import time
 from typing import (Any, Callable, ClassVar, Dict, Generic, Iterable, Iterator,
                     Optional, Set, Type, TypeVar, Union)
-from openad_service_utils.utils.logging_config import setup_logging
 from openad_service_utils.common.configuration import (
     GT4SDConfiguration, get_algorithm_subdirectories_in_cache,
     get_algorithm_subdirectories_with_s3, get_cached_algorithm_path,
@@ -51,8 +50,6 @@ try:
 except:  # noqa: E722
     pass
 
-# Set up logging configuration
-setup_logging()
 
 # Create a logger
 logger = logging.getLogger(__name__)

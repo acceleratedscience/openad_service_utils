@@ -1,7 +1,6 @@
 import os
-from typing import List, Union, Dict, Any
-from openad_service_utils.common.algorithms.core import Predictor
-from pydantic.v1 import Field
+from typing import List, Any
+from pydantic import Field
 from openad_service_utils import (
     SimplePredictor, 
     PredictorTypes, 
@@ -48,4 +47,5 @@ class MySimplePredictor(SimplePredictor):
     def predict(self, sample: Any):
         """run predictions on your model"""
         selected_property = self.get_selected_property()
+        print(">> SELECTED PROPERTY: ", selected_property)
         return [1,0,1]

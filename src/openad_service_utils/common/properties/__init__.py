@@ -22,11 +22,14 @@
 # SOFTWARE.
 #
 
-from typing import Any, Dict, List
+from typing import Any, Dict, List, TYPE_CHECKING
 
 from .core import PropertyPredictor
 from .property_factory import PropertyFactory
-from openad_service_utils.implementation.properties.simple import SimplePredictor
+
+if TYPE_CHECKING:
+    # to avoid circular imports
+    from openad_service_utils.implementation.properties.simple import SimplePredictor
 
 # from ..properties.crystals import CRYSTALS_PROPERTY_PREDICTOR_FACTORY
 # from ..properties.molecules import MOLECULE_PROPERTY_PREDICTOR_FACTORY
@@ -90,6 +93,7 @@ class PropertyPredictorRegistry:
     def get_property_predictor(
         name: str, parameters: Dict[str, Any] = {}
     ) -> PropertyPredictor:
+        """create an instance of the predictor model"""
         try:
             property_class, parameters_class = PropertyFactory.PROPERTY_PREDICTOR_FACTORY()[name]
             # pass along chosen property
@@ -103,7 +107,7 @@ class PropertyPredictorRegistry:
     @staticmethod
     def get_property_predictor_meta_class(
         name: str, parameters: Dict[str, Any] = {}
-    ) -> SimplePredictor:
+    ) -> "SimplePredictor":
         try:
             property_class, parameters_class = PropertyFactory.PROPERTY_PREDICTOR_FACTORY()[name]
             # pass along chosen property

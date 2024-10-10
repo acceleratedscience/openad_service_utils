@@ -12,6 +12,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from pandas import DataFrame
 import copy
 
+from openad_service_utils.utils.logging_config import setup_logging
 from openad_service_utils.api.generation.call_generation_services import \
     get_services as get_generation_services  # noqa: E402
 from openad_service_utils.api.generation.call_generation_services import \
@@ -22,7 +23,7 @@ from openad_service_utils.api.properties.call_property_services import \
     service_requester as property_request
 from openad_service_utils.common.properties.property_factory import \
     PropertyFactory
-from openad_service_utils.utils.logging_config import setup_logging
+from openad_service_utils.api.schemas.service import ServiceInput
 import traceback
 from itertools import chain
 
@@ -62,7 +63,9 @@ async def health():
 
 
 @app.post("/service")
-async def service(property_request: dict):
+async def service(property_request: ServiceInput):
+    # convert request to json
+    property_request = property_request.model_dump()
     logger.info(f"Processing request {property_request}")
     original_request = copy.deepcopy(property_request)
     try:

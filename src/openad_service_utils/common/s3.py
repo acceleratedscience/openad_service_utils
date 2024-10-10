@@ -31,10 +31,7 @@ from minio import Minio
 from minio.error import S3Error
 
 from .exceptions import S3SyncError
-from openad_service_utils.utils.logging_config import setup_logging
 
-# Set up logging configuration
-setup_logging()
 
 # Create a logger
 logger = logging.getLogger(__name__)
