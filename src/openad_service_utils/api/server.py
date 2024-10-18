@@ -23,6 +23,7 @@ from openad_service_utils.api.properties.call_property_services import \
 from openad_service_utils.common.properties.property_factory import \
     PropertyFactory
 from openad_service_utils.utils.logging_config import setup_logging
+from openad_service_utils.api.config import ServerConfig
 import traceback
 from itertools import chain
 
@@ -39,14 +40,15 @@ gen_requester = generation_request()
 prop_requester = property_request()
 
 
-def clean_gpu_mem():
-    try:
-        import torch
-        logger.debug(f"cleaning gpu memory for process ID: {os.getpid()}")
-        torch.cuda.empty_cache()
-    except ImportError:
-        pass  # do nothing
-    finally:
+def run_cleanup():
+    if ServerConfig.AUTO_CLEAR_GPU_MEM:
+        try:
+            import torch
+            logger.debug(f"cleaning gpu memory for process ID: {os.getpid()}")
+            torch.cuda.empty_cache()
+        except ImportError:
+            pass  # do nothing
+    if ServerConfig.AUTO_GARABAGE_COLLECT:
         logger.debug(f"manual garbage collection on process ID: {os.getpid()}")
         gc.collect()
 
@@ -76,7 +78,7 @@ async def service(property_request: dict):
             logger.error(f"Error processing request: {property_request}")
             raise HTTPException(status_code=500, detail={"error": "service mismatch", "input": original_request})
         # cleanup resources before returning request
-        clean_gpu_mem()
+        run_cleanup()
         if result is None:
             raise HTTPException(status_code=500, detail={"error": "service not found", "input": original_request})
         if isinstance(result, DataFrame):
