@@ -5,6 +5,7 @@ import os
 import signal
 import sys
 from concurrent.futures import ProcessPoolExecutor
+import asyncio
 
 import uvicorn
 from fastapi import FastAPI, Request, HTTPException
@@ -67,13 +68,14 @@ async def health():
 async def service(property_request: dict):
     logger.info(f"Processing request {property_request}")
     original_request = copy.deepcopy(property_request)
+    loop = asyncio.get_running_loop()
     try:
         # user request is for property prediction
         if property_request.get("service_type") in PropertyFactory.AVAILABLE_PROPERTY_PREDICTOR_TYPES():
-            result = prop_requester.route_service(property_request)
+            result = await loop.run_in_executor(None, prop_requester.route_service, property_request)
         # user request is for generation
         elif property_request.get("service_type") == "generate_data":
-            result = gen_requester.route_service(property_request)
+            result = await loop.run_in_executor(None, gen_requester.route_service, property_request)
         else:
             logger.error(f"Error processing request: {property_request}")
             raise HTTPException(status_code=500, detail={"error": "service mismatch", "input": original_request})
