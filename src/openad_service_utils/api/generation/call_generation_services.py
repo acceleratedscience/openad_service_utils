@@ -3,6 +3,7 @@
 import copy
 import json
 import traceback
+import asyncio
 
 import pandas as pd
 from pydantic import BaseModel
@@ -62,23 +63,6 @@ def is_valid_service(service: dict):
     return True
 
 
-# def get_services() -> list:
-#     """pulls the list of available services for"""
-#     service_list = []
-#     service_files = glob.glob(os.path.abspath(os.path.dirname(new_prop_services.__file__) + "/*.json"))
-
-#     for file in service_files:
-#         # logger.debug(file)
-#         with open(file, "r") as file_handle:
-#             try:
-#                 jdoc = json.load(file_handle)
-#                 if is_valid_service(jdoc):
-#                     service_list.append(jdoc)
-#             except Exception as e:
-#                 logger.debug(e)
-#                 logger.debug("invalid service json definition  " + file)
-#     return service_list
-
 ALL_AVAILABLE_SERVICES = []
 
 def get_services() -> list:
@@ -104,7 +88,7 @@ class service_requester:
         """fetch available services and cache results"""
         return get_services()
 
-    def route_service(self, request: dict):
+    async def route_service(self, request: dict):
         result = None
         if not self.is_valid_service_request(request):
             return False
@@ -135,9 +119,9 @@ class service_requester:
             SAMPLE_SIZE = 10
 
         if category == "generation":
-            if self.property_requestor == None:  # noqa: E711
+            if self.property_requestor is None:
                 self.property_requestor = request_generation()
-            result = self.property_requestor.request(
+            result = await self.property_requestor.request(
                 request["service_type"],
                 request["parameters"],
                 request.get("api_key", ""),
@@ -146,9 +130,8 @@ class service_requester:
 
         return result
 
-    async def __call__(self, req: json):
-        req = await req.json()
-        return self.route_service(req)
+    async def __call__(self, req: dict):
+        return await self.route_service(req)
 
 
 def get_generator_type(generator_application: str, parameters):
@@ -169,7 +152,7 @@ class request_generation:
     def __init__(self) -> None:
         pass
 
-    def request(self, generator_application, parameters: dict, apikey: str, sample_size=10):
+    async def request(self, generator_application, parameters: dict, apikey: str, sample_size=10):
         results = []
         logger.debug("generator_application :" + generator_application + " params" + str(parameters))
         generator_type = get_generator_type(generator_application, parameters)
@@ -189,14 +172,7 @@ class request_generation:
         parms = self.set_parms(generator_type=generator_type, parameters=parameters)
 
         parms.update(generator_type)
-        # take parms and concatenate key and value to create a unique model id
         model = None
-        # TODO: fix model cache
-        # model_type = generator_application + "_" + "_".join([str(parms[x]) for x in parms.keys() if x in ['algorithm_type','domain','algorithm_name','algorithm_version','algorithm_application']])
-        # logger.debug(f"model cache lookup key: {model_type}")
-        # for model in self.models_cache:
-        #     if model_type in model:
-        #         model = model[model_type]
 
         if not model:
             if "target" in parms:
@@ -207,19 +183,22 @@ class request_generation:
                         target = target[0]
                 logger.debug(f"running sample: {target=} {parms=} {sample_size=}")
                 model = GeneratorRegistry.get_application_instance(**parms, target=target)
-                # self.models_cache.append({model_type: model})
             else:
                 logger.debug(f"running sample: {parms=} {sample_size=}")
                 model = GeneratorRegistry.get_application_instance(**parms)
-                # self.models_cache.append({model_type: model})
 
-        # run model inference
-        result = list(model.sample(sample_size))
-        # return result
+        # run model inference asynchronously
+        result = await self._run_sample(model, sample_size)
         result = pd.DataFrame(result)
         if len(result.columns) == 1:
             result.columns = ["result"]
         return result
+
+    async def _run_sample(self, model, sample_size):
+        """Run model sampling in a separate thread to avoid blocking"""
+        def run_sample():
+            return list(model.sample(sample_size))
+        return await asyncio.to_thread(run_sample)
     
     def generate_name(self, params: dict):
         valid_keys = [
@@ -274,20 +253,24 @@ if __name__ == "__main__":
     logger.debug("Service Requestor Loaded ", datetime.fromtimestamp(ts))
     logger.debug("----------RUN SERVICES----------------------------------------")
 
-    for request in test_request_generator.tests:
-        dt = datetime.now()
-        ts = datetime.timestamp(dt)
-        if request["service_type"] != "get_crystal_property":
-            logger.debug(
-                "\n\n Properties for subject:  " + ", ".join(request["parameters"]["subjects"]) + "   ",
-                datetime.fromtimestamp(ts),
-            )
-            result = requestor.route_service(request)
-            if result == None:  # noqa: E711
-                logger.debug("Not Supported")
+    async def run_tests():
+        for request in test_request_generator.tests:
+            dt = datetime.now()
+            ts = datetime.timestamp(dt)
+            if request["service_type"] != "get_crystal_property":
+                logger.debug(
+                    "\n\n Properties for subject:  " + ", ".join(request["parameters"]["subjects"]) + "   ",
+                    datetime.fromtimestamp(ts),
+                )
+                result = await requestor.route_service(request)
+                if result is None:
+                    logger.debug("Not Supported")
+                else:
+                    logger.debug(pd.DataFrame(result))
             else:
-                logger.debug(pd.DataFrame(result))
-        else:
-            logger.debug("\n\n Properties for crystals")
-            logger.debug()
-            logger.debug(pd.DataFrame(requestor.route_service(request)))
+                logger.debug("\n\n Properties for crystals")
+                logger.debug()
+                logger.debug(pd.DataFrame(await requestor.route_service(request)))
+
+    import asyncio
+    asyncio.run(run_tests())
