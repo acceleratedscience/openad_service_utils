@@ -197,10 +197,10 @@ class request_properties:
                         # add model to cache in memory
                         logger.debug(f"adding model to cache as key: {using_model}")
                         self.models_cache.append({using_model: predictor})
-                else:
-                    # update model params
-                    # logger.debug(f"loading model from cache key: {using_model}")
-                    predictor._update_parameters(parms)
+                # update model params
+                # logger.debug(f"loading model from cache key: {using_model}")
+                parms["selected_property"] = property_type
+                predictor._update_parameters(parms)
 
                 # Crystaline structure models take data as file sets, the following manages this for the Crystaline property requests
                 if service_type == "get_crystal_property":
