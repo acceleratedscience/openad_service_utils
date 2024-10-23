@@ -12,6 +12,7 @@ from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import HTMLResponse, JSONResponse
 from pandas import DataFrame
 import copy
+from contextlib import asynccontextmanager
 
 from openad_service_utils.api.generation.call_generation_services import \
     get_services as get_generation_services  # noqa: E402
@@ -28,7 +29,16 @@ from openad_service_utils.api.config import ServerConfig
 import traceback
 from itertools import chain
 
-app = FastAPI()
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    logger.info(">> Preloading models on startup...")
+    await prop_requester.property_requestor.preload_models()
+    yield
+    logger.info(">> Application is shutting down...")
+
+
+app = FastAPI(lifespan=lifespan)
 kube_probe = FastAPI()
 
 # Set up logging configuration

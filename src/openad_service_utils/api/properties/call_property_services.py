@@ -93,7 +93,7 @@ class service_requester:
     valid_services = ["property", "prediction", "generation", "training"]
 
     def __init__(self) -> None:
-        pass
+        self.property_requestor = request_properties()
 
     def is_valid_service_request(self, request) -> bool:
         return True
@@ -143,6 +143,19 @@ class request_properties:
     def __init__(self) -> None:
         pass
 
+    def create_model_cache_key(self, params: dict):
+        return "".join([str(params[x]) + "_" for x in params.keys() if x in ['algorithm_type','domain','algorithm_name','algorithm_version','algorithm_application']])
+
+    async def preload_models(self):
+        for cls, params in PropertyFactory.PROPERTY_PREDICTOR_FACTORY_ALGORITHMS():
+            logger.debug(cls)
+            # Create an instance of the class with the parameters
+            param_instance = params()
+            parms = param_instance.dict()
+            using_model = self.create_model_cache_key(parms)
+            # print(f"Using model: {using_model}")
+            self.models_cache.append({using_model: cls(params())})
+
     def request(self, service_type, parameters: dict, apikey: str):
         results = []
         if service_type not in PropertyFactory.AVAILABLE_PROPERTY_PREDICTOR_TYPES():
@@ -151,7 +164,11 @@ class request_properties:
         for property_type in parameters["property_type"]:
             predictor = None
             for subject in parameters["subjects"]:
-                parms = self.set_parms(property_type, parameters)
+                base_cls, base_params =  PropertyPredictorRegistry.get_property_predictor_templates(property_type)
+                parms: dict = base_params().dict()
+                updated_params = self.set_parms(property_type, parameters)
+                if updated_params:
+                    parms = parms.update(updated_params)
                 if parms is None:
                     results.append(
                         {
@@ -162,10 +179,14 @@ class request_properties:
                     )
                     continue
                 # take parms and concatenate key and value to create a unique model id
-                using_model = property_type + "".join([str(type(parms[x])) + str(parms[x]) for x in parms.keys() if x in ['algorithm_type','domain','algorithm_name','algorithm_version','algorithm_application']])
+                # using_model = property_type + "".join([str(type(parms[x])) + str(parms[x]) for x in parms.keys() if x in ['algorithm_type','domain','algorithm_name','algorithm_version','algorithm_application']])
+                using_model = self.create_model_cache_key(parms)
+                # print(f"Using model: {using_model}")
                 # look through model cache in memory
+                logger.debug(f"model cache list: {self.models_cache}")
                 for model in self.models_cache:
                     if using_model in model:
+                        logger.debug(f"using model cache key: {using_model}")
                         # get model from cache
                         predictor = model[using_model]
                 if predictor is None:

@@ -23,6 +23,20 @@ class PropertyFactory:
         return {**PropertyFactory.protein_predictors_registry, **PropertyFactory.molecule_predictors_registry, **PropertyFactory.crystal_predictors_registry}
     
     @staticmethod
+    def PROPERTY_PREDICTOR_FACTORY_ALGORITHMS() -> List[Tuple[Union[Type[PropertyPredictor], Type[PredictorAlgorithm]], Type[PropertyPredictorParameters]]]:
+        algos = []
+        for cls, params in PropertyFactory.protein_predictors_registry.values():
+            if (cls,params) not in algos:
+                algos.append((cls,params))
+        for cls, params in PropertyFactory.molecule_predictors_registry.values():
+            if (cls,params) not in algos:
+                algos.append((cls,params))
+        for cls, params in PropertyFactory.crystal_predictors_registry.values():
+            if (cls,params) not in algos:
+                algos.append((cls,params))
+        return algos
+    
+    @staticmethod
     def AVAILABLE_PROPERTY_PREDICTORS() -> Dict[str, Any]:
         return sorted(PropertyFactory.PROPERTY_PREDICTOR_FACTORY().keys())
 

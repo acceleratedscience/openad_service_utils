@@ -114,6 +114,18 @@ class PropertyPredictorRegistry:
                 f"Property predictor name={name} not supported. Pick one from {PropertyFactory.AVAILABLE_PROPERTY_PREDICTORS()}"
             )
 
+    @staticmethod
+    def get_property_predictor_templates(
+        prop_name: str) -> SimplePredictor:
+        try:
+            property_class, parameters_class = PropertyFactory.PROPERTY_PREDICTOR_FACTORY()[prop_name]
+            # pass along chosen property
+            return property_class, parameters_class
+        except KeyError:
+            raise ValueError(
+                f"Property predictor name={prop_name} not supported. Pick one from {PropertyFactory.AVAILABLE_PROPERTY_PREDICTORS()}"
+            )
+
     # @staticmethod
     # def get_property_predictor_scorer(
     #     property_name: str,
