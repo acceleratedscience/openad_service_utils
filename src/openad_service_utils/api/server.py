@@ -23,9 +23,10 @@ from openad_service_utils.api.properties.call_property_services import \
 from openad_service_utils.common.properties.property_factory import \
     PropertyFactory
 from openad_service_utils.utils.logging_config import setup_logging
-from openad_service_utils.api.config import ServerConfig
+from openad_service_utils.api.config import get_config_instance
 import traceback
 from itertools import chain
+from openad_service_utils.utils.convert import dict_to_json_string
 
 app = FastAPI()
 kube_probe = FastAPI()
@@ -41,14 +42,14 @@ prop_requester = property_request()
 
 
 def run_cleanup():
-    if ServerConfig.AUTO_CLEAR_GPU_MEM:
+    if get_config_instance().AUTO_CLEAR_GPU_MEM:
         try:
             import torch
             logger.debug(f"cleaning gpu memory for process ID: {os.getpid()}")
             torch.cuda.empty_cache()
         except ImportError:
             pass  # do nothing
-    if ServerConfig.AUTO_GARABAGE_COLLECT:
+    if get_config_instance().AUTO_GARABAGE_COLLECT:
         logger.debug(f"manual garbage collection on process ID: {os.getpid()}")
         gc.collect()
 
@@ -67,15 +68,18 @@ async def health():
 async def service(property_request: dict):
     logger.info(f"Processing request {property_request}")
     original_request = copy.deepcopy(property_request)
+    if get_config_instance().ENABLE_CACHE_RESULTS:
+        # convert input to string for caching
+        property_request = dict_to_json_string(property_request)
     try:
         # user request is for property prediction
-        if property_request.get("service_type") in PropertyFactory.AVAILABLE_PROPERTY_PREDICTOR_TYPES():
+        if original_request.get("service_type") in PropertyFactory.AVAILABLE_PROPERTY_PREDICTOR_TYPES():
             result = prop_requester.route_service(property_request)
         # user request is for generation
-        elif property_request.get("service_type") == "generate_data":
+        elif original_request.get("service_type") == "generate_data":
             result = gen_requester.route_service(property_request)
         else:
-            logger.error(f"Error processing request: {property_request}")
+            logger.error(f"Error processing request: {original_request}")
             raise HTTPException(status_code=500, detail={"error": "service mismatch", "input": original_request})
         # cleanup resources before returning request
         run_cleanup()
@@ -120,6 +124,12 @@ async def get_service_defs():
         logger.warn(f"could not print types: {str(e)}")
     return JSONResponse(all_services)
 
+@app.get("/admin/details")
+def server_details():
+    """return server details"""
+    logger.info("Retrieving server details")
+    return JSONResponse(get_config_instance().model_dump()) 
+
 
 # Function to run the main service
 def run_main_service(host, port, log_level, max_workers):
@@ -146,6 +156,10 @@ def is_running_in_kubernetes():
 
 
 def start_server(host="0.0.0.0", port=8080, log_level="info", max_workers=1, worker_gpu_min=2000):
+    logger.debug(f"Server Config: {get_config_instance().model_dump()}")
+    if get_config_instance().SERVE_MAX_WORKERS > 0:
+        # overwite max workers with env var
+        max_workers = get_config_instance().SERVE_MAX_WORKERS
     try:
         import torch
         if torch.cuda.is_available():

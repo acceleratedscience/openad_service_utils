@@ -6,6 +6,9 @@ from pathlib import Path
 
 from pandas import DataFrame
 from pydantic import BaseModel
+from functools import lru_cache, wraps
+from openad_service_utils.utils.convert import json_string_to_dict
+from openad_service_utils.api.config import get_config_instance
 
 from openad_service_utils.api.properties.generate_property_service_defs import \
     generate_property_service_defs
@@ -69,24 +72,17 @@ def get_services() -> list:
     return all_services
 
 
-# def get_services() -> list:
-#     """pulls the list of available services for"""
-#     service_list = []
-#     service_files = glob.glob(
-#         os.path.abspath(os.path.dirname(new_prop_services.__file__) + "/*.json")
-#     )
-
-#     for file in service_files:
-#         logger.debug(file)
-#         with open(file, "r") as file_handle:
-#             try:
-#                 jdoc = json.load(file_handle)
-#                 if is_valid_service(jdoc):
-#                     service_list.append(jdoc)
-#             except Exception as e:
-#                 logger.debug(e)
-#                 logger.debug("invalid service json definition  " + file)
-#     return service_list
+def conditional_lru_cache(maxsize=100):
+    def decorator(func):
+        if get_config_instance().ENABLE_CACHE_RESULTS:
+            cached_func = lru_cache(maxsize=maxsize)(func)
+            return cached_func
+        else:
+            @wraps(func)
+            def no_cache(*args, **kwargs):
+                return func(*args, **kwargs)
+            return no_cache
+    return decorator
 
 class service_requester:
     property_requestor = None
@@ -101,7 +97,10 @@ class service_requester:
     def get_available_services(self):
         return get_services()
 
+    @conditional_lru_cache(maxsize=100)
     def route_service(self, request):
+        if get_config_instance().ENABLE_CACHE_RESULTS:
+            request = json_string_to_dict(request)
         result = None
         if not self.is_valid_service_request(request):
             return False
