@@ -126,7 +126,8 @@ class service_requester:
             result = self.property_requestor.request(
                 request["service_type"], 
                 request["parameters"], 
-                request.get("api_key", "")
+                request.get("api_key", ""),
+                request.get("batch_size", 1),
             )
 
         return result
@@ -142,24 +143,31 @@ class request_properties:
     def __init__(self) -> None:
         pass
 
-    def request(self, service_type, parameters: dict, apikey: str):
+    def request(self, service_type, parameters: dict, apikey: str, batch_size: int):
         results = []
         if service_type not in PropertyFactory.AVAILABLE_PROPERTY_PREDICTOR_TYPES():
             return {f"No service of type {service_type} available "}
 
         for property_type in parameters["property_type"]:
             predictor = None
-            for subject in parameters["subjects"]:
+            subjects = parameters["subjects"]
+            
+            # Group subjects into batches
+            subject_batches = [subjects[i:i + batch_size] for i in range(0, len(subjects), batch_size)]
+            
+            for batch in subject_batches:
                 parms = self.set_parms(property_type, parameters)
                 if parms is None:
-                    results.append(
-                        {
-                            "subject": subject,
-                            "property": property_type,
-                            "result": "check Parameters",
-                        }
-                    )
+                    for subject in batch:
+                        results.append(
+                            {
+                                "subject": subject,
+                                "property": property_type,
+                                "result": "check Parameters",
+                            }
+                        )
                     continue
+                
                 # take parms and concatenate key and value to create a unique model id
                 using_model = property_type + "".join([str(type(parms[x])) + str(parms[x]) for x in parms.keys() if x in ['algorithm_type','domain','algorithm_name','algorithm_version','algorithm_application']])
                 # look through model cache in memory
@@ -183,21 +191,17 @@ class request_properties:
                 # Crystaline structure models take data as file sets, the following manages this for the Crystaline property requests
                 if service_type == "get_crystal_property":
                     tmpdir_cif = subject_files_repository(
-                        "cif", parameters["subjects"]
+                        "cif", batch
                     )
                     tmpdir_csv = subject_files_repository(
-                        "csv", parameters["subjects"]
+                        "csv", batch
                     )
 
-                    if property_type == "metal_nonmetal_classifier" and subject[
-                        0
-                    ].endswith("csv"):
+                    if property_type == "metal_nonmetal_classifier" and batch[0].endswith("csv"):
                         data_module = Path(tmpdir_csv.name + "/crf_data.csv")
                         logger.debug(tmpdir_csv.name + "/crf_data.csv")
                         result_fields = ["formulas", "predictions"]
-                    elif not property_type == "metal_nonmetal_classifier" and subject[
-                        0
-                    ].endswith("cif"):
+                    elif not property_type == "metal_nonmetal_classifier" and batch[0].endswith("cif"):
                         data_module = Path(tmpdir_cif.name + "/")
                         result_fields = ["cif_ids", "predictions"]
                     else:
@@ -207,20 +211,19 @@ class request_properties:
                     for key in pred_dict:
                         results.append(
                             {
-                                "subject": subject[0],
+                                "subject": batch[0],
                                 "property": property_type,
                                 "key": key,
                                 "result": str(pred_dict[key]),
                             }
                         )
-
                 else:
-                    # All other propoerty Requests handled here.
+                    # Process subjects in the batch
                     results.append(
                         {
-                            "subject": subject,
+                            "subjects": batch,
                             "property": property_type,
-                            "result": predictor(subject),
+                            "result": predictor(batch),
                         }
                     )
         return results

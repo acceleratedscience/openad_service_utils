@@ -184,7 +184,7 @@ class SimplePredictor(PredictorAlgorithm, BasePredictorParameters):
         raise NotImplementedError("Not implemented in baseclass.")
     
     @abstractmethod
-    def predict(self, sample: Any):
+    def predict(self, sample: List[Any]):
         """Run predictions and return results."""
         raise NotImplementedError("Not implemented in baseclass.")
 
