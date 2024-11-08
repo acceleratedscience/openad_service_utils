@@ -151,6 +151,7 @@ class request_properties:
             predictor = None
             for subject in parameters["subjects"]:
                 parms = self.set_parms(property_type, parameters)
+                parms["selected_property"] = property_type
                 if parms is None:
                     results.append(
                         {
@@ -178,7 +179,8 @@ class request_properties:
                 else:
                     # update model params
                     # logger.debug(f"loading model from cache key: {using_model}")
-                    predictor._update_parameters(parms)
+                    pydantic_params = PropertyPredictorRegistry.get_property_predictor_meta_params(name=property_type)
+                    predictor._update_parameters(pydantic_params(**parms))
 
                 # Crystaline structure models take data as file sets, the following manages this for the Crystaline property requests
                 if service_type == "get_crystal_property":

@@ -120,10 +120,24 @@ class SimplePredictor(PredictorAlgorithm, BasePredictorParameters):
 
     def __init__(self, parameters: PredictorParameters):
         """Do not implement or instatiate"""
-        # revert class level parameters from pydantic Fields to class attributes
-        # this lets you access them when instantiated e.g. self.device
+        self.configuration = None
+        # set up the configuration
+        self._update_parameters(parameters)
+        # run the user model setup
+        self.setup()
+    
+    def _update_parameters(self, parameters: PredictorParameters):
+        """Update model params with user input"""
+        # update the parameters
         for key, value in vars(parameters).items():
             setattr(self, key, value)
+        # if PredictorParameters variables changed then we need to re-download the model
+        # TODO: add tests
+        if self.configuration and \
+            (self.configuration.algorithm_application != parameters.algorithm_application or \
+            self.configuration.algorithm_version != parameters.algorithm_version):
+            self.__artifacts_downloaded__ = False
+            logger.info(f"Re-downloading model: {self.configuration.algorithm_application}/{self.configuration.algorithm_version}")
         # set up the configuration
         configuration = ConfigurablePropertyAlgorithmConfiguration(
             algorithm_type=parameters.algorithm_type,
@@ -133,9 +147,7 @@ class SimplePredictor(PredictorAlgorithm, BasePredictorParameters):
             algorithm_version=parameters.algorithm_version,
         )
         super().__init__(configuration=configuration)
-        # run the user model setup
-        self.setup()
-    
+
     def get_model_location(self):
         """get path to model"""
         prefix = os.path.join(
@@ -143,12 +155,6 @@ class SimplePredictor(PredictorAlgorithm, BasePredictorParameters):
             self.configuration.algorithm_version,
         )
         return get_cached_algorithm_path(prefix, module="properties")
-    
-    def _update_parameters(self, user_input: dict):
-        """Update model params with user input"""
-        for key, value in user_input.items():
-            if key in self.__dict__:
-                setattr(self, key, value)
 
     def __download_model(self):
         """download model from s3"""
