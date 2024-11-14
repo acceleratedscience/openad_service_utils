@@ -65,8 +65,6 @@ class SimpleGenerator(AlgorithmConfiguration[S, T], ABC):
     """
     domain: ClassVar[str] = "materials"  # hardcoded because we dont care about it. does nothing but need it.
 
-    __artifacts_downloaded__: bool = False
-
     def get_model_location(self):
         """get path to model"""
         prefix = os.path.join(
@@ -124,6 +122,8 @@ class SimpleGenerator(AlgorithmConfiguration[S, T], ABC):
 
 class BaseAlgorithm(GeneratorAlgorithm[S, T]):
     """Interface for automated generation via an :class:`SimpleGenerator`."""
+    __artifacts_downloaded__: bool = False
+
     def __init__(
         self, configuration: SimpleGenerator, target: Optional[T] = None
     ):
