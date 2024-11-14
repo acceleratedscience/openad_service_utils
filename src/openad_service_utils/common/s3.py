@@ -173,6 +173,54 @@ class GT4SDS3Client:
             logger.error(f"Failed to list objects in bucket {bucket}: {str(e)}")
             raise
 
+    def check_prefix_exists(self, bucket: str, prefix: str) -> bool:
+        """
+        Check if a prefix exists in the given bucket.
+
+        Args:
+            bucket: bucket name to search for objects.
+            prefix: prefix to check for existence.
+
+        Returns:
+            bool: True if prefix exists, False otherwise.
+
+        Raises:
+            ValueError: If bucket name is invalid or prefix is empty.
+            S3Error: If there's an error accessing S3.
+        """
+        if not prefix:
+            raise ValueError("Prefix cannot be empty")
+        
+        self.validate_bucket_name(bucket)
+        try:
+            # Normalize prefix to ensure consistent checking
+            normalized_prefix = prefix.rstrip('/') + '/'
+            objects = self.client.list_objects(
+                bucket_name=bucket,
+                prefix=normalized_prefix,
+                recursive=False
+            )
+            # Check if there are any objects with this prefix
+            return any(True for _ in objects)
+        except S3Error as e:
+            logger.error(f"Failed to check prefix in bucket {bucket}: {str(e)}")
+            raise
+
+    def ensure_prefix_exists(self, bucket: str, prefix: str) -> None:
+        """
+        Ensure a prefix exists in the given bucket, throwing an error if it doesn't.
+
+        Args:
+            bucket: bucket name to search for objects.
+            prefix: prefix that must exist.
+
+        Raises:
+            ValueError: If bucket name is invalid, prefix is empty, or prefix doesn't exist.
+            S3Error: If there's an error accessing S3.
+        """
+        if not self.check_prefix_exists(bucket, prefix):
+            raise ValueError(f"Prefix '{prefix}' does not exist in bucket '{bucket}'")
+
     def list_directories(self, bucket: str, prefix: Optional[str] = None) -> Set[str]:
         """
         List all available "directories" in the given bucket based on a given prefix.
@@ -267,7 +315,7 @@ class GT4SDS3Client:
             S3Error: If there's an error accessing S3.
             OSError: If there's an error creating directories or writing files.
         """
-        self.validate_bucket_name(bucket)
+        self.ensure_prefix_exists(bucket, prefix=prefix)
 
         if not os.path.exists(path):
             logger.warning(f"path {path} does not exist, creating it...")
