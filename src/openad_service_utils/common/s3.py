@@ -220,7 +220,7 @@ class GT4SDS3Client:
         """
         if not self.check_prefix_exists(bucket, prefix):
             logger.error(f"Prefix '{prefix}' does not exist in bucket '{bucket}'")
-            raise ValueError(f"Prefix '{prefix}' does not exist in bucket '{bucket}'")
+            raise S3SyncError(f"Prefix '{prefix}' does not exist in bucket '{bucket}'")
 
     def list_directories(self, bucket: str, prefix: Optional[str] = None) -> Set[str]:
         """
@@ -483,7 +483,8 @@ def sync_folder_with_s3(
             logger.debug("sync complete")
     except (ValueError, S3Error, OSError) as e:
         logger.exception("sync error")
-        raise S3SyncError(
-            "CacheSyncingError",
-            f"Error syncing with S3: {str(e)}"
-        )
+        raise
+        # raise S3SyncError(
+        #     "CacheSyncingError",
+        #     f"Error syncing with S3: {str(e)}"
+        # )
