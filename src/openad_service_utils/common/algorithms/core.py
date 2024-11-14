@@ -764,15 +764,20 @@ class AlgorithmConfiguration(Generic[S, T]):
         )
         try:
             local_path = sync_algorithm_with_s3(prefix)
-        except (KeyError, S3SyncError) as error:
+        except (KeyError, S3SyncError, ValueError) as error:
             logger.info(
                 f"searching S3 raised {error.__class__.__name__}, using local cache only."
             )
-            logger.debug(error)
+            # logger.debug(error)
             local_path = get_cached_algorithm_path(prefix)
             if not os.path.isdir(local_path):
                 raise OSError(
                     f"artifacts directory {local_path} does not exist locally, and syncing with s3 failed: {error}"
+                )
+            elif not os.listdir(local_path):
+                # check if directory is empty
+                raise S3SyncError( title="s3 error",
+                    detail=f"artifacts directory {local_path} is empty, and syncing with s3 failed: {error}"
                 )
 
         return local_path
@@ -851,15 +856,20 @@ class ConfigurablePropertyAlgorithmConfiguration(AlgorithmConfiguration):
         )
         try:
             local_path = sync_algorithm_with_s3(prefix, module=self.module)
-        except (KeyError, S3SyncError) as error:
+        except (KeyError, S3SyncError, ValueError) as error:
             logger.info(
                 f"searching S3 raised {error.__class__.__name__}, using local cache only."
             )
-            logger.debug(error)
+            # logger.debug(error)
             local_path = get_cached_algorithm_path(prefix, module=self.module)
             if not os.path.isdir(local_path):
                 raise OSError(
                     f"artifacts directory {local_path} does not exist locally, and syncing with s3 failed: {error}"
+                )
+            elif not os.listdir(local_path):
+                # check if directory is empty
+                raise S3SyncError( title="s3 error",
+                    detail=f"artifacts directory {local_path} is empty, and syncing with s3 failed: {error}"
                 )
 
         return local_path

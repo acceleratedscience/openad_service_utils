@@ -219,8 +219,8 @@ class GT4SDS3Client:
             S3Error: If there's an error accessing S3.
         """
         if not self.check_prefix_exists(bucket, prefix):
-            logger.error(f"Prefix '{prefix}' does not exist in bucket '{bucket}'")
-            raise ValueError(f"Prefix '{prefix}' does not exist in bucket '{bucket}'")
+            # logger.error(f"Prefix Path '{prefix}' does not exist in bucket '{bucket}'")
+            raise ValueError(f"Prefix Path '{prefix}' does not exist in bucket '{bucket}'")
 
     def list_directories(self, bucket: str, prefix: Optional[str] = None) -> Set[str]:
         """
@@ -353,7 +353,7 @@ class GT4SDS3Client:
 
                 # Check if download is needed
                 if not os.path.exists(filepath) or force:
-                    logger.info(f"downloading file '{os.path.basename(object_name)}' to '{filepath}'")
+                    logger.debug(f"downloading file '{os.path.basename(object_name)}' to '{filepath}'")
                     try:
                         self.client.fget_object(
                             bucket_name=bucket,
@@ -469,7 +469,7 @@ def sync_folder_with_s3(
         S3SyncError: in case of S3 syncing errors.
     """
     path = os.path.join(folder_path, prefix) if prefix else folder_path
-    logger.debug(f"using bucket={bucket} path={path}")
+    logger.info(f"using host={host} bucket={bucket} path={path}")
     
     try:
         with s3_client(
@@ -478,13 +478,13 @@ def sync_folder_with_s3(
             secret_key=secret_key,
             secure=secure
         ) as client:
-            logger.debug("starting sync")
+            logger.info("starting sync")
             client.sync_folder(bucket=bucket, path=path, prefix=prefix)
-            logger.debug("sync complete")
+            logger.info("sync complete. artifacts downloaded.")
     except (ValueError, S3Error, OSError) as e:
         logger.exception("sync error")
-        raise
-        # raise S3SyncError(
-        #     "CacheSyncingError",
-        #     f"Error syncing with S3: {str(e)}"
-        # )
+        # raise
+        raise S3SyncError(
+            "CacheSyncingError",
+            f"Error syncing with S3: {str(e)}"
+        )

@@ -219,6 +219,7 @@ def sync_algorithm_with_s3(
         )
     except S3SyncError:
         logger.exception("error in syncing the cache with S3")
+        raise
     return os.path.join(folder_path, prefix) if prefix is not None else folder_path
 
 
