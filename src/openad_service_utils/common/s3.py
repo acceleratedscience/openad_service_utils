@@ -258,7 +258,7 @@ def sync_folder_with_s3(
         client = GT4SDS3Client(
             host=host, access_key=access_key, secret_key=secret_key, secure=secure
         )
-        client.list_bucket_names() # test connection. do nothing.
+        #client.list_bucket_names() # test connection. do nothing.
         logger.debug("starting syncing")
         client.sync_folder(bucket=bucket, path=path, prefix=prefix)
         logger.debug("syncing complete")
