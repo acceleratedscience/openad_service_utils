@@ -438,6 +438,8 @@ class AlgorithmConfiguration(Generic[S, T]):
     #: There is no imposed naming convention.
     algorithm_version: str = ""
 
+    target_type: str = "object"
+
     def get_target_description(self) -> Optional[Dict[str, str]]:
         """Get description of the target for generation.
 
@@ -446,7 +448,7 @@ class AlgorithmConfiguration(Generic[S, T]):
         """
         return {
             "title": "Target for generation",
-            "type": "object",
+            "type": self.target_type,
             "description": "Optional target for generation.",
         }
 

@@ -65,6 +65,8 @@ class SimpleGenerator(AlgorithmConfiguration[S, T], ABC):
     """
     domain: ClassVar[str] = "materials"  # hardcoded because we dont care about it. does nothing but need it.
 
+    target_type: str = "object"
+
     __artifacts_downloaded__: bool = False
 
     def get_model_location(self):
@@ -78,7 +80,7 @@ class SimpleGenerator(AlgorithmConfiguration[S, T], ABC):
     @classmethod
     def register(cls):
         """Register the configuration with the ApplicationsRegistry and load the model into runtime."""
-        required = ["algorithm_name", "algorithm_type"]
+        required = ["algorithm_name", "algorithm_type", "target_type"]
         for field in required:
             if field not in cls.__dict__:
                 raise TypeError(f"Can't instantiate class ({cls.__name__}) without '{field}' class variable")

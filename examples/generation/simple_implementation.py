@@ -23,6 +23,9 @@ class MySimpleGenerator(SimpleGenerator):
     algorithm_application: str = "MySimpleGenerator"
     algorithm_version: str = "v0"
 
+    # define target in string format
+    target_type: str = "string"
+
     # define model parameters as fields for the api
     batch_size: int = Field(description="Prediction batch size", default=128)
     temperature: float = Field(description="Temperature", default=0.7)
