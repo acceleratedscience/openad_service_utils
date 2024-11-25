@@ -718,11 +718,11 @@ class AlgorithmConfiguration(Generic[S, T]):
                 raise OSError(
                     f"artifacts directory {local_path} does not exist locally, and syncing with s3 failed: {error}"
                 )
+
             elif not os.listdir(local_path):
                 # check if directory is empty
-                raise S3SyncError(
-                    title="s3 error",
-                    detail=f"artifacts directory {local_path} is empty, and syncing with s3 failed: {error}",
+                logger.warning(
+                    f"artifacts directory {local_path} is empty, and syncing with s3 failed: {error}",
                 )
 
         return local_path

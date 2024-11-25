@@ -79,14 +79,14 @@ async def service(restful_request: dict):
         if original_request.get("service_type") == "get_result":
             result = retrieve_job(original_request.get("url"))
         elif original_request.get("service_type") in PropertyFactory.AVAILABLE_PROPERTY_PREDICTOR_TYPES():
-            if "async" in original_request:
+            if "async" in original_request and original_request["async"] == True:
                 result = background_route_service(prop_requester, restful_request)
             else:
                 result = prop_requester.route_service(restful_request)
         # user request is for generation
         elif original_request.get("service_type") == "generate_data":
             # result = gen_requester.route_service(restful_request)
-            if "async" in original_request:
+            if "async" in original_request and original_request["async"] == True:
                 result = background_route_service(gen_requester, restful_request)
             else:
                 result = gen_requester.route_service(restful_request)
