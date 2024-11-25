@@ -7,6 +7,8 @@ from typing import List, Any
 from pydantic.v1 import Field
 from openad_service_utils import SimpleGenerator
 
+from time import sleep
+
 
 class MyModel:
     def __init__(self, x) -> None:
@@ -35,6 +37,7 @@ class MySimpleGenerator(SimpleGenerator):
         print(">> model filepath: ", self.get_model_location())  # load model
         self.model_path = self.get_model_location()
         self.model = MyModel(self.model_path)
+        return
 
     def predict(self, samples: list) -> List[Any]:
         """Implement the generation logic for the new model
@@ -44,4 +47,5 @@ class MySimpleGenerator(SimpleGenerator):
         # Implement the generation logic for the model
         self.model.net(self.temperature)
         # return value must be an iterable
+        sleep(1)
         return [{"pred1": 1, "pred2": 2}]

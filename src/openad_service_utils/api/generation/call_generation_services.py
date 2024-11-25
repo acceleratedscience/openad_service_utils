@@ -7,8 +7,7 @@ import traceback
 import pandas as pd
 from pydantic import BaseModel
 
-from openad_service_utils.api.generation.generate_service_defs import (
-    create_service_defs, generate_service_defs)
+from openad_service_utils.api.generation.generate_service_defs import create_service_defs, generate_service_defs
 from openad_service_utils.common.exceptions import InvalidItem
 
 from .generation_applications import ApplicationsRegistry as GeneratorRegistry
@@ -80,6 +79,7 @@ def is_valid_service(service: dict):
 #     return service_list
 
 ALL_AVAILABLE_SERVICES = []
+
 
 def get_services() -> list:
     """pulls the list of available services once server is ready"""
@@ -220,13 +220,13 @@ class request_generation:
         if len(result.columns) == 1:
             result.columns = ["result"]
         return result
-    
+
     def generate_name(self, params: dict):
         valid_keys = [
             params.get("algorithm_type", ""),
             params.get("algorithm_application", ""),
-            params.get("algorithm_name", "")
-            ]
+            params.get("algorithm_name", ""),
+        ]
         return valid_keys
 
     def set_parms(self, generator_type, parameters):

@@ -12,16 +12,15 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from pandas import DataFrame
 import copy
 
-from openad_service_utils.api.generation.call_generation_services import \
-    get_services as get_generation_services  # noqa: E402
-from openad_service_utils.api.generation.call_generation_services import \
-    service_requester as generation_request  # noqa: E402
-from openad_service_utils.api.properties.call_property_services import \
-    get_services as get_property_services
-from openad_service_utils.api.properties.call_property_services import \
-    service_requester as property_request
-from openad_service_utils.common.properties.property_factory import \
-    PropertyFactory
+from openad_service_utils.api.generation.call_generation_services import (
+    get_services as get_generation_services,
+)  # noqa: E402
+from openad_service_utils.api.generation.call_generation_services import (
+    service_requester as generation_request,
+)  # noqa: E402
+from openad_service_utils.api.properties.call_property_services import get_services as get_property_services
+from openad_service_utils.api.properties.call_property_services import service_requester as property_request
+from openad_service_utils.common.properties.property_factory import PropertyFactory
 from openad_service_utils.utils.logging_config import setup_logging
 from openad_service_utils.api.config import get_config_instance
 import traceback
@@ -45,6 +44,7 @@ def run_cleanup():
     if get_config_instance().AUTO_CLEAR_GPU_MEM:
         try:
             import torch
+
             logger.debug(f"cleaning gpu memory for process ID: {os.getpid()}")
             torch.cuda.empty_cache()
         except ImportError:
@@ -64,20 +64,32 @@ async def health():
     return "UP"
 
 
+from .async_call import background_route_service, retrieve_job
+
+
 @app.post("/service")
-async def service(property_request: dict):
-    logger.info(f"Processing request {property_request}")
-    original_request = copy.deepcopy(property_request)
+async def service(restful_request: dict):
+    logger.info(f"Processing request {restful_request}")
+    original_request = copy.deepcopy(restful_request)
     if get_config_instance().ENABLE_CACHE_RESULTS:
         # convert input to string for caching
-        property_request = dict_to_json_string(property_request)
+        restful_request = dict_to_json_string(restful_request)
     try:
         # user request is for property prediction
-        if original_request.get("service_type") in PropertyFactory.AVAILABLE_PROPERTY_PREDICTOR_TYPES():
-            result = prop_requester.route_service(property_request)
+        if original_request.get("service_type") == "get_result":
+            result = retrieve_job(original_request.get("url"))
+        elif original_request.get("service_type") in PropertyFactory.AVAILABLE_PROPERTY_PREDICTOR_TYPES():
+            if "async" in original_request:
+                result = background_route_service(prop_requester, restful_request)
+            else:
+                result = prop_requester.route_service(restful_request)
         # user request is for generation
         elif original_request.get("service_type") == "generate_data":
-            result = gen_requester.route_service(property_request)
+            # result = gen_requester.route_service(restful_request)
+            if "async" in original_request:
+                result = background_route_service(gen_requester, restful_request)
+            else:
+                result = gen_requester.route_service(restful_request)
         else:
             logger.error(f"Error processing request: {original_request}")
             raise HTTPException(status_code=500, detail={"error": "service mismatch", "input": original_request})
@@ -124,11 +136,12 @@ async def get_service_defs():
         logger.warn(f"could not print types: {str(e)}")
     return JSONResponse(all_services)
 
+
 @app.get("/admin/details")
 def server_details():
     """return server details"""
     logger.info("Retrieving server details")
-    return JSONResponse(get_config_instance().model_dump()) 
+    return JSONResponse(get_config_instance().model_dump())
 
 
 # Function to run the main service
@@ -137,7 +150,9 @@ def run_main_service(host, port, log_level, max_workers):
 
 
 def run_health_service(host, port, log_level, max_workers):
-    uvicorn.run("openad_service_utils.api.server:kube_probe", host=host, port=port, log_level=log_level, workers=max_workers)
+    uvicorn.run(
+        "openad_service_utils.api.server:kube_probe", host=host, port=port, log_level=log_level, workers=max_workers
+    )
 
 
 def signal_handler(signum, frame, executor):
@@ -162,6 +177,7 @@ def start_server(host="0.0.0.0", port=8080, log_level="info", max_workers=1, wor
         max_workers = get_config_instance().SERVE_MAX_WORKERS
     try:
         import torch
+
         if torch.cuda.is_available():
             logger.debug(f"cuda is available: {torch.cuda.is_available()}")
             logger.debug(f"cuda version: {torch.version.cuda}")
@@ -172,7 +188,7 @@ def start_server(host="0.0.0.0", port=8080, log_level="info", max_workers=1, wor
             # Get the GPU properties
             gpu_properties = torch.cuda.get_device_properties(gpu_id)
             # Get the total GPU memory size in bytes
-            total_memory = int(gpu_properties.total_memory / (1024 ** 2))
+            total_memory = int(gpu_properties.total_memory / (1024**2))
             # Calculate the max amount of workers for gpu size
             available_workers = total_memory // worker_gpu_min
             # TODO: increase min workers
@@ -195,7 +211,7 @@ def start_server(host="0.0.0.0", port=8080, log_level="info", max_workers=1, wor
         executor.submit(run_main_service, host, port, log_level, max_workers)
         if is_running_in_kubernetes():
             logger.debug("Running in Kubernetes, starting health probe")
-            executor.submit(run_health_service, host, port+1, log_level, 1)
+            executor.submit(run_health_service, host, port + 1, log_level, 1)
         signal.signal(signal.SIGINT, lambda s, f: signal_handler(s, f, executor))
         signal.signal(signal.SIGTERM, lambda s, f: signal_handler(s, f, executor))
         signal.signal(signal.SIGWINCH, ignore_winch_signal)
