@@ -26,6 +26,7 @@ from openad_service_utils.api.config import get_config_instance
 import traceback
 from itertools import chain
 from openad_service_utils.utils.convert import dict_to_json_string
+from openad_service_utils.api.async_call import background_route_service, retrieve_job
 
 app = FastAPI()
 kube_probe = FastAPI()
@@ -64,9 +65,6 @@ async def health():
     return "UP"
 
 
-from .async_call import background_route_service, retrieve_job
-
-
 @app.post("/service")
 async def service(restful_request: dict):
     logger.info(f"Processing request {restful_request}")
@@ -74,10 +72,13 @@ async def service(restful_request: dict):
     if get_config_instance().ENABLE_CACHE_RESULTS:
         # convert input to string for caching
         restful_request = dict_to_json_string(restful_request)
+
     try:
         # user request is for property prediction
         if original_request.get("service_type") == "get_result":
             result = retrieve_job(original_request.get("url"))
+            if result is None:
+                return {"error": {"reason": "job does not exist"}}
         elif original_request.get("service_type") in PropertyFactory.AVAILABLE_PROPERTY_PREDICTOR_TYPES():
             if "async" in original_request and original_request["async"] == True:
                 result = background_route_service(prop_requester, restful_request)
