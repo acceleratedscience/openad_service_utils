@@ -36,12 +36,24 @@ def finished(url):
 
 def retrieve_job(url) -> dict:
     cleanup_old_files(localRepo=ASYNC_PATH, age=3)
-    try:
-        with open(f"{ASYNC_PATH}/{url}.result", "r") as fd:
-            result = json.load(fd)
-            logger.info("Successfully retrieve job :" + url)
-            return result
-    except Exception as e:
+    requested = os.path.exists(f"{ASYNC_PATH}/{url}.request")
+    running = os.path.exists(f"{ASYNC_PATH}/{url}.running")
+    finished = os.path.exists(f"{ASYNC_PATH}/{url}.result")
+    if finished:
+        try:
+            with open(f"{ASYNC_PATH}/{url}.result", "r") as fd:
+                result = json.load(fd)
+                logger.info("Successfully retrieve job :" + url)
+                return result
+        except Exception as e:
+            logger.warning("User attempted to retrieve not existing job: " + url)
+            return None
+    elif running:
+        return {"warning": {"reason": "job is still running"}}
+
+    elif requested:
+        return {"warning": {"reason": "job is still in the queue"}}
+    else:
         logger.warning("User attempted to retrieve not existing job: " + url)
         return None
 
