@@ -134,7 +134,7 @@ async def get_service_defs():
     try:
         logger.debug(f"Available types: {list(chain.from_iterable([i['valid_types'] for i in all_services]))}")
     except Exception as e:
-        logger.warn(f"could not print types: {str(e)}")
+        logger.warning(f"could not print types: {str(e)}")
     return JSONResponse(all_services)
 
 
@@ -196,7 +196,7 @@ def start_server(host="0.0.0.0", port=8080, log_level="info", max_workers=1, wor
             if available_workers < max_workers:
                 # downsize the amount of workers if the gpu size is less than expected
                 max_workers = available_workers
-                logger.warn("lowering amount of workers due to resource constraint")
+                logger.warning("lowering amount of workers due to resource constraint")
             logger.debug(f"Total GPU memory: {total_memory:.2f} MB")
     except ImportError:
         logger.debug("cuda not available. Running on cpu.")
