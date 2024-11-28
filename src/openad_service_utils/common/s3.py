@@ -199,7 +199,7 @@ class GT4SDS3Client:
         """
         if not self.check_prefix_exists(bucket, prefix):
             logger.error(f"Prefix Path '{prefix}' does not exist in bucket '{bucket}'")
-            # raise ValueError(f"Prefix Path '{prefix}' does not exist in bucket '{bucket}'")
+            raise ValueError(f"Prefix Path '{prefix}' does not exist in bucket '{bucket}'")
 
     def list_directories(self, bucket: str, prefix: Optional[str] = None) -> Set[str]:
         """
