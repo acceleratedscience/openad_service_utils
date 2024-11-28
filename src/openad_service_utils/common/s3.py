@@ -380,7 +380,7 @@ def upload_file_to_s3(
             logger.debug("upload complete")
     except (ValueError, S3Error, PermissionError) as e:
         logger.exception("upload error " + f"Error uploading file to S3: {str(e)}")
-        # raise S3SyncError("UploadArtifactsError", f"Error uploading file to S3: {str(e)}")
+        raise S3SyncError("UploadArtifactsError", f"Error uploading file to S3: {str(e)}")
 
 
 def sync_folder_with_s3(
@@ -418,7 +418,4 @@ def sync_folder_with_s3(
     except (ValueError, S3Error, OSError) as e:
         logger.exception(f"S3 sync error {str(e)}")
         # raise
-        # raise S3SyncError(
-        #    "CacheSyncingError",
-        #    f"Error syncing with S3: {str(e)}"
-        # )
+        raise S3SyncError("CacheSyncingError", f"Error syncing with S3: {str(e)}")
