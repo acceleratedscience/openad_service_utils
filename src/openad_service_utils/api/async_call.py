@@ -23,7 +23,9 @@ def background_route_service(requestor, restful_request):
     if POOL is None:
         POOL = mp.Pool(processes=get_config_instance().ASYNC_POOL_MAX)
     url = __create_job_url__(restful_request)
-    POOL.apply_async(___call_service___, [restful_request, requestor, url], callback=finished)
+    POOL.apply_async(
+        ___call_service___, [restful_request, requestor, url], callback=finished
+    )
     ___write_job_header_file__(restful_request, url)
     logger.info(f"posted background process {url}")
     return {"id": url}

@@ -9,11 +9,16 @@ from openad_service_utils.implementation.properties.simple import PropertyInfo
 def description_builder(property_list: List[PropertyInfo]):
     text = ""
     for item in property_list:
-        text = text + f"Name: <cmd>{item.get('name')}</cmd>\nDescription:\n{item.get('description', 'No Description')}\n"
+        text = (
+            text
+            + f"Name: <cmd>{item.get('name')}</cmd>\nDescription:\n{item.get('description', 'No Description')}\n"
+        )
     return text
 
 
-def generate_property_service_defs(target_type: str, PropertyPredictorFactory: Dict[str, Any]):
+def generate_property_service_defs(
+    target_type: str, PropertyPredictorFactory: Dict[str, Any]
+):
     if target_type == "molecule":
         input_type = "SMILES"
     elif target_type == "protein":
@@ -42,7 +47,11 @@ def generate_property_service_defs(target_type: str, PropertyPredictorFactory: D
     service_types = {"default": []}
 
     for property_type in property_types:
-        schema = json.loads(PropertyPredictorRegistry.get_property_predictor_parameters_schema(property_type))
+        schema = json.loads(
+            PropertyPredictorRegistry.get_property_predictor_parameters_schema(
+                property_type
+            )
+        )
 
         if "properties" in schema.keys():
             if len(schema["properties"].keys()) > 0:
@@ -53,10 +62,14 @@ def generate_property_service_defs(target_type: str, PropertyPredictorFactory: D
 
             service_types[property_type]["schema"] = schema
             service_types[property_type]["parameters"] = schema["properties"]
-            
+
             if service_types[property_type]["parameters"]:
                 # remove redundant field. available_properties -> valid_types
-                property_data_schema = service_types[property_type]["parameters"].pop("available_properties", {}).get("default", [])
+                property_data_schema = (
+                    service_types[property_type]["parameters"]
+                    .pop("available_properties", {})
+                    .get("default", [])
+                )
 
             # service_types["description"] = "Retrieves  properties for valid property types\n"
             # service_types["description_details"] = "Retrieves  properties for valid property types\n"
@@ -68,7 +81,9 @@ def generate_property_service_defs(target_type: str, PropertyPredictorFactory: D
             service_types["default"].append({property_type: schema})
         for param in service_types[property_type]["parameters"].keys():
             if "allOf" in service_types[property_type]["parameters"][param]:
-                service_types[property_type]["parameters"][param]["allOf"] = "qualified directory"
+                service_types[property_type]["parameters"][param][
+                    "allOf"
+                ] = "qualified directory"
     prime_list = []
     for x in service_types.keys():
         service_def = copy.deepcopy(service_property_blank)
@@ -84,7 +99,9 @@ def generate_property_service_defs(target_type: str, PropertyPredictorFactory: D
                         service_def["description"]
                         + f"  -<cmd>{yy}</cmd>"
                         + ": "
-                        + PropertyPredictorRegistry.get_property_predictor_doc_description(yy)
+                        + PropertyPredictorRegistry.get_property_predictor_doc_description(
+                            yy
+                        )
                         + "\n"
                     )
             service_def["valid_types"] = copy.deepcopy(valid_types)
@@ -93,8 +110,14 @@ def generate_property_service_defs(target_type: str, PropertyPredictorFactory: D
                 continue
         else:
             # todo: too hacky. simplify.
-            meta_class_name = PropertyPredictorRegistry.get_property_predictor_meta_class(name=x, parameters={})
-            service_def["service_name"] = f"get {target_type} " + meta_class_name.algorithm_application
+            meta_class_name = (
+                PropertyPredictorRegistry.get_property_predictor_meta_class(
+                    name=x, parameters={}
+                )
+            )
+            service_def["service_name"] = (
+                f"get {target_type} " + meta_class_name.algorithm_application
+            )
             description = description_builder(property_data_schema)
             service_def["description"] = description or (
                 service_def["description"]
@@ -106,7 +129,9 @@ def generate_property_service_defs(target_type: str, PropertyPredictorFactory: D
             valid_types = [x]
             service_def["valid_types"] = copy.deepcopy(valid_types)
             if "required_parameters" in service_types[x].keys():
-                service_def["required_parameters"] = service_types[x]["required_parameters"]
+                service_def["required_parameters"] = service_types[x][
+                    "required_parameters"
+                ]
             if "parameters" in service_types[x].keys():
                 service_def["parameters"] = service_types[x]["parameters"]
         service_def["sub_category"] = f"{target_type}s"
@@ -121,7 +146,8 @@ def generate_property_service_defs(target_type: str, PropertyPredictorFactory: D
         if not exists:
             prime_list.append(service_def)
     return prime_list
-    
+
+
 def create_property_defs(target_type, PropertyPredictorFactory, services_path):
     prime_list = generate_property_service_defs(target_type, PropertyPredictorFactory)
     i = 0
@@ -132,12 +158,16 @@ def create_property_defs(target_type, PropertyPredictorFactory, services_path):
             i += 1
             x["service_name"] = f"get {target_type} properties " + str(i)
             handle = open(
-                f"{services_path}/property_service_defintion_{target_type}s_" + str(i) + ".json",
+                f"{services_path}/property_service_defintion_{target_type}s_"
+                + str(i)
+                + ".json",
                 "w",
             )
         else:
             handle = open(
-                f"{services_path}/property_service_defintion_{target_type}s_" + x["valid_types"][0] + ".json",
+                f"{services_path}/property_service_defintion_{target_type}s_"
+                + x["valid_types"][0]
+                + ".json",
                 "w",
             )
         handle.write(json.dumps(x, indent=2))
@@ -145,12 +175,15 @@ def create_property_defs(target_type, PropertyPredictorFactory, services_path):
 
 
 if __name__ == "__main__":
-    from openad_service_utils.common.properties.property_factory import \
-        PropertyFactory
+    from openad_service_utils.common.properties.property_factory import PropertyFactory
 
     # import os
     # import definitions.services as new_prop_services
     # services_path = os.path.abspath(os.path.dirname(new_prop_services.__file__))
     services_path = "./"
-    create_property_defs("molecule", PropertyFactory.molecule_predictors_registry, services_path)
-    create_property_defs("protein", PropertyFactory.protein_predictors_registry, services_path)
+    create_property_defs(
+        "molecule", PropertyFactory.molecule_predictors_registry, services_path
+    )
+    create_property_defs(
+        "protein", PropertyFactory.protein_predictors_registry, services_path
+    )

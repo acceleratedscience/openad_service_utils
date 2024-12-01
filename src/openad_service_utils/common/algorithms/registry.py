@@ -27,10 +27,10 @@ import logging
 from dataclasses import dataclass as vanilla_dataclass
 from dataclasses import field, make_dataclass
 from functools import WRAPPER_ASSIGNMENTS, update_wrapper
-from typing import (Any, Callable, ClassVar, Dict, List, NamedTuple, Optional,
-                    Type)
+from typing import Any, Callable, ClassVar, Dict, List, NamedTuple, Optional, Type
 from openad_service_utils.utils.logging_config import setup_logging
 import pydantic
+
 # pyright (pylance in VSCode) does not support pydantic typechecking
 # if typing.TYPE_CHECKING:
 #     from dataclasses import dataclass
@@ -39,9 +39,10 @@ import pydantic
 from pydantic.v1.dataclasses import dataclass
 
 from openad_service_utils.common.algorithms.core import (
-    AlgorithmConfiguration, GeneratorAlgorithm)
-from openad_service_utils.common.exceptions import \
-    DuplicateApplicationRegistration
+    AlgorithmConfiguration,
+    GeneratorAlgorithm,
+)
+from openad_service_utils.common.exceptions import DuplicateApplicationRegistration
 
 # Set up logging configuration
 setup_logging()
@@ -191,7 +192,9 @@ class ApplicationsRegistry:
 
             # get missing entries
             missing_in__dict__ = [
-                key for key in configuration_class.__dict__ if key not in PydanticConfiguration.__dict__
+                key
+                for key in configuration_class.__dict__
+                if key not in PydanticConfiguration.__dict__
             ]
 
             update_wrapper(
@@ -345,7 +348,8 @@ class ApplicationsRegistry:
             algorithm_application=algorithm_application,
         )
         parameters = {
-            key: annotation_tuple.default_value for key, annotation_tuple in application_tuple.parameters_dict.items()
+            key: annotation_tuple.default_value
+            for key, annotation_tuple in application_tuple.parameters_dict.items()
         }
         parameters.update(kwargs)
 
@@ -361,18 +365,23 @@ class ApplicationsRegistry:
             found_versions = [
                 dict(**config_tuple._asdict(), algorithm_version=version)
                 for version in application.configuration_class.list_versions()
-                ]
+            ]
             if found_versions:
                 available.extend(found_versions)
             else:
-                logger.debug("could not find any algorithm versions for: ", application.algorithm_class.__name__)
+                logger.debug(
+                    "could not find any algorithm versions for: ",
+                    application.algorithm_class.__name__,
+                )
         if not available:
             pass
             # logger.debug("No available generation models found")
         return available
 
+
 if __name__ == "__main__":
     import os
+
     os.environ["hi"] = "hello"
 
     logger.debug(os.environ["hi"])

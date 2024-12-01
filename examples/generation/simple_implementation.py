@@ -9,6 +9,8 @@ from openad_service_utils import SimpleGenerator
 
 from time import sleep
 
+NO_MODEL = True
+
 
 class MyModel:
     def __init__(self, x) -> None:
@@ -34,10 +36,18 @@ class MySimpleGenerator(SimpleGenerator):
     temperature: float = Field(description="Temperature", default=0.7)
 
     def setup(self):
-        print(">> model filepath: ", self.get_model_location())  # load model
-        self.model_path = self.get_model_location()
-        self.model = MyModel(self.model_path)
+        # print(">> model filepath: ", self.get_model_location())  # load model
+        # self.model_path = self.get_model_location()
+        # self.model = MyModel(self.model_path)
+
         return
+
+    def ensure_artifacts(self):
+        global NO_MODEL
+        if NO_MODEL:
+            return "no model"
+        else:
+            return super().ensure_artifacts()
 
     def predict(self, samples: list) -> List[Any]:
         """Implement the generation logic for the new model
@@ -45,7 +55,8 @@ class MySimpleGenerator(SimpleGenerator):
             List[Any]: return your predictions
         """
         # Implement the generation logic for the model
-        self.model.net(self.temperature)
+
+        # self.model.net(self.temperature)
         # return value must be an iterable
         sleep(1)
         return [{"pred1": 1, "pred2": 2}]

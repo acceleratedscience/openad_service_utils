@@ -8,11 +8,16 @@
 
 from typing import List, Dict, Any
 from dataclasses import field
-from openad_service_utils import BaseGenerator, BaseAlgorithm, BaseConfiguration  # model scaffold
+from openad_service_utils import (
+    BaseGenerator,
+    BaseAlgorithm,
+    BaseConfiguration,
+)  # model scaffold
 
 
 class MyGenerator(BaseGenerator):
     """model implementation"""
+
     def __init__(self, resources_path: str, param1: int, param2: float):
         super().__init__(resources_path)
         self.param1 = param1
@@ -26,17 +31,19 @@ class MyGenerator(BaseGenerator):
         """
         # Implement the generation logic for the new model
         # return value must be an iterable List
-        return [{"pred1":1, "pred2": 2}]
+        return [{"pred1": 1, "pred2": 2}]
 
 
 class MyGeneratorAlgorithm(BaseAlgorithm[Dict[str, Any], str]):
     """Registry algorithm name"""
+
     pass
 
 
 # register the algorithm to the config that returns your model implementation
 class MyClassicGenerator(BaseConfiguration[Dict[str, Any], str]):
     """model implementation description"""
+
     # metadata parameters for registry to fetch models from s3
     algorithm_type: str = "conditional_generation"
     domain: str = "materials"
@@ -45,7 +52,9 @@ class MyClassicGenerator(BaseConfiguration[Dict[str, Any], str]):
 
     # define model parameters as fields
     param1: int = field(default=10, metadata=dict(description="Description of param1"))
-    param2: float = field(default=0.5, metadata=dict(description="Description of param2"))
+    param2: float = field(
+        default=0.5, metadata=dict(description="Description of param2")
+    )
 
     def get_target_description(self) -> Dict[str, str]:
         """describe the target for this model"""

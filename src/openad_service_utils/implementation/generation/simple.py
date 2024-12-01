@@ -6,7 +6,12 @@ from abc import ABC, abstractmethod
 from typing import Any, ClassVar, Dict, List, Optional, TypeVar, Union
 
 from openad_service_utils import ApplicationsRegistry
-from openad_service_utils.common.algorithms.core import AlgorithmConfiguration, GeneratorAlgorithm, Targeted, Untargeted
+from openad_service_utils.common.algorithms.core import (
+    AlgorithmConfiguration,
+    GeneratorAlgorithm,
+    Targeted,
+    Untargeted,
+)
 from openad_service_utils.common.configuration import get_cached_algorithm_path
 from openad_service_utils.utils.logging_config import setup_logging
 
@@ -23,7 +28,10 @@ U = TypeVar("U")  # used for additional context (e.g. part of target definition)
 
 
 def get_properties_model_path(
-    algorithm_type: str, algorithm_name: str, algorithm_application: str, algorithm_version: str
+    algorithm_type: str,
+    algorithm_name: str,
+    algorithm_application: str,
+    algorithm_version: str,
 ) -> str:
     """generate the model path location"""
     prefix = os.path.join(
@@ -65,7 +73,9 @@ class SimpleGenerator(AlgorithmConfiguration[S, T], ABC):
         YourApplicationName.register()
     """
 
-    domain: ClassVar[str] = "materials"  # hardcoded because we dont care about it. does nothing but need it.
+    domain: ClassVar[
+        str
+    ] = "materials"  # hardcoded because we dont care about it. does nothing but need it.
 
     def get_model_location(self):
         """get path to model"""
@@ -81,12 +91,16 @@ class SimpleGenerator(AlgorithmConfiguration[S, T], ABC):
         required = ["algorithm_name", "algorithm_type"]
         for field in required:
             if field not in cls.__dict__:
-                raise TypeError(f"Can't instantiate class ({cls.__name__}) without '{field}' class variable")
+                raise TypeError(
+                    f"Can't instantiate class ({cls.__name__}) without '{field}' class variable"
+                )
         # create during runtime so that user doesnt have to write separate algorithm class
         algorithm = type(cls.algorithm_name, (BaseAlgorithm,), {})
         # update class name to application name
         if cls.algorithm_application:
-            logger.debug(f"updating application name from '{cls.__name__}' to '{cls.algorithm_application}'")
+            logger.debug(
+                f"updating application name from '{cls.__name__}' to '{cls.algorithm_application}'"
+            )
             cls.__name__ = cls.algorithm_application
         model_location = get_properties_model_path(
             cls.algorithm_type, cls.algorithm_name, cls.__name__, cls.algorithm_version
@@ -161,7 +175,9 @@ class BaseAlgorithm(GeneratorAlgorithm[S, T]):
         """
         # check if model is downloaded only once.
         if not self.__artifacts_downloaded__:
-            logger.debug(f"Downloading model: {configuration.algorithm_application}/{configuration.algorithm_version}")
+            logger.debug(
+                f"Downloading model: {configuration.algorithm_application}/{configuration.algorithm_version}"
+            )
             # download model
             self.local_artifacts = configuration.ensure_artifacts()
             if self.local_artifacts:

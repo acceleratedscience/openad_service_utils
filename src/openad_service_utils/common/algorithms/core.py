@@ -34,7 +34,20 @@ from copy import deepcopy
 from dataclasses import dataclass
 from functools import partial
 from time import time
-from typing import Any, Callable, ClassVar, Dict, Generic, Iterable, Iterator, Optional, Set, Type, TypeVar, Union
+from typing import (
+    Any,
+    Callable,
+    ClassVar,
+    Dict,
+    Generic,
+    Iterable,
+    Iterator,
+    Optional,
+    Set,
+    Type,
+    TypeVar,
+    Union,
+)
 from openad_service_utils.utils.logging_config import setup_logging
 from openad_service_utils.common.configuration import (
     GT4SDConfiguration,
@@ -44,10 +57,17 @@ from openad_service_utils.common.configuration import (
     sync_algorithm_with_s3,
     upload_to_s3,
 )
-from openad_service_utils.common.exceptions import GT4SDTimeoutError, InvalidItem, S3SyncError, SamplingError
+from openad_service_utils.common.exceptions import (
+    GT4SDTimeoutError,
+    InvalidItem,
+    S3SyncError,
+    SamplingError,
+)
 
 try:
-    from gt4sd_inference_regression.training_pipelines.core import TrainingPipelineArguments
+    from gt4sd_inference_regression.training_pipelines.core import (
+        TrainingPipelineArguments,
+    )
 except:  # noqa: E722
     pass
 
@@ -97,12 +117,16 @@ class GeneratorAlgorithm(ABC, Generic[S, T]):
                 generator.
             target: context or condition for the generation. Defaults to None.
         """
-        logger.debug(f"runnning {self.__class__.__name__} with configuration={configuration}")
+        logger.debug(
+            f"runnning {self.__class__.__name__} with configuration={configuration}"
+        )
         generator = self.get_generator(configuration, target)
         setattr(
             self,
             "generate",
-            self._setup_untargeted_generator(configuration=configuration, generator=generator, target=target),
+            self._setup_untargeted_generator(
+                configuration=configuration, generator=generator, target=target
+            ),
         )
 
     @abstractmethod
@@ -147,7 +171,10 @@ class GeneratorAlgorithm(ABC, Generic[S, T]):
         if len(item_set) == 0:
             logger.error(detail + "Exiting now!")
             raise error(title="No samples generated", detail=detail)  # type: ignore
-        logger.warning(detail + f"Returning {len(item_set)} instead of {self.number_of_items} items!")
+        logger.warning(
+            detail
+            + f"Returning {len(item_set)} instead of {self.number_of_items} items!"
+        )
 
     def _setup_untargeted_generator(
         self,
@@ -199,7 +226,10 @@ class GeneratorAlgorithm(ABC, Generic[S, T]):
         self.number_of_items = number_of_items
 
         if number_of_items > self.max_samples:
-            detail = f"{number_of_items} is too many items to generate, " f"must be under {self.max_samples+1} samples."
+            detail = (
+                f"{number_of_items} is too many items to generate, "
+                f"must be under {self.max_samples+1} samples."
+            )
             self.timeout(set(), detail=detail, error=SamplingError)  # type: ignore
             print("sampling :", str(number_of_items))
         item_set: Set = set()
@@ -234,7 +264,10 @@ class GeneratorAlgorithm(ABC, Generic[S, T]):
                     if len(item_set) == number_of_items:
                         return
                 except InvalidItem as error:
-                    logger.debug(f"item {item} could not be validated, " f"raising {error.title}: {error.detail}")
+                    logger.debug(
+                        f"item {item} could not be validated, "
+                        f"raising {error.title}: {error.detail}"
+                    )
                     continue
 
             # make sure we don't keep sampling more than a given number of times,
@@ -243,14 +276,19 @@ class GeneratorAlgorithm(ABC, Generic[S, T]):
                 stuck_counter += 1
             else:
                 stuck_counter = 0
-            if stuck_counter >= gt4sd_configuration_instance.gt4sd_max_number_of_stuck_calls:
+            if (
+                stuck_counter
+                >= gt4sd_configuration_instance.gt4sd_max_number_of_stuck_calls
+            ):
                 prefix = "No" if len(item_set) == 0 else "No new"
                 detail = f"{prefix} samples generated for more than {gt4sd_configuration_instance.gt4sd_max_number_of_stuck_calls} cycles. "
                 self.timeout(item_set, detail=detail, error=GT4SDTimeoutError)  # type: ignore
                 return
             item_set_length = len(item_set)
 
-    def validate_configuration(self, configuration: AlgorithmConfiguration) -> AlgorithmConfiguration:
+    def validate_configuration(
+        self, configuration: AlgorithmConfiguration
+    ) -> AlgorithmConfiguration:
         """Overload to validate the a configuration for the algorithm.
 
         Args:
@@ -279,7 +317,9 @@ class PredictorAlgorithm(ABC, Generic[S, T]):
             configuration: application specific helper that allows to setup the
                 generator.
         """
-        logger.debug(f"runnning {self.__class__.__name__} with configuration={configuration}")
+        logger.debug(
+            f"runnning {self.__class__.__name__} with configuration={configuration}"
+        )
         self.configuration = configuration
         self.predictor = self.get_predictor(configuration)
 
@@ -331,7 +371,9 @@ class PredictorAlgorithm(ABC, Generic[S, T]):
         try:
             predicted = self.predictor(input)
         except TimeoutError:
-            detail = f"Predicting took longer than maximum ({self.max_runtime} seconds)."
+            detail = (
+                f"Predicting took longer than maximum ({self.max_runtime} seconds)."
+            )
             logger.warning(detail + " Exiting now!")
         except Exception as e:
             logger.error(e)
@@ -483,7 +525,9 @@ class AlgorithmConfiguration(Generic[S, T]):
         Returns:
             the application prefix.
         """
-        return os.path.join(cls.algorithm_type, cls.algorithm_name, cls.algorithm_application)
+        return os.path.join(
+            cls.algorithm_type, cls.algorithm_name, cls.algorithm_application
+        )
 
     @classmethod
     def list_versions(cls) -> Set[str]:
@@ -500,7 +544,9 @@ class AlgorithmConfiguration(Generic[S, T]):
         try:
             versions = get_algorithm_subdirectories_with_s3(prefix)
         except (KeyError, S3SyncError) as error:
-            logger.info(f"searching S3 raised {error.__class__.__name__}, using local cache only.")
+            logger.info(
+                f"searching S3 raised {error.__class__.__name__}, using local cache only."
+            )
             logger.debug(error)
             versions = set()
         versions = versions.union(get_algorithm_subdirectories_in_cache(prefix))
@@ -548,7 +594,9 @@ class AlgorithmConfiguration(Generic[S, T]):
         Returns:
             a mapping between artifacts' files and training pipeline's output files.
         """
-        raise ValueError(f"{cls.__name__} artifacts not mapped for {training_pipeline_arguments}")
+        raise ValueError(
+            f"{cls.__name__} artifacts not mapped for {training_pipeline_arguments}"
+        )
 
     @classmethod
     def save_version_from_training_pipeline_arguments_postprocess(
@@ -579,11 +627,15 @@ class AlgorithmConfiguration(Generic[S, T]):
         """
         filepaths_mapping: Dict[str, str] = {}
         try:
-            filepaths_mapping = cls.get_filepath_mappings_for_training_pipeline_arguments(
-                training_pipeline_arguments=training_pipeline_arguments
+            filepaths_mapping = (
+                cls.get_filepath_mappings_for_training_pipeline_arguments(
+                    training_pipeline_arguments=training_pipeline_arguments
+                )
             )
         except ValueError:
-            logger.info(f"{cls.__name__} can not save a version based on {training_pipeline_arguments}")
+            logger.info(
+                f"{cls.__name__} can not save a version based on {training_pipeline_arguments}"
+            )
         if len(filepaths_mapping) > 0:
             if source_version is None:
                 source_version = cls.algorithm_version
@@ -595,7 +647,9 @@ class AlgorithmConfiguration(Generic[S, T]):
             )
             filepaths_mapping = {
                 filename: (
-                    source_filepath if os.path.exists(source_filepath) else os.path.join(source_missing_path, filename)
+                    source_filepath
+                    if os.path.exists(source_filepath)
+                    else os.path.join(source_missing_path, filename)
                 )
                 for filename, source_filepath in filepaths_mapping.items()
             }
@@ -603,14 +657,20 @@ class AlgorithmConfiguration(Generic[S, T]):
             try:
                 os.makedirs(target_path)
             except OSError:
-                logger.warning(f"Artifacts already existing in {target_path}, overwriting them...")
+                logger.warning(
+                    f"Artifacts already existing in {target_path}, overwriting them..."
+                )
                 os.makedirs(target_path, exist_ok=True)
             for target_filename, source_filepath in filepaths_mapping.items():
                 target_filepath = os.path.join(target_path, target_filename)
-                logger.info(f"Saving artifact {source_filepath} into {target_filepath}...")
+                logger.info(
+                    f"Saving artifact {source_filepath} into {target_filepath}..."
+                )
                 shutil.copyfile(source_filepath, target_filepath)
 
-            cls.save_version_from_training_pipeline_arguments_postprocess(training_pipeline_arguments)
+            cls.save_version_from_training_pipeline_arguments_postprocess(
+                training_pipeline_arguments
+            )
 
             logger.info(f"Artifacts saving completed into {target_path}")
 
@@ -644,11 +704,15 @@ class AlgorithmConfiguration(Generic[S, T]):
         filepaths_mapping: Dict[str, str] = {}
 
         try:
-            filepaths_mapping = cls.get_filepath_mappings_for_training_pipeline_arguments(
-                training_pipeline_arguments=training_pipeline_arguments
+            filepaths_mapping = (
+                cls.get_filepath_mappings_for_training_pipeline_arguments(
+                    training_pipeline_arguments=training_pipeline_arguments
+                )
             )
         except ValueError:
-            logger.info(f"{cls.__name__} can not save a version based on {training_pipeline_arguments}")
+            logger.info(
+                f"{cls.__name__} can not save a version based on {training_pipeline_arguments}"
+            )
 
         if len(filepaths_mapping) > 0:
             # probably redundant
@@ -663,33 +727,47 @@ class AlgorithmConfiguration(Generic[S, T]):
 
             # check if the target version is already in s3. If yes, don't upload.
             if target_version not in versions:
-                logger.info(f"There is no version {target_version} in S3, starting upload...")
+                logger.info(
+                    f"There is no version {target_version} in S3, starting upload..."
+                )
             else:
-                logger.info(f"Version {target_version} already exists in S3, skipping upload...")
+                logger.info(
+                    f"Version {target_version} already exists in S3, skipping upload..."
+                )
                 return
 
             # mapping between filenames and paths for a version.
             filepaths_mapping = {
                 filename: (
-                    source_filepath if os.path.exists(source_filepath) else os.path.join(source_missing_path, filename)
+                    source_filepath
+                    if os.path.exists(source_filepath)
+                    else os.path.join(source_missing_path, filename)
                 )
                 for filename, source_filepath in filepaths_mapping.items()
             }
 
-            logger.info(f"Uploading artifacts into {os.path.join(prefix, target_version)}...")
+            logger.info(
+                f"Uploading artifacts into {os.path.join(prefix, target_version)}..."
+            )
             try:
                 for target_filename, source_filepath in filepaths_mapping.items():
                     # algorithm_type/algorithm_name/algorithm_application/version/filename
                     # for the moment we assume that the prefix exists in s3.
-                    target_filepath = os.path.join(prefix, target_version, target_filename)
+                    target_filepath = os.path.join(
+                        prefix, target_version, target_filename
+                    )
                     upload_to_s3(target_filepath, source_filepath)
-                    logger.info(f"Upload artifact {source_filepath} into {target_filepath}...")
+                    logger.info(
+                        f"Upload artifact {source_filepath} into {target_filepath}..."
+                    )
 
             except S3SyncError:
                 logger.warning("Problem with upload...")
                 return
 
-            logger.info(f"Artifacts uploading completed into {os.path.join(prefix, target_version)}")
+            logger.info(
+                f"Artifacts uploading completed into {os.path.join(prefix, target_version)}"
+            )
 
     @classmethod
     def ensure_artifacts_for_version(cls, algorithm_version: str) -> str:
@@ -711,7 +789,9 @@ class AlgorithmConfiguration(Generic[S, T]):
         try:
             local_path = sync_algorithm_with_s3(prefix)
         except (KeyError, S3SyncError, ValueError) as error:
-            logger.info(f"searching S3 raised {error.__class__.__name__}, using local cache only.")
+            logger.info(
+                f"searching S3 raised {error.__class__.__name__}, using local cache only."
+            )
             # logger.debug(error)
             local_path = get_cached_algorithm_path(prefix)
             if not os.path.isdir(local_path):
@@ -776,7 +856,9 @@ class ConfigurablePropertyAlgorithmConfiguration(AlgorithmConfiguration):
         Returns:
             the application prefix.
         """
-        return os.path.join(self.domain, self.algorithm_name, self.algorithm_application)
+        return os.path.join(
+            self.domain, self.algorithm_name, self.algorithm_application
+        )
 
     def ensure_artifacts_for_version(self, algorithm_version: str) -> str:  # type: ignore
         """The artifacts matching the path defined by class attributes and the given version are downloaded.
@@ -800,7 +882,9 @@ class ConfigurablePropertyAlgorithmConfiguration(AlgorithmConfiguration):
         try:
             local_path = sync_algorithm_with_s3(prefix, module=self.module)
         except (KeyError, S3SyncError, ValueError) as error:
-            logger.info(f"searching S3 raised {error.__class__.__name__}, using local cache only.")
+            logger.info(
+                f"searching S3 raised {error.__class__.__name__}, using local cache only."
+            )
             # logger.debug(error)
             local_path = get_cached_algorithm_path(prefix, module=self.module)
             if not os.path.isdir(local_path):
@@ -832,10 +916,14 @@ class ConfigurablePropertyAlgorithmConfiguration(AlgorithmConfiguration):
         try:
             versions = get_algorithm_subdirectories_with_s3(prefix, module=self.module)
         except (KeyError, S3SyncError) as error:
-            logger.info(f"searching S3 raised {error.__class__.__name__}, using local cache only.")
+            logger.info(
+                f"searching S3 raised {error.__class__.__name__}, using local cache only."
+            )
             logger.debug(error)
             versions = set()
-        versions = versions.union(get_algorithm_subdirectories_in_cache(prefix, module=self.module))
+        versions = versions.union(
+            get_algorithm_subdirectories_in_cache(prefix, module=self.module)
+        )
         return versions
 
 

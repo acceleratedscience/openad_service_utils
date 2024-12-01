@@ -1,5 +1,3 @@
-
-
 from implementation import MySimplePredictor
 from openad_service_utils import start_server
 

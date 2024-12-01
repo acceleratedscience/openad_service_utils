@@ -1,10 +1,21 @@
-# library for onboarding models to openad toolkit
-⚠️ Under construction
+# library for onboarding models to OpenAD toolkit
+[![License MIT](https://img.shields.io/github/license/acceleratedscience/openad_service_utils)](https://opensource.org/licenses/MIT)
+[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+[![Docs](https://img.shields.io/badge/website-live-brightgreen)](https://acceleratedscience.github.io/openad-docs/) <br>
+![Linux](https://img.shields.io/badge/Linux-FCC624?style=for-the-badge&logo=linux&logoColor=black)
+![macOS](https://img.shields.io/badge/mac%20os-000000?style=for-the-badge&logo=macos&logoColor=F0F0F0)
+![Python](https://img.shields.io/badge/python-3670A0?style=for-the-badge&logo=python&logoColor=ffdd54)
+
 
 ## Installation
+
+Requirements :<br>
+- Linux or Macos <br>
+- Python 310.10 or 3.11 <br>
+
 Install the latest version by tag, such as
 ```shell
-pip install git+https://github.com/acceleratedscience/openad_service_utils.git@0.2.6
+pip install git+https://github.com/acceleratedscience/openad_service_utils.git@0.3.0
 ```
 
 ## Model Implementations
@@ -27,6 +38,13 @@ os.environ["GT4SD_S3_HOST_HUB"] = "s3.<region>.amazonaws.com"
 os.environ["GT4SD_S3_ACCESS_KEY_HUB"] = ""
 os.environ["GT4SD_S3_SECRET_KEY_HUB"] = ""
 ```
+
+## Allow Asynchronous results
+This feature allows you to define a service as ansynchronously capable. It generates a unique id for the job at random using UUID and will store the result for 3 days before deleting. the user can request the result at any time in the 3 days.
+
+the environment variable 'ASYNC_ALLOW' mut be set for it to work. 
+
+`os.environ["ASYNC_ALLOW"] = True`
 
 ## Local Cache locations for models
 
