@@ -6,9 +6,7 @@
 from typing import List, Any
 from pydantic.v1 import Field
 from openad_service_utils import SimpleGenerator
-
 from time import sleep
-
 
 NO_MODEL = True  # if you are simply providind an api to generate a data set then use false , otherwide True
 
@@ -42,6 +40,7 @@ class MySimpleGenerator(SimpleGenerator):
         self.model = MyModel(self.model_path)
         return
 
+    # if No Model is set to true do not try and ensure the Model artifacts are available to Run
     def ensure_artifacts(self):
         global NO_MODEL
         if NO_MODEL:
@@ -54,9 +53,8 @@ class MySimpleGenerator(SimpleGenerator):
         Returns:
             List[Any]: return your predictions
         """
-        # Implement the generation logic for the model
-
+        # Implement the generation logic for the model, This is cancelled out as Example is using NO_MODEL=True
         # self.model.net(self.temperature)
+
         # return value must be an iterable
-        sleep(1)
         return [{"pred1": 1, "pred2": 2}]

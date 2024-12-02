@@ -8,6 +8,10 @@ from openad_service_utils import (
     DomainSubmodule,
     PropertyInfo,
 )
+from openad_service_utils.common.algorithms.core import AlgorithmConfiguration
+
+# use No Model if simply calling an API or wrapper to another service
+NO_MODEL = True  # ATTENTION SET to TRUE ONLY for Example ...
 
 
 class ClassificationModel:
@@ -52,6 +56,14 @@ class MySimplePredictor(SimplePredictor):
         model = ClassificationModel(model_path=model_path, tokenizer=tokenizer)
         model.to(self.device)
         model.eval()
+
+    def get_predictor(self, configuration: AlgorithmConfiguration):
+        """overwrite existing function to download model only once"""
+        global NO_MODEL
+        if NO_MODEL is False:
+            super().get_predictor(self)
+        else:
+            print("no predictor")
 
     def predict(self, sample: Any):
         """run predictions on your model"""
