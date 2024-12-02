@@ -9,7 +9,8 @@ from openad_service_utils import SimpleGenerator
 
 from time import sleep
 
-NO_MODEL = True
+
+NO_MODEL = True  # if you are simply providind an api to generate a data set then use false , otherwide True
 
 
 class MyModel:
@@ -36,10 +37,9 @@ class MySimpleGenerator(SimpleGenerator):
     temperature: float = Field(description="Temperature", default=0.7)
 
     def setup(self):
-        # print(">> model filepath: ", self.get_model_location())  # load model
-        # self.model_path = self.get_model_location()
-        # self.model = MyModel(self.model_path)
-
+        print(">> model filepath: ", self.get_model_location())  # load model
+        self.model_path = self.get_model_location()
+        self.model = MyModel(self.model_path)
         return
 
     def ensure_artifacts(self):

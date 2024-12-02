@@ -26,7 +26,7 @@ Look under the examples folder for implementations of models.
 - implementation for properties example [readme](examples/properties)
 
 
-## Use your own private model not hosted on gt4sd
+## Use your own private model not hosted on gt4sd S3 bucket
 set the following variables in the os host or python script to your private s3 buckets:
 
 ```python
@@ -45,6 +45,27 @@ This feature allows you to define a service as ansynchronously capable. It gener
 the environment variable 'ASYNC_ALLOW' mut be set for it to work. 
 
 `os.environ["ASYNC_ALLOW"] = True`
+
+## Example
+
+```
+
+OpenAD:DEFAULT >>  pserve generate with MySimpleGenerator data   for "{'<esol>': -3.2}"  sample 4 async
+✔ Request Returned
+{'id': '8c2cfb68-b037-11ef-9223-acde48001122'}
+OpenAD:DEFAULT >>  get model service 'pserve' result '8c2cfb68-b037-11ef-9223-acde48001122'
+job is still running
+OpenAD:DEFAULT >>  get model service 'pserve' result '8c2cfb68-b037-11ef-9223-acde48001122'
+
+  pred1    pred2
+-------  -------
+      1        2
+
+Next up, you can run: result open/edit/copy/display/as dataframe/save [as '<filename.csv>']
+
+```
+
+
 
 ## Local Cache locations for models
 
