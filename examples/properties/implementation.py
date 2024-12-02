@@ -68,4 +68,4 @@ class MySimplePredictor(SimplePredictor):
     def predict(self, sample: Any):
         """run predictions on your model"""
         selected_property = self.get_selected_property()
-        return [1, 0, 1]
+        return 1
