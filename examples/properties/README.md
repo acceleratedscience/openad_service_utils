@@ -6,7 +6,9 @@ follow the [simple_implementation.py](/examples/properties/implementation.py) ex
 ```python
 from openad_service_utils import SimplePredictor, PredictorTypes, PropertyInfo
 from typing import Optional, List, Any
+from openad_service_utils.common.algorithms.core import AlgorithmConfiguration
 
+NO_MODEL =False # Set to True if only calling API or wrapping to another service
 
 class YourApplicationName(SimplePredictor):
     # necessary s3 paramters
@@ -25,6 +27,14 @@ class YourApplicationName(SimplePredictor):
         # load model
         pass
 
+    def get_predictor(self, configuration: AlgorithmConfiguration):
+        """overwrite existing function to download model only once"""
+        global NO_MODEL
+        if NO_MODEL is False:
+            super().get_predictor(self)
+        else:
+            print("no predictor")
+
     def predict(sample: Any):
         # setup model prediction
         pass
@@ -38,6 +48,11 @@ if __name__ == "__main__":
     # start the server
     start_server()
 ```
+
+## NO_MODEL Global Variable
+This global variable in the Implementation example allows you to run the service without the automatic loading of models. This is a useful option when you are wrapping an API like provided in RDKIT for generating properties or if you want to create a Pipeline that calls different models from other services. <br>
+
+By Default for standard Model inference it should be set to `FALSE`
 
 ## Property Models Cache
 

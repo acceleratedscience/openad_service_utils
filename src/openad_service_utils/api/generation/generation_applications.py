@@ -26,10 +26,14 @@
 from typing import Dict, List
 
 from openad_service_utils.common.algorithms.registry import (
-    ApplicationsRegistry, ConfigurationTuple)
+    ApplicationsRegistry,
+    ConfigurationTuple,
+)
+
 # from openad_service_utils.common.configuration import reset_logging_root_logger
 
 # reset_logging_root_logger()
+
 
 def get_algorithm_applications() -> List[Dict[str, str]]:
     return sorted(
@@ -43,17 +47,24 @@ def get_algorithm_applications() -> List[Dict[str, str]]:
         ),
     )
 
+
 def get_algorithm_categories() -> List[str]:
     return {
-        category: sorted(set([algorithm[category] for algorithm in get_algorithm_applications()]))
+        category: sorted(
+            set([algorithm[category] for algorithm in get_algorithm_applications()])
+        )
         for category in ["domain", "algorithm_type"]
     }
+
 
 # print("available algorithms")
 # for i in get_algorithm_applications():
 #     print(i)
 
-def filter_algorithm_applications(algorithms: List[Dict[str, str]], filters: Dict[str, str]) -> List[Dict[str, str]]:
+
+def filter_algorithm_applications(
+    algorithms: List[Dict[str, str]], filters: Dict[str, str]
+) -> List[Dict[str, str]]:
     """
     Returning algorithms with given filters.
 
@@ -76,7 +87,9 @@ def filter_algorithm_applications(algorithms: List[Dict[str, str]], filters: Dic
     ]
 
 
-def get_configuration_tuples(algorithms: List[Dict[str, str]]) -> List[ConfigurationTuple]:
+def get_configuration_tuples(
+    algorithms: List[Dict[str, str]]
+) -> List[ConfigurationTuple]:
     """
     Returning configuration tuples from a list of applications.
 

@@ -1,8 +1,7 @@
 import copy
 import json
 
-from .generation_applications import (ApplicationsRegistry,
-                                      get_algorithm_applications)
+from .generation_applications import ApplicationsRegistry, get_algorithm_applications
 import logging
 from openad_service_utils.utils.logging_config import setup_logging
 
@@ -14,7 +13,6 @@ logger = logging.getLogger(__name__)
 
 
 def generate_service_defs(target_type):
-
     service_property_blank = {
         "service_type": f"{target_type}_data",
         "description": None,
@@ -52,7 +50,6 @@ def generate_service_defs(target_type):
         # logger.debug(schema)
         property_type = algorithm["algorithm_application"]
         if property_type not in service_types.keys():
-
             if "properties" in schema.keys():
                 if len(schema["properties"].keys()) > 0:
                     service_types[property_type] = {}
@@ -62,7 +59,9 @@ def generate_service_defs(target_type):
 
                 if "required" in schema.keys():
                     #
-                    service_types[property_type]["required_parameters"] = schema["required"]
+                    service_types[property_type]["required_parameters"] = schema[
+                        "required"
+                    ]
             else:
                 service_types["default"].append({property_type: schema})
             service_types[property_type]["generator_type"] = {
@@ -74,7 +73,9 @@ def generate_service_defs(target_type):
             if "algorithm_versions" not in service_types[property_type].keys():
                 # logger.debug(property_type)
                 service_types[property_type]["algorithm_versions"] = []
-        service_types[property_type]["algorithm_versions"].append(algorithm["algorithm_version"])
+        service_types[property_type]["algorithm_versions"].append(
+            algorithm["algorithm_version"]
+        )
 
         try:
             app_inst = ApplicationsRegistry.get_configuration_instance(
@@ -90,7 +91,6 @@ def generate_service_defs(target_type):
             logger.debug("need more installed")
 
         try:
-
             # logger.debug("--------------------------------------------")
             # logger.debug("============================================")
             # logger.debug(property_type)
@@ -108,9 +108,10 @@ def generate_service_defs(target_type):
     prime_list = []
 
     for x in service_types.keys():
-
         service_def = copy.deepcopy(service_property_blank)
-        service_def["generator_type"] = copy.deepcopy(service_types[x]["generator_type"])
+        service_def["generator_type"] = copy.deepcopy(
+            service_types[x]["generator_type"]
+        )
 
         service_def["target"] = service_types[x]["target"]
         service_def["description"] = service_types[x]["description"]
@@ -136,6 +137,7 @@ def generate_service_defs(target_type):
             prime_list.append(service_def)
     return prime_list
 
+
 def create_service_defs(target_type, def_locations):
     prime_list = generate_service_defs(target_type)
     i = 0
@@ -144,13 +146,20 @@ def create_service_defs(target_type, def_locations):
             if len(x["valid_types"]) > 1:
                 i += 1
                 x["service_name"] = f"{target_type} with " + str(i)
-                handle = open(f"{def_locations}/generation_service_defintion_{target_type}s_" + str(i) + ".json", "w")
+                handle = open(
+                    f"{def_locations}/generation_service_defintion_{target_type}s_"
+                    + str(i)
+                    + ".json",
+                    "w",
+                )
             else:
                 handle = open(
-                    f"{def_locations}/generation_service_defintion_{target_type}s_" + x["valid_types"][0] + ".json", "w"
+                    f"{def_locations}/generation_service_defintion_{target_type}s_"
+                    + x["valid_types"][0]
+                    + ".json",
+                    "w",
                 )
             handle.write(json.dumps(x))
             handle.close()
         except:
             logger.error(str(x))
-

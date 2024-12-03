@@ -7,7 +7,11 @@ from typing import Any, Dict, Generic, List, Optional, Type, TypeVar, Union
 
 from openad_service_utils import ApplicationsRegistry
 from openad_service_utils.common.algorithms.core import (
-    AlgorithmConfiguration, GeneratorAlgorithm, Targeted, Untargeted)
+    AlgorithmConfiguration,
+    GeneratorAlgorithm,
+    Targeted,
+    Untargeted,
+)
 from openad_service_utils.common.configuration import get_cached_algorithm_path
 from openad_service_utils.utils.logging_config import setup_logging
 
@@ -55,6 +59,7 @@ class BaseConfiguration(AlgorithmConfiguration[S, T], ABC):
     However, the values for :attr:`algorithm_name` and :attr:`algorithm_application`
     are set when you register the application.
     """
+
     algorithm_class: Type["BaseAlgorithm"]
 
     @abstractmethod
@@ -69,14 +74,19 @@ class BaseConfiguration(AlgorithmConfiguration[S, T], ABC):
     @classmethod
     def register(cls):
         """Register the configuration with the ApplicationsRegistry and load the model into runtime."""
-        if 'algorithm_class' not in cls.__dict__:
-            raise TypeError(f"Can't instantiate class {cls.__name__} without 'algorithm_class' class variable")
-        logger.info(f"registering classic generator: {'/'.join([cls.algorithm_type, cls.algorithm_class.__name__, cls.__name__, cls.algorithm_version])}")
+        if "algorithm_class" not in cls.__dict__:
+            raise TypeError(
+                f"Can't instantiate class {cls.__name__} without 'algorithm_class' class variable"
+            )
+        logger.info(
+            f"registering classic generator: {'/'.join([cls.algorithm_type, cls.algorithm_class.__name__, cls.__name__, cls.algorithm_version])}"
+        )
         ApplicationsRegistry.register_algorithm_application(cls.algorithm_class)(cls)
 
 
 class BaseAlgorithm(GeneratorAlgorithm[S, T]):
     """Interface for automated generation via an :class:`BaseConfiguration`."""
+
     __artifacts_downloaded__: bool = False
 
     def __init__(
@@ -90,7 +100,7 @@ class BaseAlgorithm(GeneratorAlgorithm[S, T]):
         configuration: BaseConfiguration[S, T],
         target: Optional[T],
     ) -> Untargeted:
-    # ) -> Union[Untargeted, Targeted[T]]:
+        # ) -> Union[Untargeted, Targeted[T]]:
         """Set up the detail implementation using the configuration. This Base implementation returns an untargeted generator.
 
         Note:
@@ -118,10 +128,12 @@ class BaseAlgorithm(GeneratorAlgorithm[S, T]):
         else:
             # use cached version. skip s3 check.
             prefix = os.path.join(
-                    configuration.get_application_prefix(),
-                    configuration.algorithm_version,
-                    )
+                configuration.get_application_prefix(),
+                configuration.algorithm_version,
+            )
             self.local_artifacts = get_cached_algorithm_path(prefix)
         # logger.info("Downloading model: ", configuration.get_application_prefix())
-        implementation: BaseGenerator = configuration.get_conditional_generator(self.local_artifacts)
+        implementation: BaseGenerator = configuration.get_conditional_generator(
+            self.local_artifacts
+        )
         return implementation.generate

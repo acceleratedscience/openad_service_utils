@@ -34,20 +34,40 @@ from copy import deepcopy
 from dataclasses import dataclass
 from functools import partial
 from time import time
-from typing import (Any, Callable, ClassVar, Dict, Generic, Iterable, Iterator,
-                    Optional, Set, Type, TypeVar, Union)
+from typing import (
+    Any,
+    Callable,
+    ClassVar,
+    Dict,
+    Generic,
+    Iterable,
+    Iterator,
+    Optional,
+    Set,
+    Type,
+    TypeVar,
+    Union,
+)
 from openad_service_utils.utils.logging_config import setup_logging
 from openad_service_utils.common.configuration import (
-    GT4SDConfiguration, get_algorithm_subdirectories_in_cache,
-    get_algorithm_subdirectories_with_s3, get_cached_algorithm_path,
-    sync_algorithm_with_s3, upload_to_s3)
-from openad_service_utils.common.exceptions import (GT4SDTimeoutError,
-                                                    InvalidItem, S3SyncError,
-                                                    SamplingError)
+    GT4SDConfiguration,
+    get_algorithm_subdirectories_in_cache,
+    get_algorithm_subdirectories_with_s3,
+    get_cached_algorithm_path,
+    sync_algorithm_with_s3,
+    upload_to_s3,
+)
+from openad_service_utils.common.exceptions import (
+    GT4SDTimeoutError,
+    InvalidItem,
+    S3SyncError,
+    SamplingError,
+)
 
 try:
-    from gt4sd_inference_regression.training_pipelines.core import \
-        TrainingPipelineArguments
+    from gt4sd_inference_regression.training_pipelines.core import (
+        TrainingPipelineArguments,
+    )
 except:  # noqa: E722
     pass
 
@@ -211,7 +231,7 @@ class GeneratorAlgorithm(ABC, Generic[S, T]):
                 f"must be under {self.max_samples+1} samples."
             )
             self.timeout(set(), detail=detail, error=SamplingError)  # type: ignore
-
+            print("sampling :", str(number_of_items))
         item_set: Set = set()
         stuck_counter = 0
         item_set_length = 0
@@ -228,8 +248,12 @@ class GeneratorAlgorithm(ABC, Generic[S, T]):
                     valid_item = self.configuration.validate_item(item)
                     # check if sample is hashable
                     if not isinstance(item, typing.Hashable):
-                        yield valid_item
-                        item_set.add(str(index))
+                        if str(index) in item_set:
+                            continue
+                        else:
+                            yield valid_item
+                            item_set.add(str(index))
+
                     else:
                         # validation for samples represented as strings
                         if item in item_set:
@@ -774,10 +798,11 @@ class AlgorithmConfiguration(Generic[S, T]):
                 raise OSError(
                     f"artifacts directory {local_path} does not exist locally, and syncing with s3 failed: {error}"
                 )
+
             elif not os.listdir(local_path):
                 # check if directory is empty
-                raise S3SyncError( title="s3 error",
-                    detail=f"artifacts directory {local_path} is empty, and syncing with s3 failed: {error}"
+                logger.warning(
+                    f"artifacts directory {local_path} is empty, and syncing with s3 failed: {error}",
                 )
 
         return local_path
@@ -868,8 +893,9 @@ class ConfigurablePropertyAlgorithmConfiguration(AlgorithmConfiguration):
                 )
             elif not os.listdir(local_path):
                 # check if directory is empty
-                raise S3SyncError( title="s3 error",
-                    detail=f"artifacts directory {local_path} is empty, and syncing with s3 failed: {error}"
+                raise S3SyncError(
+                    title="s3 error",
+                    detail=f"artifacts directory {local_path} is empty, and syncing with s3 failed: {error}",
                 )
 
         return local_path

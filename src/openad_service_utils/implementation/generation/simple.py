@@ -7,7 +7,11 @@ from typing import Any, ClassVar, Dict, List, Optional, TypeVar, Union
 
 from openad_service_utils import ApplicationsRegistry
 from openad_service_utils.common.algorithms.core import (
-    AlgorithmConfiguration, GeneratorAlgorithm, Targeted, Untargeted)
+    AlgorithmConfiguration,
+    GeneratorAlgorithm,
+    Targeted,
+    Untargeted,
+)
 from openad_service_utils.common.configuration import get_cached_algorithm_path
 from openad_service_utils.utils.logging_config import setup_logging
 
@@ -23,14 +27,19 @@ T = TypeVar("T")  # used for target of generation
 U = TypeVar("U")  # used for additional context (e.g. part of target definition)
 
 
-def get_properties_model_path(algorithm_type: str, algorithm_name: str, algorithm_application: str, algorithm_version: str) -> str:
+def get_properties_model_path(
+    algorithm_type: str,
+    algorithm_name: str,
+    algorithm_application: str,
+    algorithm_version: str,
+) -> str:
     """generate the model path location"""
     prefix = os.path.join(
         algorithm_type,
         algorithm_name,
         algorithm_application,
         algorithm_version,
-        )
+    )
     return get_cached_algorithm_path(prefix, module="algorithms")
 
 
@@ -55,17 +64,18 @@ class SimpleGenerator(AlgorithmConfiguration[S, T], ABC):
 
         def setup(self) -> List[Any]:
             # load model
-        
+
         def predict(self) -> List[Any]:
             # setup model prediction
-    
+
     2. Register the Generator::
 
         YourApplicationName.register()
     """
-    domain: ClassVar[str] = "materials"  # hardcoded because we dont care about it. does nothing but need it.
 
-    __artifacts_downloaded__: bool = False
+    domain: ClassVar[
+        str
+    ] = "materials"  # hardcoded because we dont care about it. does nothing but need it.
 
     def get_model_location(self):
         """get path to model"""
@@ -81,21 +91,27 @@ class SimpleGenerator(AlgorithmConfiguration[S, T], ABC):
         required = ["algorithm_name", "algorithm_type"]
         for field in required:
             if field not in cls.__dict__:
-                raise TypeError(f"Can't instantiate class ({cls.__name__}) without '{field}' class variable")
+                raise TypeError(
+                    f"Can't instantiate class ({cls.__name__}) without '{field}' class variable"
+                )
         # create during runtime so that user doesnt have to write separate algorithm class
         algorithm = type(cls.algorithm_name, (BaseAlgorithm,), {})
         # update class name to application name
         if cls.algorithm_application:
-            logger.debug(f"updating application name from '{cls.__name__}' to '{cls.algorithm_application}'")
+            logger.debug(
+                f"updating application name from '{cls.__name__}' to '{cls.algorithm_application}'"
+            )
             cls.__name__ = cls.algorithm_application
-        model_location = get_properties_model_path(cls.algorithm_type, cls.algorithm_name, cls.__name__, cls.algorithm_version)
+        model_location = get_properties_model_path(
+            cls.algorithm_type, cls.algorithm_name, cls.__name__, cls.algorithm_version
+        )
         logger.info(f"registering generator model: {model_location}")
         try:
             os.makedirs(model_location, exist_ok=True)
         except Exception:
             logger.error(f"could not create model cache location: {model_location}")
         ApplicationsRegistry.register_algorithm_application(algorithm)(cls)
-    
+
     @abstractmethod
     def setup(self):
         """
@@ -114,7 +130,7 @@ class SimpleGenerator(AlgorithmConfiguration[S, T], ABC):
         """
         raise NotImplementedError("Not implemented in baseclass.")
 
-    def generate(self, target: Optional[T]=None) -> List[Any]:
+    def generate(self, target: Optional[T] = None) -> List[Any]:
         """do not implement. implement predict instead."""
         if isinstance(target, str):
             # TODO: validate
@@ -124,9 +140,10 @@ class SimpleGenerator(AlgorithmConfiguration[S, T], ABC):
 
 class BaseAlgorithm(GeneratorAlgorithm[S, T]):
     """Interface for automated generation via an :class:`SimpleGenerator`."""
-    def __init__(
-        self, configuration: SimpleGenerator, target: Optional[T] = None
-    ):
+
+    __artifacts_downloaded__: bool = False
+
+    def __init__(self, configuration: SimpleGenerator, target: Optional[T] = None):
         super().__init__(configuration=configuration, target=target)
         # run the user model setup
         configuration.setup()
@@ -136,7 +153,7 @@ class BaseAlgorithm(GeneratorAlgorithm[S, T]):
         configuration: SimpleGenerator[S, T],
         target: Optional[T],
     ) -> Untargeted:
-    # ) -> Union[Untargeted, Targeted[T]]:
+        # ) -> Union[Untargeted, Targeted[T]]:
         """Set up the detail implementation using the configuration. This Base implementation returns an untargeted generator.
 
         Note:
@@ -158,7 +175,9 @@ class BaseAlgorithm(GeneratorAlgorithm[S, T]):
         """
         # check if model is downloaded only once.
         if not self.__artifacts_downloaded__:
-            logger.debug(f"Downloading model: {configuration.algorithm_application}/{configuration.algorithm_version}")
+            logger.debug(
+                f"Downloading model: {configuration.algorithm_application}/{configuration.algorithm_version}"
+            )
             # download model
             self.local_artifacts = configuration.ensure_artifacts()
             if self.local_artifacts:

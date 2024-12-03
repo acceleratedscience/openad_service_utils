@@ -8,7 +8,9 @@ import pandas as pd
 from pydantic import BaseModel
 
 from openad_service_utils.api.generation.generate_service_defs import (
-    create_service_defs, generate_service_defs)
+    create_service_defs,
+    generate_service_defs,
+)
 from openad_service_utils.common.exceptions import InvalidItem
 
 from .generation_applications import ApplicationsRegistry as GeneratorRegistry
@@ -80,6 +82,7 @@ def is_valid_service(service: dict):
 #     return service_list
 
 ALL_AVAILABLE_SERVICES = []
+
 
 def get_services() -> list:
     """pulls the list of available services once server is ready"""
@@ -156,7 +159,8 @@ def get_generator_type(generator_application: str, parameters):
     for service in service_list:
         if (
             generator_application == service["service_type"]
-            and service["generator_type"]["algorithm_application"] == parameters["property_type"][0]
+            and service["generator_type"]["algorithm_application"]
+            == parameters["property_type"][0]
         ):
             return service["generator_type"]
 
@@ -169,9 +173,16 @@ class request_generation:
     def __init__(self) -> None:
         pass
 
-    def request(self, generator_application, parameters: dict, apikey: str, sample_size=10):
+    def request(
+        self, generator_application, parameters: dict, apikey: str, sample_size=10
+    ):
         results = []
-        logger.debug("generator_application :" + generator_application + " params" + str(parameters))
+        logger.debug(
+            "generator_application :"
+            + generator_application
+            + " params"
+            + str(parameters)
+        )
         generator_type = get_generator_type(generator_application, parameters)
         if len(parameters["subjects"]) > 0:
             subject = parameters["subjects"][0]
@@ -206,7 +217,9 @@ class request_generation:
                     if len(target) == 1:
                         target = target[0]
                 logger.debug(f"running sample: {target=} {parms=} {sample_size=}")
-                model = GeneratorRegistry.get_application_instance(**parms, target=target)
+                model = GeneratorRegistry.get_application_instance(
+                    **parms, target=target
+                )
                 # self.models_cache.append({model_type: model})
             else:
                 logger.debug(f"running sample: {parms=} {sample_size=}")
@@ -220,13 +233,13 @@ class request_generation:
         if len(result.columns) == 1:
             result.columns = ["result"]
         return result
-    
+
     def generate_name(self, params: dict):
         valid_keys = [
             params.get("algorithm_type", ""),
             params.get("algorithm_application", ""),
-            params.get("algorithm_name", "")
-            ]
+            params.get("algorithm_name", ""),
+        ]
         return valid_keys
 
     def set_parms(self, generator_type, parameters):
@@ -279,7 +292,9 @@ if __name__ == "__main__":
         ts = datetime.timestamp(dt)
         if request["service_type"] != "get_crystal_property":
             logger.debug(
-                "\n\n Properties for subject:  " + ", ".join(request["parameters"]["subjects"]) + "   ",
+                "\n\n Properties for subject:  "
+                + ", ".join(request["parameters"]["subjects"])
+                + "   ",
                 datetime.fromtimestamp(ts),
             )
             result = requestor.route_service(request)

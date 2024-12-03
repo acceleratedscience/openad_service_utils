@@ -3,7 +3,10 @@ from typing import Any, Dict, List, Tuple, Type, Union
 
 from openad_service_utils.common.algorithms.core import PredictorAlgorithm
 from openad_service_utils.common.properties.core import (
-    DomainSubmodule, PropertyPredictor, PropertyPredictorParameters)
+    DomainSubmodule,
+    PropertyPredictor,
+    PropertyPredictorParameters,
+)
 
 
 class PredictorTypes(Enum):
@@ -14,14 +17,41 @@ class PredictorTypes(Enum):
 
 class PropertyFactory:
     """base class to add functionality to PropertyPredictorRegistry"""
-    protein_predictors_registry: Dict[str, Tuple[Type[PropertyPredictor], Type[PropertyPredictorParameters]]] = {}
-    molecule_predictors_registry: Dict[str, Tuple[Union[Type[PropertyPredictor], Type[PredictorAlgorithm]], Type[PropertyPredictorParameters]]] = {}
-    crystal_predictors_registry: Dict[str, Tuple[Union[Type[PropertyPredictor], Type[PredictorAlgorithm]], Type[PropertyPredictorParameters]]] = {}
+
+    protein_predictors_registry: Dict[
+        str, Tuple[Type[PropertyPredictor], Type[PropertyPredictorParameters]]
+    ] = {}
+    molecule_predictors_registry: Dict[
+        str,
+        Tuple[
+            Union[Type[PropertyPredictor], Type[PredictorAlgorithm]],
+            Type[PropertyPredictorParameters],
+        ],
+    ] = {}
+    crystal_predictors_registry: Dict[
+        str,
+        Tuple[
+            Union[Type[PropertyPredictor], Type[PredictorAlgorithm]],
+            Type[PropertyPredictorParameters],
+        ],
+    ] = {}
 
     @staticmethod
-    def PROPERTY_PREDICTOR_FACTORY() -> Dict[str, Tuple[Union[Type[PropertyPredictor], Type[PredictorAlgorithm]], Type[PropertyPredictorParameters]]]:
-        return {**PropertyFactory.protein_predictors_registry, **PropertyFactory.molecule_predictors_registry, **PropertyFactory.crystal_predictors_registry}
-    
+    def PROPERTY_PREDICTOR_FACTORY() -> (
+        Dict[
+            str,
+            Tuple[
+                Union[Type[PropertyPredictor], Type[PredictorAlgorithm]],
+                Type[PropertyPredictorParameters],
+            ],
+        ]
+    ):
+        return {
+            **PropertyFactory.protein_predictors_registry,
+            **PropertyFactory.molecule_predictors_registry,
+            **PropertyFactory.crystal_predictors_registry,
+        }
+
     @staticmethod
     def AVAILABLE_PROPERTY_PREDICTORS() -> Dict[str, Any]:
         return sorted(PropertyFactory.PROPERTY_PREDICTOR_FACTORY().keys())
@@ -37,9 +67,16 @@ class PropertyFactory:
             available_types.append(PredictorTypes.CRYSTAL.value)
         # print("checking available types: ", available_types)
         return available_types
-    
+
     @staticmethod
-    def add_predictor(name: str, property_type: PredictorTypes, predictor: Tuple[Union[Type[PropertyPredictor], Type[PredictorAlgorithm]], Type[PropertyPredictorParameters]]):
+    def add_predictor(
+        name: str,
+        property_type: PredictorTypes,
+        predictor: Tuple[
+            Union[Type[PropertyPredictor], Type[PredictorAlgorithm]],
+            Type[PropertyPredictorParameters],
+        ],
+    ):
         if property_type == PredictorTypes.PROTEIN:
             PropertyFactory.protein_predictors_registry.update({name: predictor})
         elif property_type == PredictorTypes.MOLECULE:
@@ -47,4 +84,6 @@ class PropertyFactory:
         elif property_type == PredictorTypes.CRYSTAL:
             PropertyFactory.crystal_predictors_registry.update({name: predictor})
         else:
-            raise ValueError(f"Property predictor property_type={property_type} not supported. Pick one from class::PredictorTypes")
+            raise ValueError(
+                f"Property predictor property_type={property_type} not supported. Pick one from class::PredictorTypes"
+            )

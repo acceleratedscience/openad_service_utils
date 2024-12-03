@@ -10,12 +10,13 @@ from functools import lru_cache, wraps
 from openad_service_utils.utils.convert import json_string_to_dict
 from openad_service_utils.api.config import get_config_instance
 
-from openad_service_utils.api.properties.generate_property_service_defs import \
-    generate_property_service_defs
+from openad_service_utils.api.properties.generate_property_service_defs import (
+    generate_property_service_defs,
+)
+
 # from gt4sd_common.properties import PropertyPredictorRegistry
 from openad_service_utils.common.properties import PropertyPredictorRegistry
-from openad_service_utils.common.properties.property_factory import \
-    PropertyFactory
+from openad_service_utils.common.properties.property_factory import PropertyFactory
 
 from .utils import subject_files_repository
 import logging
@@ -66,9 +67,21 @@ def is_valid_service(service: dict):
 
 def get_services() -> list:
     all_services = []
-    all_services.extend(generate_property_service_defs("molecule", PropertyFactory.molecule_predictors_registry))
-    all_services.extend(generate_property_service_defs("protein", PropertyFactory.protein_predictors_registry))
-    all_services.extend(generate_property_service_defs("crystal", PropertyFactory.crystal_predictors_registry))
+    all_services.extend(
+        generate_property_service_defs(
+            "molecule", PropertyFactory.molecule_predictors_registry
+        )
+    )
+    all_services.extend(
+        generate_property_service_defs(
+            "protein", PropertyFactory.protein_predictors_registry
+        )
+    )
+    all_services.extend(
+        generate_property_service_defs(
+            "crystal", PropertyFactory.crystal_predictors_registry
+        )
+    )
     return all_services
 
 
@@ -78,11 +91,15 @@ def conditional_lru_cache(maxsize=100):
             cached_func = lru_cache(maxsize=maxsize)(func)
             return cached_func
         else:
+
             @wraps(func)
             def no_cache(*args, **kwargs):
                 return func(*args, **kwargs)
+
             return no_cache
+
     return decorator
+
 
 class service_requester:
     property_requestor = None
@@ -124,9 +141,9 @@ class service_requester:
             if self.property_requestor is None:
                 self.property_requestor = request_properties()
             result = self.property_requestor.request(
-                request["service_type"], 
-                request["parameters"], 
-                request.get("api_key", "")
+                request["service_type"],
+                request["parameters"],
+                request.get("api_key", ""),
             )
 
         return result
@@ -162,7 +179,20 @@ class request_properties:
                     )
                     continue
                 # take parms and concatenate key and value to create a unique model id
-                using_model = property_type + "".join([str(type(parms[x])) + str(parms[x]) for x in parms.keys() if x in ['algorithm_type','domain','algorithm_name','algorithm_version','algorithm_application']])
+                using_model = property_type + "".join(
+                    [
+                        str(type(parms[x])) + str(parms[x])
+                        for x in parms.keys()
+                        if x
+                        in [
+                            "algorithm_type",
+                            "domain",
+                            "algorithm_name",
+                            "algorithm_version",
+                            "algorithm_application",
+                        ]
+                    ]
+                )
                 # look through model cache in memory
                 for model in self.models_cache:
                     if using_model in model:
@@ -179,17 +209,17 @@ class request_properties:
                 else:
                     # update model params
                     # logger.debug(f"loading model from cache key: {using_model}")
-                    pydantic_params = PropertyPredictorRegistry.get_property_predictor_meta_params(name=property_type)
+                    pydantic_params = (
+                        PropertyPredictorRegistry.get_property_predictor_meta_params(
+                            name=property_type
+                        )
+                    )
                     predictor._update_parameters(pydantic_params(**parms))
 
                 # Crystaline structure models take data as file sets, the following manages this for the Crystaline property requests
                 if service_type == "get_crystal_property":
-                    tmpdir_cif = subject_files_repository(
-                        "cif", parameters["subjects"]
-                    )
-                    tmpdir_csv = subject_files_repository(
-                        "csv", parameters["subjects"]
-                    )
+                    tmpdir_cif = subject_files_repository("cif", parameters["subjects"])
+                    tmpdir_csv = subject_files_repository("csv", parameters["subjects"])
 
                     if property_type == "metal_nonmetal_classifier" and subject[
                         0
