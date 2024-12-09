@@ -47,13 +47,9 @@ class PropertyInfo(TypedDict):
 class BasePredictorParameters:
     # TODO: change all this into 1 base_model_path or have user implement their style of downloading e.g. remove configuration dependency
     algorithm_type: str = "prediction"
-    domain: DomainSubmodule = Field(
-        ..., example="molecules", description="Submodule of gt4sd.properties"
-    )
+    domain: DomainSubmodule = Field(..., example="molecules", description="Submodule of gt4sd.properties")
     algorithm_name: str = Field(..., example="MCA", description="Name of the algorithm")
-    algorithm_version: str = Field(
-        ..., example="v0", description="Version of the algorithm"
-    )
+    algorithm_version: str = Field(..., example="v0", description="Version of the algorithm")
     algorithm_application: str = Field(..., example="Tox21")
 
 
@@ -73,13 +69,9 @@ class PredictorParameters(BaseModel):
     """
 
     algorithm_type: str = "prediction"
-    domain: DomainSubmodule = Field(
-        ..., example="molecules", description="Submodule of gt4sd.properties"
-    )
+    domain: DomainSubmodule = Field(..., example="molecules", description="Submodule of gt4sd.properties")
     algorithm_name: str = Field(..., example="MCA", description="Name of the algorithm")
-    algorithm_version: str = Field(
-        ..., example="v0", description="Version of the algorithm"
-    )
+    algorithm_version: str = Field(..., example="v0", description="Version of the algorithm")
     algorithm_application: str = Field(..., example="Tox21")
     # this is used to select a var::PropertyInfo.name available_properties. User selected property from api.
     # this is not harcoded in the class, but is added to the class when registering the predictor
@@ -211,18 +203,10 @@ class SimplePredictor(PredictorAlgorithm, BasePredictorParameters):
     def register(cls, parameters: Optional[PredictorParameters] = None) -> None:
         if not parameters:
             # parameters defined in class
-            class_fields = {
-                k: v
-                for k, v in cls.__dict__.items()
-                if not callable(v) and not k.startswith("__")
-            }
+            class_fields = {k: v for k, v in cls.__dict__.items() if not callable(v) and not k.startswith("__")}
             class_fields.pop("_abc_impl", "")
         else:
-            class_fields = {
-                k: v
-                for k, v in vars(parameters).items()
-                if not callable(v) and not k.startswith("__")
-            }
+            class_fields = {k: v for k, v in vars(parameters).items() if not callable(v) and not k.startswith("__")}
         # check if required fields are set
         required = [
             "algorithm_name",
@@ -233,15 +217,11 @@ class SimplePredictor(PredictorAlgorithm, BasePredictorParameters):
         ]
         for field in required:
             if field not in class_fields:
-                raise TypeError(
-                    f"Can't instantiate class ({cls.__name__}) without '{field}' class variable"
-                )
+                raise TypeError(f"Can't instantiate class ({cls.__name__}) without '{field}' class variable")
         # update class name to be `algorithm_application`
         cls.__name__ = class_fields.get("algorithm_application")
         # setup s3 class params
-        model_param_class: PredictorParameters = type(
-            cls.__name__ + "Parameters", (PredictorParameters,), class_fields
-        )
+        model_param_class: PredictorParameters = type(cls.__name__ + "Parameters", (PredictorParameters,), class_fields)
         if class_fields.get("available_properties"):
             if not isinstance(class_fields.get("available_properties"), list):
                 raise ValueError("available_properties must be of List[PropertyInfo]")
