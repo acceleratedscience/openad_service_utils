@@ -146,13 +146,13 @@ class MySimplePredictorCombo(SimplePredictor):
         """function that automatically gets called on first request to setup each models instance"""
         self.models = {}  # a dictionary of models to be registered
         # setup your model
-        model_path = os.path.join(self.get_model_location(), "model.ckpt")  # load model
+        self.model_path = os.path.join(self.get_model_location(), "model.ckpt")  # load model
         tokenizer = []
         for model in self.available_properties:
             if not self.models.get(model["name"]):
                 self.models[model["name"]] = ClassificationModel(
                     model["name"],
-                    model_path=model_path.replace(f"/{self.algorithm_application}/", f'/{model["name"]}/'),
+                    model_path=self.model_path.replace(f"/{self.algorithm_application}/", f'/{model["name"]}/'),
                     tokenizer=tokenizer,
                 )
                 print(f"Setting up model {model['name']} on >> model filepath: {model_path}")
