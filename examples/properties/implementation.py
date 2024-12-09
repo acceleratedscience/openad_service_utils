@@ -10,6 +10,8 @@ from openad_service_utils import (
     PropertyInfo,
 )
 from openad_service_utils.common.algorithms.core import AlgorithmConfiguration
+
+# -----------------------USER MODEL LIBRARY-----------------------------------
 from property_classifier_example import ClassificationModel
 
 # use No Model if simply calling an API or wrapper to another service
@@ -40,9 +42,10 @@ class MySimplePredictor(SimplePredictor):
     def setup(self):
         # setup your model
         self.model = None
-        print(">> model filepath: ", self.get_model_location())
-        self.model_path = os.path.join(self.get_model_location(), "model.ckpt")  # load model
         self.tokenizer = []
+        print(">> model filepath: ", self.get_model_location())
+        # -----------------------User Code goes in here------------------------
+        self.model_path = os.path.join(self.get_model_location(), "model.ckpt")  # load model
 
     def get_predictor(self, configuration: AlgorithmConfiguration):
         """overwrite existing function to download model only once"""
@@ -54,6 +57,7 @@ class MySimplePredictor(SimplePredictor):
 
     def predict(self, sample: Any):
         """run predictions on your model"""
+        # -----------------------User Code goes in here------------------------
         if not self.model:
             self.model = ClassificationModel(
                 model=self.algorithm_application, model_path=self.model_path, tokenizer=self.tokenizer
@@ -61,6 +65,7 @@ class MySimplePredictor(SimplePredictor):
             self.model.to(self.device)
 
         result = self.model.eval()
+        # --------------------------------------------------------------------------
         return result
 
 

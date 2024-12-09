@@ -16,11 +16,9 @@ from openad_service_utils.common.algorithms.core import AlgorithmConfiguration
 from openad_service_utils import start_server
 
 # Example Classifier  / Model Import
-# Replace this with your classifiers
+# -----------------------USER MODEL LIBRARY-----------------------------------
 from property_classifier_example import ClassificationModel
 
-
-# use No Model if simply calling an API or wrapper to another service
 
 #         USER SETTINGS SECTION
 
@@ -150,12 +148,14 @@ class MySimplePredictorCombo(SimplePredictor):
         tokenizer = []
         for model in self.available_properties:
             if not self.models.get(model["name"]):
+                # ----------------------------- User Classifier --------------
+                # Note you may not want to load the model here rather when first inferencing for efficiency
                 self.models[model["name"]] = ClassificationModel(
                     model["name"],
                     model_path=self.model_path.replace(f"/{self.algorithm_application}/", f'/{model["name"]}/'),
                     tokenizer=tokenizer,
                 )
-                print(f"Setting up model {model['name']} on >> model filepath: {model_path}")
+                print(f"Setting up model {model['name']} on >> model filepath: {self.model_path}")
 
     def get_predictor(self, configuration: AlgorithmConfiguration):
         """Override of get predictor function so as to avoid trying to load a checkpoint if API only"""
