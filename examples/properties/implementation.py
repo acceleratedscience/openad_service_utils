@@ -1,6 +1,7 @@
 import os
 from typing import List, Union, Dict, Any
 from openad_service_utils.common.algorithms.core import Predictor
+from openad_service_utils import start_server
 from pydantic.v1 import Field
 from openad_service_utils import (
     SimplePredictor,
@@ -35,18 +36,13 @@ class MySimplePredictor(SimplePredictor):
     batch_size: int = Field(description="Prediction batch size", default=128)
     workers: int = Field(description="Number of data loading workers", default=8)
     device: str = Field(description="Device to be used for inference", default="cpu")
-    model = None
 
     def setup(self):
         # setup your model
+        self.model = None
         print(">> model filepath: ", self.get_model_location())
-        model_path = os.path.join(self.get_model_location(), "model.ckpt")  # load model
-        tokenizer = []
-        if not self.model:
-            self.model = ClassificationModel(
-                model=self.algorithm_application, model_path=model_path, tokenizer=tokenizer
-            )
-            self.model.to(self.device)
+        self.model_path = os.path.join(self.get_model_location(), "model.ckpt")  # load model
+        self.tokenizer = []
 
     def get_predictor(self, configuration: AlgorithmConfiguration):
         """overwrite existing function to download model only once"""
@@ -58,5 +54,19 @@ class MySimplePredictor(SimplePredictor):
 
     def predict(self, sample: Any):
         """run predictions on your model"""
+        if not self.model:
+            self.model = ClassificationModel(
+                model=self.algorithm_application, model_path=self.model_path, tokenizer=self.tokenizer
+            )
+            self.model.to(self.device)
+
         result = self.model.eval()
         return result
+
+
+# register the function in global scope
+MySimplePredictor.register()
+
+if __name__ == "__main__":
+    # start the server
+    start_server(port=8080)

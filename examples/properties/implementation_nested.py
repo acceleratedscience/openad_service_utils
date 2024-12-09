@@ -180,8 +180,6 @@ class MySimplePredictorCombo(SimplePredictor):
         return result  # str, number,list
 
 
-from copy import deepcopy
-
 # register a single Property
 props = NestedParameters1()
 props.set_parameters("base_1", available_properties=[PropertyInfo(name="BACE1", description="")])
