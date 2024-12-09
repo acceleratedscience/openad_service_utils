@@ -182,16 +182,16 @@ class MySimplePredictorCombo(SimplePredictor):
 
 from copy import deepcopy
 
-# register the function in global scope
+# register a single Property
 props = NestedParameters1()
 props.set_parameters("base_1", available_properties=[PropertyInfo(name="BACE1", description="")])
 MySimplePredictor.register(props)
-
 
 props = NestedParameters1()
 props.set_parameters("ESOL1", available_properties=[PropertyInfo(name="ESOL", description="")])
 MySimplePredictor.register(props)
 
+# register a multiple properties
 props = NestedParameters1()
 props.set_parameters(
     "ESOLduoploy",
@@ -200,7 +200,7 @@ props.set_parameters(
 MySimplePredictor.register(props)
 
 
-## Loop through
+# register many properties form multiple lists
 for key, value in NESTED_DATA_SETS.items():
 
     props = NestedParameters2()
