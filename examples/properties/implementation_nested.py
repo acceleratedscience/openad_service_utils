@@ -158,22 +158,14 @@ class MySimplePredictorCombo(SimplePredictor):
         return result
 
 
-# register a single Property
-props = NestedParameters1()
-props.set_parameters("base_1", available_properties=[PropertyInfo(name="BACE1", description="")])
-MySimplePredictor.register(props, no_model=True)
-
-props = NestedParameters1()
-props.set_parameters("ESOL1", available_properties=[PropertyInfo(name="ESOL", description="")])
-MySimplePredictor.register(props, no_model=True)
-
-# register a multiple properties that sit within the same Appliacation
+# register a multiple properties that sit within the same Application and directory structure
 props = NestedParameters1()
 props.set_parameters(
-    "ESOLduoploy",
-    available_properties=[PropertyInfo(name="ESOL2", description=""), PropertyInfo(name="ESOL3", description="")],
+    algorithm_name="mammal",
+    algorithm_application="dti",
+    available_properties=[PropertyInfo(name="dti", description="")],
 )
-MySimplePredictor.register(props, no_model=True)
+MySimplePredictor.register(props, no_model=False)
 
 # register many properties form multiple lists
 for key, value in NESTED_DATA_SETS.items():

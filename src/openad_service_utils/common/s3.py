@@ -437,6 +437,7 @@ def sync_folder_with_s3(
     try:
         with s3_client(host=host, access_key=access_key, secret_key=secret_key, secure=secure) as client:
             logger.info("starting sync")
+            print(prefix)
             client.sync_folder(bucket=bucket, path=path, prefix=prefix)
             logger.info("sync complete. artifacts downloaded.")
     except (ValueError, S3Error, OSError) as e:
