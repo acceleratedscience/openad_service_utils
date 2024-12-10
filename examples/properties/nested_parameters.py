@@ -73,19 +73,22 @@ class NestedParameters1(PropertyPredictorParameters):
         example="0.5",
     )
 
-    def set_parameters(self, name, **kwargs):
+    def set_parameters(self, algorithm_name, **kwargs):
         """sets the parameters when registering
         Available Properties to set
         - property_type
         - available_properties
         - algorithm_version
         """
-        self.algorithm_application = name
+        self.algorithm_name = algorithm_name
+
         for key, value in kwargs.items():
             if key == "property_type":
                 self.property_type = value
             elif key == "available_properties":
                 self.available_properties = value
+            elif key == "algorithm_application":
+                self.algorithm_application = value
             elif key == "algorithm_version":
                 self.algorithm_version = value
 
@@ -104,19 +107,22 @@ class NestedParameters2(PropertyPredictorParameters):
         PropertyInfo(name="ESOL", description=""),
     ]
 
-    def set_parameters(self, name, **kwargs):
+    def set_parameters(self, algorithm_name, **kwargs):
         """sets the parameters when registering
         Available Properties to set
         - property_type
         - available_properties
         - algorithm_version
         """
-        self.algorithm_application = name
+        self.algorithm_name = algorithm_name
+
         for key, value in kwargs.items():
             if key == "property_type":
                 self.property_type = value
             elif key == "available_properties":
                 self.available_properties = value
+            elif key == "algorithm_application":
+                self.algorithm_application = value
             elif key == "algorithm_version":
                 self.algorithm_version = value
 

@@ -117,6 +117,7 @@ class SimplePredictor(PredictorAlgorithm, BasePredictorParameters):
     available_properties: Optional[List[PropertyInfo]] = []
 
     __artifacts_downloaded__: bool = False
+    __no_model__: bool = False
 
     def __init__(self, parameters: PredictorParameters):
         """Do not implement or instatiate"""
@@ -161,6 +162,9 @@ class SimplePredictor(PredictorAlgorithm, BasePredictorParameters):
 
     def __download_model(self):
         """download model from s3"""
+        if self.__no_model__:
+            logger.info(f"No Model required ")
+            return
         if not self.__artifacts_downloaded__:
             logger.info(
                 f"Downloading model: {self.configuration.algorithm_application}/{self.configuration.algorithm_version}"
@@ -176,6 +180,9 @@ class SimplePredictor(PredictorAlgorithm, BasePredictorParameters):
     def get_predictor(self, configuration: AlgorithmConfiguration):
         """overwrite existing function to download model only once"""
         # download model
+        if self.__no_model__:
+            print("no predictor")
+            return
         self.__download_model()
         # get prediction function
         model: Predictor = self.get_model(self.get_model_location())
@@ -197,10 +204,13 @@ class SimplePredictor(PredictorAlgorithm, BasePredictorParameters):
     @abstractmethod
     def predict(self, sample: Any):
         """Run predictions and return results."""
+
         raise NotImplementedError("Not implemented in baseclass.")
 
     @classmethod
-    def register(cls, parameters: Optional[PredictorParameters] = None) -> None:
+    def register(cls, parameters: Optional[PredictorParameters] = None, no_model=False) -> None:
+        """**no_model** : defaults to false, so that the model is always retrieved. If on register this is set to true, allows the user to manage loading of checkpoint or
+        the ability to run a inference that only uses an API to retrieve a result"""
         if not parameters:
             # parameters defined in class
             class_fields = {k: v for k, v in cls.__dict__.items() if not callable(v) and not k.startswith("__")}
@@ -220,6 +230,7 @@ class SimplePredictor(PredictorAlgorithm, BasePredictorParameters):
                 raise TypeError(f"Can't instantiate class ({cls.__name__}) without '{field}' class variable")
         # update class name to be `algorithm_application`
         cls.__name__ = class_fields.get("algorithm_application")
+        cls.__no_model__ = no_model
         # setup s3 class params
         model_param_class: PredictorParameters = type(cls.__name__ + "Parameters", (PredictorParameters,), class_fields)
         if class_fields.get("available_properties"):

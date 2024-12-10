@@ -12,26 +12,20 @@ import os
 from typing import List, Union, Dict, Any
 from pydantic.v1 import Field
 from openad_service_utils import SimplePredictor, PredictorTypes, DomainSubmodule, PropertyInfo
-from openad_service_utils.common.algorithms.core import AlgorithmConfiguration
 from openad_service_utils import start_server
 
 # Example Classifier  / Model Import
 # -----------------------USER MODEL LIBRARY-----------------------------------
 from property_classifier_example import ClassificationModel
 
-
 #         USER SETTINGS SECTION
-
 #  import from the nested_parameters.py  library individual Parameters or Paramater sets you wish to use
 from nested_parameters import NestedParameters1, NestedParameters2, NESTED_DATA_SETS, get_property_list
 
 # GLOBAL VARIABLES
-""" API vs Model Call 
-# Here if you are calling an API  oranother Service Set this to True
-# Set it to False if you are Calling a Physical Model
-# This setting Will Skip the Model download Process
-"""
-NO_MODEL = True  # ATTENTION SET to TRUE ONLY for Example using AP...
+# API vs Model Call
+# Here if you are calling an API  or another Service Set this to True
+# Set it to False if you are Calling a Physical Model This setting Will Skip the Model download Process
 
 
 class MySimplePredictor(SimplePredictor):
@@ -70,35 +64,26 @@ class MySimplePredictor(SimplePredictor):
     batch_size: int = Field(description="Prediction batch size", default=128)
     workers: int = Field(description="Number of data loading workers", default=8)
     device: str = Field(description="Device to be used for inference", default="cpu")
-    model = None
 
     def setup(self):
         # setup your model
         print("Setting up model on >> model filepath: ", self.get_model_location())
-        model_path = os.path.join(self.get_model_location(), "model.ckpt")  # load model
+        self.model_path = self.get_model_location()  # load model
         # ---------------------------------------------------------------------------
-        tokenizer = []
-        if not self.model:
-            self.model = ClassificationModel(
-                model=self.algorithm_application, model_path=model_path, tokenizer=tokenizer
-            )
-            self.model.to(self.device)
+        self.tokenizer = []
+        self.model = None
         # ---------------------------------------------------------------------------
-
-    def get_predictor(self, configuration: AlgorithmConfiguration):
-        """overwrite existing function to download model only once"""
-        global NO_MODEL
-        if NO_MODEL is False:
-            super().get_predictor(self)
-        else:
-            print("no predictor")
 
     def predict(self, sample: Any):
         """run predictions on your model"""
 
         ## ------------------------- USER LOGIC HERE -------------------------------------------
-
-        result = self.model.eval()
+        if not self.model:
+            self.model = ClassificationModel(
+                model=self.algorithm_application, model_path=self.model_path, tokenizer=self.tokenizer
+            )
+            self.model.to(self.device)
+        result = self.model.eval(self.get_selected_property())
         # -----------------------------------------------------------------------------------------
         return result
 
@@ -144,7 +129,7 @@ class MySimplePredictorCombo(SimplePredictor):
         """function that automatically gets called on first request to setup each models instance"""
         self.models = {}  # a dictionary of models to be registered
         # setup your model
-        self.model_path = os.path.join(self.get_model_location(), "model.ckpt")  # load model
+        self.model_path = os.path.join(self.get_model_location(), "/*.pt")  # load model
         tokenizer = []
         for model in self.available_properties:
             if not self.models.get(model["name"]):
@@ -157,16 +142,9 @@ class MySimplePredictorCombo(SimplePredictor):
                 )
                 print(f"Setting up model {model['name']} on >> model filepath: {self.model_path}")
 
-    def get_predictor(self, configuration: AlgorithmConfiguration):
-        """Override of get predictor function so as to avoid trying to load a checkpoint if API only"""
-        global NO_MODEL  # import the global model varaible to determine if service has model or API only
-
-        if NO_MODEL is False:
-            super().get_predictor(
-                self
-            )  # pulls checkpoint and if not local goes to load all files in the the algorithm_application directory form S3
-        else:
-            print("Running in API only model mode with no model")
+    def __init__(self, parameters):
+        parameters.algorithm_application = parameters.selected_property
+        super().__init__(parameters)
 
     def predict(self, sample: Any) -> str | float | int | list | dict:
         """run predictions on your model"""
@@ -177,36 +155,33 @@ class MySimplePredictorCombo(SimplePredictor):
 
         ## -------------------------------------------------------------------------------------
 
-        return result  # str, number,list
+        return result
 
 
 # register a single Property
 props = NestedParameters1()
 props.set_parameters("base_1", available_properties=[PropertyInfo(name="BACE1", description="")])
-MySimplePredictor.register(props)
+MySimplePredictor.register(props, no_model=True)
 
 props = NestedParameters1()
 props.set_parameters("ESOL1", available_properties=[PropertyInfo(name="ESOL", description="")])
-MySimplePredictor.register(props)
+MySimplePredictor.register(props, no_model=True)
 
-# register a multiple properties
+# register a multiple properties that sit within the same Appliacation
 props = NestedParameters1()
 props.set_parameters(
     "ESOLduoploy",
     available_properties=[PropertyInfo(name="ESOL2", description=""), PropertyInfo(name="ESOL3", description="")],
 )
-MySimplePredictor.register(props)
-
+MySimplePredictor.register(props, no_model=True)
 
 # register many properties form multiple lists
 for key, value in NESTED_DATA_SETS.items():
-
     props = NestedParameters2()
     props.set_parameters(
-        key,
-        available_properties=get_property_list(value),
+        algorithm_name="smi_ted", algorithm_application=key, available_properties=get_property_list(value)
     )
-    MySimplePredictorCombo.register(props)  #
+    MySimplePredictorCombo.register(props, no_model=False)  #
 
 
 # start the service running on port 8080

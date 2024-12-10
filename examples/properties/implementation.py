@@ -1,6 +1,5 @@
 import os
 from typing import List, Union, Dict, Any
-from openad_service_utils.common.algorithms.core import Predictor
 from openad_service_utils import start_server
 from pydantic.v1 import Field
 from openad_service_utils import (
@@ -9,13 +8,9 @@ from openad_service_utils import (
     DomainSubmodule,
     PropertyInfo,
 )
-from openad_service_utils.common.algorithms.core import AlgorithmConfiguration
 
 # -----------------------USER MODEL LIBRARY-----------------------------------
 from property_classifier_example import ClassificationModel
-
-# use No Model if simply calling an API or wrapper to another service
-NO_MODEL = True  # ATTENTION SET to TRUE ONLY for Example ...
 
 
 class MySimplePredictor(SimplePredictor):
@@ -24,7 +19,7 @@ class MySimplePredictor(SimplePredictor):
     # s3 path: domain / algorithm_name / algorithm_application / algorithm_version
     # necessary params
     domain: DomainSubmodule = DomainSubmodule("molecules")
-    algorithm_name: str = "mypredictor"
+    algorithm_name: str = "smi_ted"
     algorithm_application: str = "MySimplePredictor"
     algorithm_version: str = "v0"
     property_type: PredictorTypes = PredictorTypes.MOLECULE
@@ -33,7 +28,6 @@ class MySimplePredictor(SimplePredictor):
         PropertyInfo(name="property1", description=""),
         PropertyInfo(name="property2", description=""),
     ]
-
     # user proviced params for api / model inference
     batch_size: int = Field(description="Prediction batch size", default=128)
     workers: int = Field(description="Number of data loading workers", default=8)
@@ -46,14 +40,6 @@ class MySimplePredictor(SimplePredictor):
         print(">> model filepath: ", self.get_model_location())
         # -----------------------User Code goes in here------------------------
         self.model_path = os.path.join(self.get_model_location(), "model.ckpt")  # load model
-
-    def get_predictor(self, configuration: AlgorithmConfiguration):
-        """overwrite existing function to download model only once"""
-        global NO_MODEL
-        if NO_MODEL is False:
-            super().get_predictor(self)
-        else:
-            print("no predictor")
 
     def predict(self, sample: Any):
         """run predictions on your model"""
@@ -70,7 +56,7 @@ class MySimplePredictor(SimplePredictor):
 
 
 # register the function in global scope
-MySimplePredictor.register()
+MySimplePredictor.register(no_model=True)
 
 if __name__ == "__main__":
     # start the server
