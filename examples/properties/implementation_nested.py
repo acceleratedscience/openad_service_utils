@@ -11,7 +11,13 @@ as part of the same command call or request.
 import os
 from typing import List, Union, Dict, Any
 from pydantic.v1 import Field
-from openad_service_utils import SimplePredictor, PredictorTypes, DomainSubmodule, PropertyInfo
+from openad_service_utils import (
+    SimplePredictor,
+    SimplePredictorMultiAlgorithm,
+    PredictorTypes,
+    DomainSubmodule,
+    PropertyInfo,
+)
 from openad_service_utils import start_server
 
 # Example Classifier  / Model Import
@@ -88,7 +94,7 @@ class MySimplePredictor(SimplePredictor):
         return result
 
 
-class MySimplePredictorCombo(SimplePredictor):
+class MySimplePredictorCombo(SimplePredictorMultiAlgorithm):
     """Class for your Predictor based on Combo Predictor to support multiple"""
 
     """ The following Properties are important they define your bucket path if you are using a model
@@ -142,9 +148,9 @@ class MySimplePredictorCombo(SimplePredictor):
                 )
                 print(f"Setting up model {model['name']} on >> model filepath: {self.model_path}")
 
-    def __init__(self, parameters):
-        parameters.algorithm_application = parameters.selected_property
-        super().__init__(parameters)
+    # def __init__(self, parameters):
+    #    parameters.algorithm_application = parameters.selected_property
+    #    super().__init__(parameters)
 
     def predict(self, sample: Any) -> str | float | int | list | dict:
         """run predictions on your model"""

@@ -264,3 +264,10 @@ class SimplePredictor(PredictorAlgorithm, BasePredictorParameters):
             logger.error(f"could not create model cache location: {model_location}")
         logger.info(f"registering predictor model: {model_location}")
         # logger.debug(cls(model_param_class(**model_param_class().dict())).get_model_location())
+
+
+class SimplePredictorMultiAlgorithm(SimplePredictor):
+
+    def __init__(self, parameters):
+        parameters.algorithm_application = parameters.selected_property
+        super().__init__(parameters)
