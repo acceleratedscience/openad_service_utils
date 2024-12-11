@@ -31,6 +31,7 @@ import traceback
 from itertools import chain
 from openad_service_utils.utils.convert import dict_to_json_string
 from openad_service_utils.api.async_call import background_route_service, retrieve_job
+from openad_service_utils.common.configuration import GT4SDConfiguration
 
 app = FastAPI()
 kube_probe = FastAPI()
@@ -251,12 +252,8 @@ def start_server(
     except ImportError:
         logger.debug("cuda not available. Running on cpu.")
         pass
-    if os.environ.get("GT4SD_S3_ACCESS_KEY", ""):
-        logger.info(
-            f"using private s3 model repository | Host: {os.environ.get('GT4SD_S3_HOST', '')}======"
-        )
-    else:
-        logger.info("using public gt4sd s3 model repository")
+    config_settings = GT4SDConfiguration().model_dump(include=['OPENAD_S3_HOST','OPENAD_S3_HOST_HUB'])
+    logger.info(f"S3 Config: {config_settings}")
     logger.debug(f"Total workers: {max_workers}")
     # process is run on linux. spawn.
     multiprocessing.set_start_method("spawn")
