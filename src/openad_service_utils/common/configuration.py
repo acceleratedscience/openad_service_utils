@@ -73,39 +73,39 @@ class GT4SDConfiguration(BaseSettings):
     # gt4sd_s3_bucket_hub_properties: str = "gt4sd-cos-hub-properties-artifacts"
 
     # use environment variables for private cos buckets or default to public buckets
-    gt4sd_s3_host: str = os.getenv(
-        "GT4SD_S3_HOST", "s3.par01.cloud-object-storage.appdomain.cloud"
+    GT4SD_S3_HOST: str = os.getenv(
+        "OPENAD_S3_HOST", "s3.par01.cloud-object-storage.appdomain.cloud"
     )
-    gt4sd_s3_access_key: str = os.getenv(
-        "GT4SD_S3_ACCESS_KEY", "6e9891531d724da89997575a65f4592e"
+    GT4SD_S3_ACCESS_KEY: str = os.getenv(
+        "OPENAD_S3_ACCESS_KEY", "6e9891531d724da89997575a65f4592e"
     )
-    gt4sd_s3_secret_key: str = os.getenv(
-        "GT4SD_S3_SECRET_KEY", "5997d63c4002cc04e13c03dc0c2db9dae751293dab106ac5"
+    GT4SD_S3_SECRET_KEY: str = os.getenv(
+        "OPENAD_S3_SECRET_KEY", "5997d63c4002cc04e13c03dc0c2db9dae751293dab106ac5"
     )
-    gt4sd_s3_secure: bool = os.getenv("GT4SD_S3_SECURE", True)
-    gt4sd_s3_bucket_algorithms: str = os.getenv(
-        "GT4SD_S3_BUCKET_ALGORITHMS", "gt4sd-cos-algorithms-artifacts"
+    GT4SD_S3_SECURE: bool = os.getenv("OPENAD_S3_SECURE", True)
+    GT4SD_S3_BUCKET_ALGORITHMS: str = os.getenv(
+        "OPENAD_S3_BUCKET_ALGORITHMS", "gt4sd-cos-algorithms-artifacts"
     )
-    gt4sd_s3_bucket_properties: str = os.getenv(
-        "GT4SD_S3_BUCKET_PROPERTIES", "gt4sd-cos-properties-artifacts"
+    GT4SD_S3_BUCKET_PROPERTIES: str = os.getenv(
+        "OPENAD_S3_BUCKET_PROPERTIES", "gt4sd-cos-properties-artifacts"
     )
 
     # use environment variables for private cos hub buckets or default to public buckets
-    gt4sd_s3_host_hub: str = os.getenv(
-        "GT4SD_S3_HOST_HUB", "s3.par01.cloud-object-storage.appdomain.cloud"
+    GT4SD_S3_HOST_HUB: str = os.getenv(
+        "OPENAD_S3_HOST_HUB", "s3.par01.cloud-object-storage.appdomain.cloud"
     )
-    gt4sd_s3_access_key_hub: str = os.getenv(
-        "GT4SD_S3_ACCESS_KEY_HUB", "d9536662ebcf462f937efb9f58012830"
+    GT4SD_S3_ACCESS_KEY_HUB: str = os.getenv(
+        "OPENAD_S3_ACCESS_KEY_HUB", "d9536662ebcf462f937efb9f58012830"
     )
-    gt4sd_s3_secret_key_hub: str = os.getenv(
-        "GT4SD_S3_SECRET_KEY_HUB", "934d1f3afdaea55ac586f6c2f729ac2ba2694bb8e975ee0b"
+    GT4SD_S3_SECRET_KEY_HUB: str = os.getenv(
+        "OPENAD_S3_SECRET_KEY_HUB", "934d1f3afdaea55ac586f6c2f729ac2ba2694bb8e975ee0b"
     )
-    gt4sd_s3_secure_hub: bool = os.getenv("GT4SD_S3_SECURE_HUB", True)
-    gt4sd_s3_bucket_hub_algorithms: str = os.getenv(
-        "GT4SD_S3_BUCKET_HUB_ALGORITHMS", "gt4sd-cos-hub-algorithms-artifacts"
+    GT4SD_S3_SECURE_HUB: bool = os.getenv("OPENAD_S3_SECURE_HUB", True)
+    GT4SD_S3_BUCKET_HUB_ALGORITHMS: str = os.getenv(
+        "OPENAD_S3_BUCKET_HUB_ALGORITHMS", "gt4sd-cos-hub-algorithms-artifacts"
     )
-    gt4sd_s3_bucket_hub_properties: str = os.getenv(
-        "GT4SD_S3_BUCKET_HUB_PROPERTIES", "gt4sd-cos-hub-properties-artifacts"
+    GT4SD_S3_BUCKET_HUB_PROPERTIES: str = os.getenv(
+        "OPENAD_S3_BUCKET_HUB_PROPERTIES", "gt4sd-cos-hub-properties-artifacts"
     )
 
     class Config:
