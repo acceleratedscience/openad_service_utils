@@ -185,7 +185,7 @@ class SimplePredictor(PredictorAlgorithm, BasePredictorParameters):
             return
         self.__download_model()
         # get prediction function
-        model: Predictor = self.get_model(self.get_model_location())
+        model = self.get_model(self.get_model_location())
         return model
 
     def get_selected_property(self) -> str:
@@ -268,6 +268,41 @@ class SimplePredictor(PredictorAlgorithm, BasePredictorParameters):
 
 class SimplePredictorMultiAlgorithm(SimplePredictor):
 
+    def get_model_location(self):
+        """gets the true path of a property checkpoint"""
+        return (
+            super().get_model_location().replace(f"/{self.algorithm_application}/", f"/{self.get_selected_property()}/")
+        )
+
+    def get_predictor(self, configuration: AlgorithmConfiguration):
+        """overwrite existing function to download model only once"""
+        # download model
+        if self.__no_model__:
+            print("no predictor")
+            return
+        # .__download_model()
+        # get prediction function
+        self.__download_model()
+        model = self.get_model(self.get_model_location())
+
+        return model
+
     def __init__(self, parameters):
         parameters.algorithm_application = parameters.selected_property
         super().__init__(parameters)
+
+    def __download_model(self):
+        """download model from s3"""
+        if self.__no_model__:
+            logger.info(f"No Model required ")
+            return
+        if not self.__artifacts_downloaded__:
+
+            logger.info(f"Downloading model: {self.get_selected_property()}/{self.configuration.algorithm_version}")
+            if self.configuration.ensure_artifacts():
+                self.__artifacts_downloaded__ = True
+                # logger.info(f"model downloaded")
+            else:
+                logger.error("could not download model")
+        else:
+            logger.info(f"model already downloaded")

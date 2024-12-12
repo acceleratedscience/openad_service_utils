@@ -296,6 +296,10 @@ class GT4SDS3Client:
             S3Error: If there's an error accessing S3.
             OSError: If there's an error creating directories or writing files.
         """
+        print("--------ensure exists-------")
+        print(bucket)
+        print(prefix)
+        print("-------------------")
         self.ensure_prefix_exists(bucket, prefix=prefix)
 
         if not os.path.exists(path):

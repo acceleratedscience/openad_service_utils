@@ -135,22 +135,15 @@ class MySimplePredictorCombo(SimplePredictorMultiAlgorithm):
         """function that automatically gets called on first request to setup each models instance"""
         self.models = {}  # a dictionary of models to be registered
         # setup your model
-        self.model_path = os.path.join(self.get_model_location(), "/*.pt")  # load model
-        tokenizer = []
-        for model in self.available_properties:
-            if not self.models.get(model["name"]):
-                # ----------------------------- User Classifier --------------
-                # Note you may not want to load the model here rather when first inferencing for efficiency
-                self.models[model["name"]] = ClassificationModel(
-                    model["name"],
-                    model_path=self.model_path.replace(f"/{self.algorithm_application}/", f'/{model["name"]}/'),
-                    tokenizer=tokenizer,
-                )
-                print(f"Setting up model {model['name']} on >> model filepath: {self.model_path}")
 
-    # def __init__(self, parameters):
-    #    parameters.algorithm_application = parameters.selected_property
-    #    super().__init__(parameters)
+        tokenizer = []
+        if self.get_selected_property() not in self.models:
+            self.models[self.get_selected_property()] = ClassificationModel(
+                self.get_selected_property(),
+                model_path=self.get_model_location(),
+                tokenizer=tokenizer,
+            )
+        print(f"Setting up model {self.get_selected_property()} on >> model filepath: {self.get_model_location()}")
 
     def predict(self, sample: Any) -> str | float | int | list | dict:
         """run predictions on your model"""

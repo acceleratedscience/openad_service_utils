@@ -44,7 +44,6 @@ def get_property_list(propset: dict):
 -Example of command generating property {prop['param_id']}:    {example}
         """
         property_list.append(PropertyInfo(name=key, description=help_element))
-    print(help_element)
     return property_list
 
 
@@ -152,7 +151,7 @@ QM8 = {
     "qm8-e1-pbe0": {
         "param_id": "qm8-e1-pbe0",
         "display_name": "qm8-e1-pbe0",
-        "description": "QM8 E1-PBE0: S0 -> S1 (first excited singlet state) transition energy computed at the level of theory, LR-TDPBE0/def2??VP", 
+        "description": "QM8 E1-PBE0: S0 -> S1 (first excited singlet state) transition energy computed at the level of theory, LR-TDPBE0/def2??VP",
         "type": "float",
         "example": "C[N]C1=C[N]C=NN1,0.13",
         "min_value": "-inf",
@@ -443,8 +442,8 @@ molecule_net = {
         "min_value": "-inf",
         "max_value": "inf",
     },
-    # FIXME: What is logkow trained on? logKow generally is or the octanol-water 
-    # partition coefficient, is a unitless value that indicates how likely an 
+    # FIXME: What is logkow trained on? logKow generally is or the octanol-water
+    # partition coefficient, is a unitless value that indicates how likely an
     # organic compound is to be absorbed by soil and living organisms
     "logkow": {
         "param_id": "logkow",
