@@ -40,14 +40,6 @@ class MySimpleGenerator(SimpleGenerator):
         self.model = MyModel(self.model_path)
         return
 
-    # if No Model is set to true do not try and ensure the Model artifacts are available to Run
-    def ensure_artifacts(self):
-        global NO_MODEL
-        if NO_MODEL:
-            return "no model"
-        else:
-            return super().ensure_artifacts()
-
     def predict(self, samples: list) -> List[Any]:
         """Implement the generation logic for the new model
         Returns:
