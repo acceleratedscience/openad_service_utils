@@ -1,14 +1,9 @@
-"""
-                NESTED PROPERTY EXAMPLE
-The following is an example of how you can nest multiple property inferences under the same simple class and register them for use
-The key Difference is rather than defining the SimplePredictorParamters in the Simple Predictor Class we abstracte it as Predictor Class
-and enable the setting then passing of the parameters to the Simple Predictor class.
+# How to create a Properties Model Service that has multiple checkpoints
 
-the benefits of this approach is the checkpoints live in separate library paths the downside is that the properties are not generated as
-as part of the same command call or request.
-"""
+## Using Simple implementation (recommended)
+follow the [simple_implementation.py](/examples/properties/implementation.py) example
 
-import os
+```python
 from typing import List, Union, Dict, Any
 from pydantic.v1 import Field
 from openad_service_utils import (
@@ -24,14 +19,15 @@ from openad_service_utils import start_server
 # -----------------------USER MODEL LIBRARY-----------------------------------
 from property_classifier_example import ClassificationModel
 
-#         USER SETTINGS SECTION
+#   USER SETTINGS SECTION
 #  import from the nested_parameters.py  library individual Parameters or Paramater sets you wish to use
-from nested_parameters import NestedParameters1, NestedParameters2, NESTED_DATA_SETS, get_property_list
 
-# GLOBAL VARIABLES
-# API vs Model Call
-# Here if you are calling an API  or another Service Set this to True
-# Set it to False if you are Calling a Physical Model This setting Will Skip the Model download Process
+from nested_parameters import (
+    NestedParameters1,
+    NestedParameters2,
+    NESTED_DATA_SETS,
+    get_property_list,
+)
 
 
 class MySimplePredictor(SimplePredictor):
@@ -158,6 +154,7 @@ class MySimplePredictorCombo(SimplePredictorMultiAlgorithm):
 
 
 # register a multiple properties that sit within the same Application and directory structure
+# by Registering with the props parpameters we override what is in the Model service class, enabling us to re-use the class for multiple groups of of parameters that use the same algorithms.
 props = NestedParameters1()
 props.set_parameters(
     algorithm_name="mammal",
@@ -166,6 +163,8 @@ props.set_parameters(
 )
 MySimplePredictor.register(props, no_model=False)
 
+
+# Here we are pulling through multiple cataegories of functions and registering them as separate commands or requests.
 # register many properties form multiple lists
 for key, value in NESTED_DATA_SETS.items():
     props = NestedParameters2()
@@ -179,3 +178,28 @@ for key, value in NESTED_DATA_SETS.items():
 if __name__ == "__main__":
     # start the server
     start_server(port=8080)
+
+```
+
+## no_model Class register parameter
+This parameters in the Implementation example allows you to run the service without the automatic loading of models. This is a useful option when you are wrapping an API like provided in RDKIT for generating properties or if you want to create a Pipeline that calls different models from other services. <br>
+By Default for standard Model inference it should be set to `FALSE`
+
+## Property Models Cache
+
+location based off the template schema
+
+`~/.openad_models / properties / domain / algorithm_name / algorithm_application / algorithm_version`
+
+## Test your api with the openad-toolkit cli. assuming server is localhost
+```bash
+>> catalog model service from remote 'http://localhost:8080' as 'mypredictor'
+>> mypredictor ?
+```
+
+## Test your api with using curl. assuming server is localhost
+```bash
+curl --request GET \
+--url http://localhost:8080/service \
+--header 'Content-Type: application/json'
+```
