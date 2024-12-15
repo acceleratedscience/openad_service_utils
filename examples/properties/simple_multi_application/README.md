@@ -183,7 +183,20 @@ if __name__ == "__main__":
 
 ## no_model Class register parameter
 This parameters in the Implementation example allows you to run the service without the automatic loading of models. This is a useful option when you are wrapping an API like provided in RDKIT for generating properties or if you want to create a Pipeline that calls different models from other services. <br>
-By Default for standard Model inference it should be set to `FALSE`
+By Default for standard Model inference is set to `False`<br>
+e.g.<br>
+To auto Load a model from given path: <br>
+```Python 
+MySimplePredictor.register(props, no_model=False)
+```
+
+<br>
+e.g.<br>
+To Not auto Load a model from given path so that you can use API or other loading method:  <br>
+
+```Python 
+MySimplePredictor.register(props, no_model=True)
+```
 
 ## Property Models Cache
 
