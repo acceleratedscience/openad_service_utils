@@ -206,15 +206,15 @@ def sync_algorithm_with_s3(prefix: Optional[str] = None, module: str = "algorith
             secure=gt4sd_configuration_instance.gt4sd_s3_secure,
         )
         # sync with the public bucket hub
-        sync_folder_with_s3(
-            host=gt4sd_configuration_instance.gt4sd_s3_host_hub,
-            access_key=gt4sd_configuration_instance.gt4sd_s3_access_key_hub,
-            secret_key=gt4sd_configuration_instance.gt4sd_s3_secret_key_hub,
-            bucket=gt4sd_artifact_management_configuration.s3_bucket_hub[module],
-            folder_path=folder_path,
-            prefix=prefix,
-            secure=gt4sd_configuration_instance.gt4sd_s3_secure_hub,
-        )
+        # sync_folder_with_s3(
+        #     host=gt4sd_configuration_instance.gt4sd_s3_host_hub,
+        #     access_key=gt4sd_configuration_instance.gt4sd_s3_access_key_hub,
+        #     secret_key=gt4sd_configuration_instance.gt4sd_s3_secret_key_hub,
+        #     bucket=gt4sd_artifact_management_configuration.s3_bucket_hub[module],
+        #     folder_path=folder_path,
+        #     prefix=prefix,
+        #     secure=gt4sd_configuration_instance.gt4sd_s3_secure_hub,
+        # )
     except S3SyncError:
         logger.exception("error in syncing the cache with S3")
         raise
