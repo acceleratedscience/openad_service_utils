@@ -8,7 +8,6 @@ from openad_service_utils import SimplePredictor, PredictorTypes, PropertyInfo
 from typing import Optional, List, Any
 from openad_service_utils.common.algorithms.core import AlgorithmConfiguration
 
-NO_MODEL =False # Set to True if only calling API or wrapping to another service
 
 class YourApplicationName(SimplePredictor):
     # necessary s3 paramters
@@ -41,7 +40,8 @@ class YourApplicationName(SimplePredictor):
 
 
 # register model outside of if __name__ == "__main__"
-YourApplicationName.register()
+#no_model Defaults to flase, if set to true it will not attempt to pull any stred mode lcheckpoints
+YourApplicationName.register(no_model=True)
 
 if __name__ == "__main__":
     from openad_service_utils import start_server
@@ -49,10 +49,23 @@ if __name__ == "__main__":
     start_server()
 ```
 
-## NO_MODEL Global Variable
-This global variable in the Implementation example allows you to run the service without the automatic loading of models. This is a useful option when you are wrapping an API like provided in RDKIT for generating properties or if you want to create a Pipeline that calls different models from other services. <br>
+## no_model Class register parameter
+This parameters in the Implementation example allows you to run the service without the automatic loading of models. This is a useful option when you are wrapping an API like provided in RDKIT for generating properties or if you want to create a Pipeline that calls different models from other services. <br>
+By Default for standard Model inference is set to `False`<br>
 
-By Default for standard Model inference it should be set to `FALSE`
+e.g.<br>
+To auto Load a model from given path: <br>
+```Python 
+MySimplePredictor.register( no_model=False)
+```
+
+<br>
+e.g.<br>
+To Not auto Load a model from given path so that you can use API or other loading method:  <br>
+
+```Python 
+MySimplePredictor.register( no_model=True)
+```
 
 ## Property Models Cache
 
