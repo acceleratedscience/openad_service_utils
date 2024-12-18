@@ -273,6 +273,12 @@ class SimplePredictorMultiAlgorithm(SimplePredictor):
         return (
             super().get_model_location().replace(f"/{self.algorithm_application}/", f"/{self.get_selected_property()}/")
         )
+    
+    def _update_parameters(self, parameters: PredictorParameters):
+        """Update model params with user input"""
+        if self.configuration:
+            parameters.algorithm_application = self.configuration.algorithm_application
+        super()._update_parameters(parameters)
 
     def get_predictor(self, configuration: AlgorithmConfiguration):
         """overwrite existing function to download model only once"""
