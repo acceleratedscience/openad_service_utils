@@ -436,7 +436,7 @@ molecule_net = {
     "lipo": {
         "param_id": "lipo",
         "display_name": "lipo",
-        "description": "MoleculeNet Lipophilicity: Octonol/water distribution coeffficient",
+        "description": "MoleculeNet Lipophilicity: Octonol/water distribution coefficient (logD at pH 7.4)",
         "type": "float",
         "example": "Cn1c(CN2CCN(CC2)c3ccc(Cl)cc3)nc4ccccc14,3.54",
         "min_value": "-inf",
