@@ -47,9 +47,7 @@ class GT4SDConfiguration(BaseSettings):
     """
 
     # reimplemented .gt4sd to .openad_models
-    gt4sd_local_cache_path: str = os.path.join(
-        os.path.expanduser("~"), ".openad_models"
-    )
+    gt4sd_local_cache_path: str = os.path.join(os.path.expanduser("~"), ".openad_models")
     gt4sd_local_cache_path_algorithms: str = "algorithms"
     gt4sd_local_cache_path_properties: str = "properties"
     gt4sd_max_number_of_stuck_calls: int = 50
@@ -73,30 +71,16 @@ class GT4SDConfiguration(BaseSettings):
     # gt4sd_s3_bucket_hub_properties: str = "gt4sd-cos-hub-properties-artifacts"
 
     # use environment variables for private cos buckets or default to public buckets
-    gt4sd_s3_host: str = os.getenv(
-        "GT4SD_S3_HOST", "s3.par01.cloud-object-storage.appdomain.cloud"
-    )
-    gt4sd_s3_access_key: str = os.getenv(
-        "GT4SD_S3_ACCESS_KEY", "6e9891531d724da89997575a65f4592e"
-    )
-    gt4sd_s3_secret_key: str = os.getenv(
-        "GT4SD_S3_SECRET_KEY", "5997d63c4002cc04e13c03dc0c2db9dae751293dab106ac5"
-    )
+    gt4sd_s3_host: str = os.getenv("GT4SD_S3_HOST", "s3.par01.cloud-object-storage.appdomain.cloud")
+    gt4sd_s3_access_key: str = os.getenv("GT4SD_S3_ACCESS_KEY", "6e9891531d724da89997575a65f4592e")
+    gt4sd_s3_secret_key: str = os.getenv("GT4SD_S3_SECRET_KEY", "5997d63c4002cc04e13c03dc0c2db9dae751293dab106ac5")
     gt4sd_s3_secure: bool = os.getenv("GT4SD_S3_SECURE", True)
-    gt4sd_s3_bucket_algorithms: str = os.getenv(
-        "GT4SD_S3_BUCKET_ALGORITHMS", "gt4sd-cos-algorithms-artifacts"
-    )
-    gt4sd_s3_bucket_properties: str = os.getenv(
-        "GT4SD_S3_BUCKET_PROPERTIES", "gt4sd-cos-properties-artifacts"
-    )
+    gt4sd_s3_bucket_algorithms: str = os.getenv("GT4SD_S3_BUCKET_ALGORITHMS", "gt4sd-cos-algorithms-artifacts")
+    gt4sd_s3_bucket_properties: str = os.getenv("GT4SD_S3_BUCKET_PROPERTIES", "gt4sd-cos-properties-artifacts")
 
     # use environment variables for private cos hub buckets or default to public buckets
-    gt4sd_s3_host_hub: str = os.getenv(
-        "GT4SD_S3_HOST_HUB", "s3.par01.cloud-object-storage.appdomain.cloud"
-    )
-    gt4sd_s3_access_key_hub: str = os.getenv(
-        "GT4SD_S3_ACCESS_KEY_HUB", "d9536662ebcf462f937efb9f58012830"
-    )
+    gt4sd_s3_host_hub: str = os.getenv("GT4SD_S3_HOST_HUB", "s3.par01.cloud-object-storage.appdomain.cloud")
+    gt4sd_s3_access_key_hub: str = os.getenv("GT4SD_S3_ACCESS_KEY_HUB", "d9536662ebcf462f937efb9f58012830")
     gt4sd_s3_secret_key_hub: str = os.getenv(
         "GT4SD_S3_SECRET_KEY_HUB", "934d1f3afdaea55ac586f6c2f729ac2ba2694bb8e975ee0b"
     )
@@ -158,9 +142,7 @@ for key, val in gt4sd_artifact_management_configuration.local_cache_path.items()
         # logger.debug(f"local cache path for {key} already exists at {path}.")
 
 
-def upload_to_s3(
-    target_filepath: str, source_filepath: str, module: str = "algorithms"
-):
+def upload_to_s3(target_filepath: str, source_filepath: str, module: str = "algorithms"):
     """Upload an algorithm in source_filepath in target_filepath on a bucket in the model hub.
     Args:
         target_filepath: path to save the objects in s3.
@@ -189,9 +171,7 @@ def upload_to_s3(
         logger.exception("error in syncing the cache with S3")
 
 
-def sync_algorithm_with_s3(
-    prefix: Optional[str] = None, module: str = "algorithms"
-) -> str:
+def sync_algorithm_with_s3(prefix: Optional[str] = None, module: str = "algorithms") -> str:
     """Sync an algorithm in the local cache using environment variables.
 
     Args:
@@ -226,24 +206,22 @@ def sync_algorithm_with_s3(
             secure=gt4sd_configuration_instance.gt4sd_s3_secure,
         )
         # sync with the public bucket hub
-        sync_folder_with_s3(
-            host=gt4sd_configuration_instance.gt4sd_s3_host_hub,
-            access_key=gt4sd_configuration_instance.gt4sd_s3_access_key_hub,
-            secret_key=gt4sd_configuration_instance.gt4sd_s3_secret_key_hub,
-            bucket=gt4sd_artifact_management_configuration.s3_bucket_hub[module],
-            folder_path=folder_path,
-            prefix=prefix,
-            secure=gt4sd_configuration_instance.gt4sd_s3_secure_hub,
-        )
+        # sync_folder_with_s3(
+        #     host=gt4sd_configuration_instance.gt4sd_s3_host_hub,
+        #     access_key=gt4sd_configuration_instance.gt4sd_s3_access_key_hub,
+        #     secret_key=gt4sd_configuration_instance.gt4sd_s3_secret_key_hub,
+        #     bucket=gt4sd_artifact_management_configuration.s3_bucket_hub[module],
+        #     folder_path=folder_path,
+        #     prefix=prefix,
+        #     secure=gt4sd_configuration_instance.gt4sd_s3_secure_hub,
+        # )
     except S3SyncError:
         logger.exception("error in syncing the cache with S3")
         raise
     return os.path.join(folder_path, prefix) if prefix is not None else folder_path
 
 
-def get_cached_algorithm_path(
-    prefix: Optional[str] = None, module: str = "algorithms"
-) -> str:
+def get_cached_algorithm_path(prefix: Optional[str] = None, module: str = "algorithms") -> str:
     if module not in gt4sd_artifact_management_configuration.gt4sd_s3_modules:
         raise ValueError(
             f"Unknown cache module: {module}. Supported modules: "
@@ -273,15 +251,11 @@ def get_algorithm_subdirectories_from_s3_coordinates(
     prefix: Optional[str] = None,
 ) -> Set[str]:
     """Wrapper to initialize a client and list the directories in a bucket."""
-    client = GT4SDS3Client(
-        host=host, access_key=access_key, secret_key=secret_key, secure=secure
-    )
+    client = GT4SDS3Client(host=host, access_key=access_key, secret_key=secret_key, secure=secure)
     return client.list_directories(bucket=bucket, prefix=prefix)
 
 
-def get_algorithm_subdirectories_with_s3(
-    prefix: Optional[str] = None, module: str = "algorithms"
-) -> Set[str]:
+def get_algorithm_subdirectories_with_s3(prefix: Optional[str] = None, module: str = "algorithms") -> Set[str]:
     """Get algorithms in the s3 buckets.
 
     Args:
@@ -332,9 +306,7 @@ def get_algorithm_subdirectories_with_s3(
         )
 
 
-def get_algorithm_subdirectories_in_cache(
-    prefix: Optional[str] = None, module: str = "algorithms"
-) -> Set[str]:
+def get_algorithm_subdirectories_in_cache(prefix: Optional[str] = None, module: str = "algorithms") -> Set[str]:
     """Get algorithm subdirectories from the cache.
 
     Args:

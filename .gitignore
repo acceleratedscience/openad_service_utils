@@ -203,3 +203,9 @@ pyvenv.cfg
 pip-selfcheck.json
 
 # End of https://www.toptal.com/developers/gitignore/api/python,virtualenv,jupyternotebooks
+
+### macOS ###
+# General
+.DS_Store
+.AppleDouble
+.LSOverride

@@ -47,13 +47,9 @@ class PropertyInfo(TypedDict):
 class BasePredictorParameters:
     # TODO: change all this into 1 base_model_path or have user implement their style of downloading e.g. remove configuration dependency
     algorithm_type: str = "prediction"
-    domain: DomainSubmodule = Field(
-        ..., example="molecules", description="Submodule of gt4sd.properties"
-    )
+    domain: DomainSubmodule = Field(..., example="molecules", description="Submodule of gt4sd.properties")
     algorithm_name: str = Field(..., example="MCA", description="Name of the algorithm")
-    algorithm_version: str = Field(
-        ..., example="v0", description="Version of the algorithm"
-    )
+    algorithm_version: str = Field(..., example="v0", description="Version of the algorithm")
     algorithm_application: str = Field(..., example="Tox21")
 
 
@@ -73,13 +69,9 @@ class PredictorParameters(BaseModel):
     """
 
     algorithm_type: str = "prediction"
-    domain: DomainSubmodule = Field(
-        ..., example="molecules", description="Submodule of gt4sd.properties"
-    )
+    domain: DomainSubmodule = Field(..., example="molecules", description="Submodule of gt4sd.properties")
     algorithm_name: str = Field(..., example="MCA", description="Name of the algorithm")
-    algorithm_version: str = Field(
-        ..., example="v0", description="Version of the algorithm"
-    )
+    algorithm_version: str = Field(..., example="v0", description="Version of the algorithm")
     algorithm_application: str = Field(..., example="Tox21")
     # this is used to select a var::PropertyInfo.name available_properties. User selected property from api.
     # this is not harcoded in the class, but is added to the class when registering the predictor
@@ -125,6 +117,7 @@ class SimplePredictor(PredictorAlgorithm, BasePredictorParameters):
     available_properties: Optional[List[PropertyInfo]] = []
 
     __artifacts_downloaded__: bool = False
+    __no_model__: bool = False
 
     def __init__(self, parameters: PredictorParameters):
         """Do not implement or instatiate"""
@@ -169,6 +162,9 @@ class SimplePredictor(PredictorAlgorithm, BasePredictorParameters):
 
     def __download_model(self):
         """download model from s3"""
+        if self.__no_model__:
+            logger.info(f"No Model required ")
+            return
         if not self.__artifacts_downloaded__:
             logger.info(
                 f"Downloading model: {self.configuration.algorithm_application}/{self.configuration.algorithm_version}"
@@ -184,9 +180,12 @@ class SimplePredictor(PredictorAlgorithm, BasePredictorParameters):
     def get_predictor(self, configuration: AlgorithmConfiguration):
         """overwrite existing function to download model only once"""
         # download model
+        if self.__no_model__:
+            print("no predictor")
+            return
         self.__download_model()
         # get prediction function
-        model: Predictor = self.get_model(self.get_model_location())
+        model = self.get_model(self.get_model_location())
         return model
 
     def get_selected_property(self) -> str:
@@ -205,24 +204,19 @@ class SimplePredictor(PredictorAlgorithm, BasePredictorParameters):
     @abstractmethod
     def predict(self, sample: Any):
         """Run predictions and return results."""
+
         raise NotImplementedError("Not implemented in baseclass.")
 
     @classmethod
-    def register(cls, parameters: Optional[PredictorParameters] = None) -> None:
+    def register(cls, parameters: Optional[PredictorParameters] = None, no_model=False) -> None:
+        """**no_model** : defaults to false, so that the model is always retrieved. If on register this is set to true, allows the user to manage loading of checkpoint or
+        the ability to run a inference that only uses an API to retrieve a result"""
         if not parameters:
             # parameters defined in class
-            class_fields = {
-                k: v
-                for k, v in cls.__dict__.items()
-                if not callable(v) and not k.startswith("__")
-            }
+            class_fields = {k: v for k, v in cls.__dict__.items() if not callable(v) and not k.startswith("__")}
             class_fields.pop("_abc_impl", "")
         else:
-            class_fields = {
-                k: v
-                for k, v in vars(parameters).items()
-                if not callable(v) and not k.startswith("__")
-            }
+            class_fields = {k: v for k, v in vars(parameters).items() if not callable(v) and not k.startswith("__")}
         # check if required fields are set
         required = [
             "algorithm_name",
@@ -233,15 +227,12 @@ class SimplePredictor(PredictorAlgorithm, BasePredictorParameters):
         ]
         for field in required:
             if field not in class_fields:
-                raise TypeError(
-                    f"Can't instantiate class ({cls.__name__}) without '{field}' class variable"
-                )
+                raise TypeError(f"Can't instantiate class ({cls.__name__}) without '{field}' class variable")
         # update class name to be `algorithm_application`
         cls.__name__ = class_fields.get("algorithm_application")
+        cls.__no_model__ = no_model
         # setup s3 class params
-        model_param_class: PredictorParameters = type(
-            cls.__name__ + "Parameters", (PredictorParameters,), class_fields
-        )
+        model_param_class: PredictorParameters = type(cls.__name__ + "Parameters", (PredictorParameters,), class_fields)
         if class_fields.get("available_properties"):
             if not isinstance(class_fields.get("available_properties"), list):
                 raise ValueError("available_properties must be of List[PropertyInfo]")
@@ -273,3 +264,51 @@ class SimplePredictor(PredictorAlgorithm, BasePredictorParameters):
             logger.error(f"could not create model cache location: {model_location}")
         logger.info(f"registering predictor model: {model_location}")
         # logger.debug(cls(model_param_class(**model_param_class().dict())).get_model_location())
+
+
+class SimplePredictorMultiAlgorithm(SimplePredictor):
+
+    def get_model_location(self):
+        """gets the true path of a property checkpoint"""
+        return (
+            super().get_model_location().replace(f"/{self.algorithm_application}/", f"/{self.get_selected_property()}/")
+        )
+    
+    def _update_parameters(self, parameters: PredictorParameters):
+        """Update model params with user input"""
+        if self.configuration:
+            parameters.algorithm_application = self.configuration.algorithm_application
+        super()._update_parameters(parameters)
+
+    def get_predictor(self, configuration: AlgorithmConfiguration):
+        """overwrite existing function to download model only once"""
+        # download model
+        if self.__no_model__:
+            print("no predictor")
+            return
+        # .__download_model()
+        # get prediction function
+        self.__download_model()
+        model = self.get_model(self.get_model_location())
+
+        return model
+
+    def __init__(self, parameters):
+        parameters.algorithm_application = parameters.selected_property
+        super().__init__(parameters)
+
+    def __download_model(self):
+        """download model from s3"""
+        if self.__no_model__:
+            logger.info(f"No Model required ")
+            return
+        if not self.__artifacts_downloaded__:
+
+            logger.info(f"Downloading model: {self.get_selected_property()}/{self.configuration.algorithm_version}")
+            if self.configuration.ensure_artifacts():
+                self.__artifacts_downloaded__ = True
+                # logger.info(f"model downloaded")
+            else:
+                logger.error("could not download model")
+        else:
+            logger.info(f"model already downloaded")

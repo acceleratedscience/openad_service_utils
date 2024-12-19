@@ -74,9 +74,7 @@ class GT4SDS3Client:
         self.secure = secure
 
         # Handle anonymous access if both credentials are None/empty
-        self.is_anonymous = (access_key is None or access_key == "") and (
-            secret_key is None or secret_key == ""
-        )
+        self.is_anonymous = (access_key is None or access_key == "") and (secret_key is None or secret_key == "")
 
         if self.is_anonymous:
             self.access_key = ""
@@ -85,9 +83,7 @@ class GT4SDS3Client:
         else:
             # Validate credentials if not anonymous
             if bool(access_key) != bool(secret_key):  # XOR check
-                raise ValueError(
-                    "Both access_key and secret_key must be provided or neither"
-                )
+                raise ValueError("Both access_key and secret_key must be provided or neither")
             if not isinstance(access_key, str) or not isinstance(secret_key, str):
                 raise ValueError("Invalid access_key or secret_key type")
             self.access_key = access_key
@@ -166,9 +162,7 @@ class GT4SDS3Client:
         try:
             return [
                 s3_object.object_name
-                for s3_object in self.client.list_objects(
-                    bucket_name=bucket, prefix=prefix, recursive=True
-                )
+                for s3_object in self.client.list_objects(bucket_name=bucket, prefix=prefix, recursive=True)
             ]
         except S3Error as e:
             logger.error(f"Failed to list objects in bucket {bucket}: {str(e)}")
@@ -196,9 +190,7 @@ class GT4SDS3Client:
         try:
             # Normalize prefix to ensure consistent checking
             normalized_prefix = prefix.rstrip("/") + "/"
-            objects = self.client.list_objects(
-                bucket_name=bucket, prefix=normalized_prefix, recursive=False
-            )
+            objects = self.client.list_objects(bucket_name=bucket, prefix=normalized_prefix, recursive=False)
             # Check if there are any objects with this prefix
             return any(True for _ in objects)
         except S3Error as e:
@@ -219,9 +211,7 @@ class GT4SDS3Client:
         """
         if not self.check_prefix_exists(bucket, prefix):
             logger.error(f"Prefix Path '{prefix}' does not exist in bucket '{bucket}'")
-            raise ValueError(
-                f"Prefix Path '{prefix}' does not exist in bucket '{bucket}'"
-            )
+            raise ValueError(f"Prefix Path '{prefix}' does not exist in bucket '{bucket}'")
 
     def list_directories(self, bucket: str, prefix: Optional[str] = None) -> Set[str]:
         """
@@ -246,9 +236,7 @@ class GT4SDS3Client:
         try:
             return set(
                 s3_object.object_name[len(prefix) if prefix else 0 : -1]
-                for s3_object in self.client.list_objects(
-                    bucket_name=bucket, prefix=prefix, recursive=False
-                )
+                for s3_object in self.client.list_objects(bucket_name=bucket, prefix=prefix, recursive=False)
                 if s3_object.object_name[-1] == "/"
             )
         except S3Error as e:
@@ -260,9 +248,7 @@ class GT4SDS3Client:
         wait=wait_exponential(multiplier=1, min=4, max=10),
         reraise=True,
     )
-    def upload_file(
-        self, bucket: str, target_filepath: str, source_filepath: str
-    ) -> None:
+    def upload_file(self, bucket: str, target_filepath: str, source_filepath: str) -> None:
         """Upload a local file to S3 bucket.
 
         Args:
@@ -286,18 +272,14 @@ class GT4SDS3Client:
             file_size = os.path.getsize(source_filepath)
             if file_size > CHUNK_SIZE:
                 # Use multipart upload for large files
-                self.client.fput_object(
-                    bucket, target_filepath, source_filepath, part_size=CHUNK_SIZE
-                )
+                self.client.fput_object(bucket, target_filepath, source_filepath, part_size=CHUNK_SIZE)
             else:
                 self.client.fput_object(bucket, target_filepath, source_filepath)
         except S3Error as e:
             logger.error(f"Failed to upload file {source_filepath}: {str(e)}")
             raise
 
-    def sync_folder(
-        self, bucket: str, path: str, prefix: Optional[str] = None, force: bool = False
-    ) -> None:
+    def sync_folder(self, bucket: str, path: str, prefix: Optional[str] = None, force: bool = False) -> None:
         """Sync an entire folder from S3 recursively and save it under the given path.
 
         If :obj:`prefix` is given, every file under ``prefix/`` in S3 will be saved under ``path/`` in disk (i.e.
@@ -314,6 +296,10 @@ class GT4SDS3Client:
             S3Error: If there's an error accessing S3.
             OSError: If there's an error creating directories or writing files.
         """
+        print("--------ensure exists-------")
+        print(bucket)
+        print(prefix)
+        print("-------------------")
         self.ensure_prefix_exists(bucket, prefix=prefix)
 
         if not os.path.exists(path):
@@ -321,23 +307,17 @@ class GT4SDS3Client:
             os.makedirs(path)
 
         try:
-            s3_objects = self.client.list_objects(
-                bucket_name=bucket, prefix=prefix, recursive=True
-            )
+            s3_objects = self.client.list_objects(bucket_name=bucket, prefix=prefix, recursive=True)
 
             for s3_object in s3_objects:
                 object_name = s3_object.object_name
                 is_directory = object_name.endswith("/")
 
-                object_name_stripped_prefix = (
-                    os.path.relpath(object_name, prefix) if prefix else object_name
-                )
+                object_name_stripped_prefix = os.path.relpath(object_name, prefix) if prefix else object_name
 
                 filepath = os.path.join(
                     path,
-                    object_name_stripped_prefix[1:]
-                    if object_name[0] == "/"
-                    else object_name_stripped_prefix,
+                    object_name_stripped_prefix[1:] if object_name[0] == "/" else object_name_stripped_prefix,
                 )
 
                 if is_directory:
@@ -353,9 +333,7 @@ class GT4SDS3Client:
 
                 # Check if download is needed
                 if not os.path.exists(filepath) or force:
-                    logger.debug(
-                        f"downloading file '{os.path.basename(object_name)}' to '{filepath}'"
-                    )
+                    logger.debug(f"downloading file '{os.path.basename(object_name)}' to '{filepath}'")
                     try:
                         self.client.fget_object(
                             bucket_name=bucket,
@@ -390,9 +368,7 @@ def s3_client(
     Yields:
         GT4SDS3Client: The S3 client instance.
     """
-    client = GT4SDS3Client(
-        host=host, access_key=access_key, secret_key=secret_key, secure=secure
-    )
+    client = GT4SDS3Client(host=host, access_key=access_key, secret_key=secret_key, secure=secure)
     try:
         yield client
     finally:
@@ -426,17 +402,13 @@ def upload_file_to_s3(
         PermissionError: If anonymous access is used (write operations not allowed).
     """
     try:
-        with s3_client(
-            host=host, access_key=access_key, secret_key=secret_key, secure=secure
-        ) as client:
+        with s3_client(host=host, access_key=access_key, secret_key=secret_key, secure=secure) as client:
             logger.debug("starting upload")
             client.upload_file(bucket, target_filepath, source_filepath)
             logger.debug("upload complete")
     except (ValueError, S3Error, PermissionError) as e:
         logger.exception("upload error " + f"Error uploading file to S3: {str(e)}")
-        raise S3SyncError(
-            "UploadArtifactsError", f"Error uploading file to S3: {str(e)}"
-        )
+        raise S3SyncError("UploadArtifactsError", f"Error uploading file to S3: {str(e)}")
 
 
 def sync_folder_with_s3(
@@ -467,10 +439,9 @@ def sync_folder_with_s3(
     logger.info(f"using host={host} bucket={bucket} path={path}")
 
     try:
-        with s3_client(
-            host=host, access_key=access_key, secret_key=secret_key, secure=secure
-        ) as client:
+        with s3_client(host=host, access_key=access_key, secret_key=secret_key, secure=secure) as client:
             logger.info("starting sync")
+            print(prefix)
             client.sync_folder(bucket=bucket, path=path, prefix=prefix)
             logger.info("sync complete. artifacts downloaded.")
     except (ValueError, S3Error, OSError) as e:
