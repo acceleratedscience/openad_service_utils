@@ -6,7 +6,9 @@ import traceback
 
 import pandas as pd
 from pydantic import BaseModel
-
+from openad_service_utils.utils.convert import json_string_to_dict
+from openad_service_utils.api.config import get_config_instance
+from openad_service_utils.api.cache import get_model_cache, conditional_lru_cache
 from openad_service_utils.api.generation.generate_service_defs import (
     create_service_defs,
     generate_service_defs,
@@ -107,7 +109,10 @@ class service_requester:
         """fetch available services and cache results"""
         return get_services()
 
+    @conditional_lru_cache(maxsize=100)
     def route_service(self, request: dict):
+        if get_config_instance().ENABLE_CACHE_RESULTS:
+            request = json_string_to_dict(request)
         result = None
         if not self.is_valid_service_request(request):
             return False
@@ -168,10 +173,8 @@ def get_generator_type(generator_application: str, parameters):
 
 
 class request_generation:
-    models_cache = []
-
     def __init__(self) -> None:
-        pass
+        self.model_cache = get_model_cache()
 
     def request(
         self, generator_application, parameters: dict, apikey: str, sample_size=10
@@ -200,31 +203,51 @@ class request_generation:
         parms = self.set_parms(generator_type=generator_type, parameters=parameters)
 
         parms.update(generator_type)
-        # take parms and concatenate key and value to create a unique model id
-        model = None
-        # TODO: fix model cache
-        # model_type = generator_application + "_" + "_".join([str(parms[x]) for x in parms.keys() if x in ['algorithm_type','domain','algorithm_name','algorithm_version','algorithm_application']])
-        # logger.debug(f"model cache lookup key: {model_type}")
-        # for model in self.models_cache:
-        #     if model_type in model:
-        #         model = model[model_type]
+        # Create unique model key from parameters
+        model_type = generator_application + "_" + "_".join(
+            [str(parms[x]) for x in parms.keys() if x in ['algorithm_type','domain','algorithm_name','algorithm_version','algorithm_application']]
+        )
+        logger.debug(f"Model cache lookup key: {model_type}")
 
-        if not model:
+        try:
+            # Try to get model from cache
+            model = self.model_cache.get(model_type)
+            
+            if model is None:
+                if "target" in parms:
+                    target = copy.deepcopy(parms["target"])
+                    parms.pop("target")
+                    if isinstance(target, list):
+                        if len(target) == 1:
+                            target = target[0]
+                    logger.debug(f"Creating new model: {target=} {parms=} {sample_size=}")
+                    model = GeneratorRegistry.get_application_instance(
+                        **parms, target=target
+                    )
+                else:
+                    logger.debug(f"Creating new model: {parms=} {sample_size=}")
+                    model = GeneratorRegistry.get_application_instance(**parms)
+                
+                # Try to cache the new model
+                if model:
+                    logger.debug(f"Adding model to cache with key: {model_type}")
+                    self.model_cache.set(model_type, model)
+            else:
+                logger.debug(f"Using cached model with key: {model_type}")
+        except Exception as e:
+            logger.error(f"Error handling model cache: {str(e)}")
+            # Fallback to creating new model without caching
             if "target" in parms:
                 target = copy.deepcopy(parms["target"])
                 parms.pop("target")
                 if isinstance(target, list):
                     if len(target) == 1:
                         target = target[0]
-                logger.debug(f"running sample: {target=} {parms=} {sample_size=}")
                 model = GeneratorRegistry.get_application_instance(
                     **parms, target=target
                 )
-                # self.models_cache.append({model_type: model})
             else:
-                logger.debug(f"running sample: {parms=} {sample_size=}")
                 model = GeneratorRegistry.get_application_instance(**parms)
-                # self.models_cache.append({model_type: model})
 
         # run model inference
         result = list(model.sample(sample_size))

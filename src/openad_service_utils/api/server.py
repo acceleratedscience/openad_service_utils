@@ -31,6 +31,7 @@ import traceback
 from itertools import chain
 from openad_service_utils.utils.convert import dict_to_json_string
 from openad_service_utils.api.async_call import background_route_service, retrieve_job
+from openad_service_utils.api.cache import get_model_cache
 
 app = FastAPI()
 kube_probe = FastAPI()
@@ -172,6 +173,8 @@ def server_details():
 
 # Function to run the main service
 def run_main_service(host, port, log_level, max_workers):
+    # TODO: fix for multiple workers. mainly initializing to show MODEL_CACHE info on startup.
+    get_model_cache()
     uvicorn.run(
         "openad_service_utils.api.server:app",
         host=host,
@@ -207,6 +210,7 @@ def is_running_in_kubernetes():
 
 
 def start_server(host="0.0.0.0", port=8080, log_level="info", max_workers=1, worker_gpu_min=2000):
+    assert max_workers == 1, "Only Supports 1 worker right now"
     logger.debug(f"Server Config: {get_config_instance().model_dump()}")
     if get_config_instance().SERVE_MAX_WORKERS > 0:
         # overwite max workers with env var

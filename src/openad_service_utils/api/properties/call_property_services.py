@@ -1,15 +1,11 @@
 import copy
-import glob
 import json
-import os
 from pathlib import Path
 
-from pandas import DataFrame
 from pydantic import BaseModel
-from functools import lru_cache, wraps
 from openad_service_utils.utils.convert import json_string_to_dict
 from openad_service_utils.api.config import get_config_instance
-
+from openad_service_utils.api.cache import get_model_cache, conditional_lru_cache
 from openad_service_utils.api.properties.generate_property_service_defs import (
     generate_property_service_defs,
 )
@@ -85,22 +81,6 @@ def get_services() -> list:
     return all_services
 
 
-def conditional_lru_cache(maxsize=100):
-    def decorator(func):
-        if get_config_instance().ENABLE_CACHE_RESULTS:
-            cached_func = lru_cache(maxsize=maxsize)(func)
-            return cached_func
-        else:
-
-            @wraps(func)
-            def no_cache(*args, **kwargs):
-                return func(*args, **kwargs)
-
-            return no_cache
-
-    return decorator
-
-
 class service_requester:
     property_requestor = None
     valid_services = ["property", "prediction", "generation", "training"]
@@ -154,10 +134,8 @@ class service_requester:
 
 
 class request_properties:
-    models_cache = []
-
     def __init__(self) -> None:
-        pass
+        self.model_cache = get_model_cache()
 
     def request(self, service_type, parameters: dict, apikey: str):
         results = []
@@ -193,28 +171,33 @@ class request_properties:
                         ]
                     ]
                 )
-                # look through model cache in memory
-                for model in self.models_cache:
-                    if using_model in model:
-                        # get model from cache
-                        predictor = model[using_model]
-                if predictor is None:
+                try:
+                    # Try to get model from cache
+                    predictor = self.model_cache.get(using_model)
+                    
+                    if predictor is None:
+                        predictor = PropertyPredictorRegistry.get_property_predictor(
+                            name=property_type, parameters=parms
+                        )
+                        if predictor:
+                            # Try to cache the new model
+                            logger.debug(f"Adding model to cache with key: {using_model}")
+                            self.model_cache.set(using_model, predictor)
+                    else:
+                        # Update model params if needed
+                        logger.debug(f"Using cached model with key: {using_model}")
+                        pydantic_params = (
+                            PropertyPredictorRegistry.get_property_predictor_meta_params(
+                                name=property_type
+                            )
+                        )
+                        predictor._update_parameters(pydantic_params(**parms))
+                except Exception as e:
+                    logger.error(f"Error handling model cache: {str(e)}")
+                    # Fallback to creating new model without caching
                     predictor = PropertyPredictorRegistry.get_property_predictor(
                         name=property_type, parameters=parms
                     )
-                    if predictor:
-                        # add model to cache in memory
-                        logger.debug(f"adding model to cache as key: {using_model}")
-                        self.models_cache.append({using_model: predictor})
-                else:
-                    # update model params
-                    # logger.debug(f"loading model from cache key: {using_model}")
-                    pydantic_params = (
-                        PropertyPredictorRegistry.get_property_predictor_meta_params(
-                            name=property_type
-                        )
-                    )
-                    predictor._update_parameters(pydantic_params(**parms))
 
                 # Crystaline structure models take data as file sets, the following manages this for the Crystaline property requests
                 if service_type == "get_crystal_property":
