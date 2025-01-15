@@ -1,7 +1,9 @@
+import os
 import sys
 import threading
 import psutil
-from typing import Dict, Any, Optional, Union
+from pathlib import Path
+from typing import Dict, Any, Optional, Union, Tuple
 from cachetools import TTLCache, LRUCache
 from functools import lru_cache, wraps
 from openad_service_utils.api.config import get_config_instance
@@ -43,22 +45,72 @@ class ModelCache:
         self._initialized = True
         logger.debug("Initialized shared ModelCache instance")
 
+    def _is_running_in_kubernetes(self) -> bool:
+        """Check if we're running in a Kubernetes pod."""
+        try:
+            # Check for container environment
+            cgroup_path = Path("/proc/1/cgroup")
+            if not cgroup_path.exists():
+                return False
+            
+            # Check cgroup content for kubernetes indicators
+            cgroup_content = cgroup_path.read_text()
+            return any(indicator in cgroup_content.lower() 
+                     for indicator in ['kubepods', 'kubernetes'])
+        except Exception as e:
+            logger.debug(f"Failed to check for Kubernetes environment: {str(e)}")
+            return False
+
+    def _get_kubernetes_memory_limit(self) -> Optional[int]:
+        """Get memory limit in bytes from Kubernetes cgroup."""
+        try:
+            # Try modern cgroup v2 path first
+            memory_limit_paths = [
+                "/sys/fs/cgroup/memory.max",  # cgroup v2
+                "/sys/fs/cgroup/memory/memory.limit_in_bytes",  # cgroup v1
+            ]
+            
+            for path in memory_limit_paths:
+                if os.path.exists(path):
+                    with open(path, 'r') as f:
+                        limit = f.read().strip()
+                        # Handle "max" value in cgroup v2
+                        if limit == "max":
+                            return None
+                        return int(limit)
+            
+            return None
+        except Exception as e:
+            logger.debug(f"Failed to read Kubernetes memory limit: {str(e)}")
+            return None
+
+    def _get_system_memory(self) -> Tuple[int, int]:
+        """Get available and total memory in bytes."""
+        if self._is_running_in_kubernetes():
+            k8s_limit = self._get_kubernetes_memory_limit()
+            if k8s_limit:
+                # Use 90% of container limit as available memory
+                logger.debug(f"Running in Kubernetes with {k8s_limit / (1024**3):.1f}GB limit")
+                return (k8s_limit, k8s_limit)
+        
+        # Fall back to system memory if not in K8s or failed to get limit
+        vm = psutil.virtual_memory()
+        return (vm.available, vm.total)
+
     def _get_max_memory_gb(self, config_memory: Union[str, int]) -> int:
         """Calculate maximum memory limit in GB.
         
-        If config is "AUTO", uses 90% of available system memory.
+        If config is "AUTO", uses 75% of available memory or container limit.
         Otherwise uses the configured value.
         """
         if isinstance(config_memory, str) and config_memory.upper() == "AUTO":
-            # Get total available memory
-            available_memory = psutil.virtual_memory().available
-            total_memory = psutil.virtual_memory().total
+            # Get memory limits considering K8s environment
+            available_memory, total_memory = self._get_system_memory()
             
-            # Use 90% of available memory or 90% of total memory, whichever is smaller
-            # maximize, but leave some overhead.
+            # Use 75% of available memory or 25% of total memory, whichever is smaller
             auto_memory = min(
-                available_memory * 0.90,  # 90% of available
-                total_memory * 0.90       # 90% of total
+                available_memory * 0.9,  # 75% of available
+                total_memory * 0.9      # 25% of total
             )
             
             # Convert to GB and ensure minimum of 1GB
@@ -75,7 +127,6 @@ class ModelCache:
             except (ValueError, TypeError):
                 logger.warning(f"Invalid memory configuration: {config_memory}, using default of 16GB")
                 return 16
-
 
     def get(self, key: str) -> Optional[Any]:
         """Get a model from cache if it exists."""
