@@ -210,11 +210,11 @@ def is_running_in_kubernetes():
 
 
 def start_server(host="0.0.0.0", port=8080, log_level="info", max_workers=1, worker_gpu_min=2000):
-    assert max_workers == 1, "Only Supports 1 worker right now"
     logger.debug(f"Server Config: {get_config_instance().model_dump()}")
-    if get_config_instance().SERVE_MAX_WORKERS > 0:
+    if get_config_instance().SERVE_MAX_WORKERS > 1:
         # overwite max workers with env var
         max_workers = get_config_instance().SERVE_MAX_WORKERS
+    assert max_workers == 1, "Only Supports 1 worker right now"
     try:
         import torch
 
