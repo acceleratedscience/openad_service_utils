@@ -169,8 +169,8 @@ class ModelCache:
         """Add a model to cache with memory monitoring."""
         try:
             # More accurate memory size estimation
-            # memory_size = sys.getsizeof(value) / (1024 ** 3)
-            memory_size = self._estimate_size(value)
+            memory_size = sys.getsizeof(value) / (1024 ** 3)
+            # memory_size = self._estimate_size(value)
             
             with self._operation_lock:
                 # Check if adding this model would exceed memory limit
