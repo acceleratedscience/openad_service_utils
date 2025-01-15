@@ -179,10 +179,6 @@ class request_properties:
                         predictor = PropertyPredictorRegistry.get_property_predictor(
                             name=property_type, parameters=parms
                         )
-                        if predictor:
-                            # Try to cache the new model
-                            logger.debug(f"Adding model to cache with key: {using_model}")
-                            self.model_cache.set(using_model, predictor)
                     else:
                         # Update model params if needed
                         logger.debug(f"Using cached model with key: {using_model}")
@@ -230,12 +226,19 @@ class request_properties:
                         )
 
                 else:
-                    # All other propoerty Requests handled here.
+                    # All other property Requests handled here.
+                    result = predictor(subject)
+                    
+                    # Now that model is loaded and used, try to cache it
+                    if predictor and not self.model_cache.get(using_model):
+                        logger.debug(f"Adding model to cache with key: {using_model}")
+                        self.model_cache.set(using_model, predictor)
+                    
                     results.append(
                         {
                             "subject": subject,
                             "property": property_type,
-                            "result": predictor(subject),
+                            "result": result,
                         }
                     )
         return results

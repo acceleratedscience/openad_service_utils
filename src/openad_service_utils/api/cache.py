@@ -1,4 +1,5 @@
 import os
+import gc
 import sys
 import threading
 import psutil
@@ -35,13 +36,17 @@ class ModelCache:
         # Skip initialization if already done
         if self._initialized:
             return
+            
         self._cache = TTLCache(maxsize=maxsize, ttl=ttl)
         self._memory_cache = LRUCache(maxsize=maxsize)
         self._operation_lock = threading.Lock()  # Separate lock for operations
+        self._total_memory_gb = 0  # Track total memory usage
+        
         # Handle automatic memory sizing
         config_memory = get_config_instance().MAX_CACHE_MEMORY_GB
         self._max_memory_gb = self._get_max_memory_gb(config_memory)
         logger.debug(f"Cache memory limit set to {self._max_memory_gb}GB")
+        
         self._initialized = True
         logger.debug("Initialized shared ModelCache instance")
 
@@ -89,9 +94,9 @@ class ModelCache:
         if self._is_running_in_kubernetes():
             k8s_limit = self._get_kubernetes_memory_limit()
             if k8s_limit:
-                # Use 90% of container limit as available memory
+                # Use 75% of container limit as available memory
                 logger.debug(f"Running in Kubernetes with {k8s_limit / (1024**3):.1f}GB limit")
-                return (k8s_limit, k8s_limit)
+                return (int(k8s_limit * 0.75), k8s_limit)
         
         # Fall back to system memory if not in K8s or failed to get limit
         vm = psutil.virtual_memory()
@@ -109,8 +114,8 @@ class ModelCache:
             
             # Use 75% of available memory or 25% of total memory, whichever is smaller
             auto_memory = min(
-                available_memory * 0.9,  # 75% of available
-                total_memory * 0.9      # 25% of total
+                available_memory * 0.75,  # 75% of available
+                total_memory * 0.25       # 25% of total
             )
             
             # Convert to GB and ensure minimum of 1GB
@@ -128,6 +133,33 @@ class ModelCache:
                 logger.warning(f"Invalid memory configuration: {config_memory}, using default of 16GB")
                 return 16
 
+    def _estimate_size(self, obj: Any) -> float:
+        """Estimate memory size of an object in GB.
+        
+        Uses process memory increase after loading model as a more accurate measure.
+        """
+        try:
+            # Get memory before
+            process = psutil.Process()
+            mem_before = process.memory_info().rss
+            
+            # Force Python to update memory stats
+            gc.collect()
+            
+            # Get memory after
+            mem_after = process.memory_info().rss
+            
+            # Calculate difference in GB
+            memory_size = (mem_after - mem_before) / (1024 ** 3)
+            
+            # Ensure minimum size and add 10% buffer
+            return max(0.1, memory_size * 1.1)
+            
+        except Exception as e:
+            logger.warning(f"Failed to estimate object size accurately: {str(e)}")
+            # Fallback to sys.getsizeof
+            return sys.getsizeof(obj) / (1024 ** 3)
+
     def get(self, key: str) -> Optional[Any]:
         """Get a model from cache if it exists."""
         with self._operation_lock:
@@ -136,8 +168,9 @@ class ModelCache:
     def set(self, key: str, value: Any) -> None:
         """Add a model to cache with memory monitoring."""
         try:
-            # Rough memory size estimation
-            memory_size = sys.getsizeof(value) / (1024 ** 3)  # Convert to GB
+            # More accurate memory size estimation
+            # memory_size = sys.getsizeof(value) / (1024 ** 3)
+            memory_size = self._estimate_size(value)
             
             with self._operation_lock:
                 # Check if adding this model would exceed memory limit
@@ -145,12 +178,22 @@ class ModelCache:
                 if current_memory + memory_size > self._max_memory_gb:
                     # Remove oldest items until we have space
                     while current_memory + memory_size > self._max_memory_gb and self._memory_cache:
-                        _, size = self._memory_cache.popitem()
+                        removed_key, size = self._memory_cache.popitem()
+                        self._cache.pop(removed_key, None)
                         current_memory -= size
+                        gc.collect()
+                        logger.debug(f"Evicted model {removed_key} to free {size:.1f}GB")
                 
                 self._cache[key] = value
                 self._memory_cache[key] = memory_size
-                logger.debug(f"Model cached successfully. Current cache size: {len(self._cache)}")
+                self._total_memory_gb = current_memory + memory_size
+                
+                logger.debug(
+                    f"Model cached successfully. "
+                    f"Cache stats: {len(self._cache)} models, "
+                    f"{self._total_memory_gb:.1f}GB used, "
+                    f"{(self._max_memory_gb - self._total_memory_gb):.1f}GB free"
+                )
                 
         except Exception as e:
             logger.error(f"Failed to cache model: {str(e)}")

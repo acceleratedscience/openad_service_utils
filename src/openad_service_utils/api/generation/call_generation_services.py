@@ -228,10 +228,8 @@ class request_generation:
                     logger.debug(f"Creating new model: {parms=} {sample_size=}")
                     model = GeneratorRegistry.get_application_instance(**parms)
                 
-                # Try to cache the new model
-                if model:
-                    logger.debug(f"Adding model to cache with key: {model_type}")
-                    self.model_cache.set(model_type, model)
+                # Don't cache yet - will cache after first use
+                pass
             else:
                 logger.debug(f"Using cached model with key: {model_type}")
         except Exception as e:
@@ -249,10 +247,16 @@ class request_generation:
             else:
                 model = GeneratorRegistry.get_application_instance(**parms)
 
-        # run model inference
-        result = list(model.sample(sample_size))
-        # return result
-        result = pd.DataFrame(result)
+        # Run model inference
+        result_list = list(model.sample(sample_size))
+        
+        # Now that model is loaded and used, try to cache it
+        if model and not self.model_cache.get(model_type):
+            logger.debug(f"Adding model to cache with key: {model_type}")
+            self.model_cache.set(model_type, model)
+        
+        # Format result
+        result = pd.DataFrame(result_list)
         if len(result.columns) == 1:
             result.columns = ["result"]
         return result
