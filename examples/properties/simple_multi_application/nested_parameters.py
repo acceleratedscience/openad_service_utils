@@ -151,7 +151,7 @@ QM8 = {
     "qm8-e1-pbe0": {
         "param_id": "qm8-e1-pbe0",
         "display_name": "qm8-e1-pbe0",
-        "description": "QM8 E1-PBE0: S0 -> S1 (first excited singlet state) transition energy computed at the level of theory, LR-TDPBE0/def2??VP",
+        "description": "QM8 E1-PBE0: S0 -> S1 (first excited singlet state) transition energy computed at the level of theory, LR-TDPBE0/def2SVP",
         "type": "float",
         "example": "C[N]C1=C[N]C=NN1,0.13",
         "min_value": "-inf",
@@ -178,7 +178,7 @@ QM8 = {
     "qm8-e2-pbe0": {
         "param_id": "qm8-e2-pbe0",
         "display_name": "qm8-e2-pbe0",
-        "description": "QM8 E2-PBE0: S0 -> S2 (second excited singlet state) transition energy computed at the level of theory, LR-TDPBE0/def2??VP",
+        "description": "QM8 E2-PBE0: S0 -> S2 (second excited singlet state) transition energy computed at the level of theory, LR-TDPBE0/def2SVP",
         "type": "float",
         "example": "C[N]C1=C[N]C=NN1,0.13",
         "min_value": "-inf",
@@ -205,7 +205,7 @@ QM8 = {
     "qm8-f1-pbe0": {
         "param_id": "qm8-f1-pbe0",
         "display_name": "qm8-f1-pbe0",
-        "description": "QM8 f1-PBE0: S0 -> S1 (first excited singlet state) oscillator strength computed at the level of theory, LR-TDPBE0/def2??VP",
+        "description": "QM8 f1-PBE0: S0 -> S1 (first excited singlet state) oscillator strength computed at the level of theory, LR-TDPBE0/def2SVP",
         "type": "float",
         "example": "C[N]C1=C[N]C=NN1,0.0015",
         "min_value": "-inf",
@@ -232,7 +232,7 @@ QM8 = {
     "qm8-f2-pbe0": {
         "param_id": "qm8-f2-pbe0",
         "display_name": "qm8-f2-pbe0",
-        "description": "QM8 f2-PBE0: S0 -> S2 (second excited singlet state) oscillator strength computed at the level of theory, LR-TDPBE0/def2??VP",
+        "description": "QM8 f2-PBE0: S0 -> S2 (second excited singlet state) oscillator strength computed at the level of theory, LR-TDPBE0/def2SVP",
         "type": "float",
         "example": "C[N]C1=C[N]C=NN1,0.0015",
         "min_value": "-inf",
