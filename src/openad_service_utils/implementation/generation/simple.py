@@ -73,9 +73,8 @@ class SimpleGenerator(AlgorithmConfiguration[S, T], ABC):
         YourApplicationName.register()
     """
 
-    domain: ClassVar[
-        str
-    ] = "materials"  # hardcoded because we dont care about it. does nothing but need it.
+    domain: ClassVar[str] = "materials"  # hardcoded because we dont care about it. does nothing but need it.
+    __no_model__: bool = False
 
     def get_model_location(self):
         """get path to model"""
@@ -86,21 +85,21 @@ class SimpleGenerator(AlgorithmConfiguration[S, T], ABC):
         return get_cached_algorithm_path(prefix)
 
     @classmethod
-    def register(cls):
-        """Register the configuration with the ApplicationsRegistry and load the model into runtime."""
+    def register(cls, no_model=False) -> None:
+        """**no_model** : defaults to false, so that the model is always retrieved. If on register this is set to true, allows the user to manage loading of checkpoint or
+        the ability to run a inference that only uses an API to retrieve a result Register the configuration with the ApplicationsRegistry and load the model into runtime.
+        """
         required = ["algorithm_name", "algorithm_type"]
+
+        cls.__no_model__ = no_model
         for field in required:
             if field not in cls.__dict__:
-                raise TypeError(
-                    f"Can't instantiate class ({cls.__name__}) without '{field}' class variable"
-                )
+                raise TypeError(f"Can't instantiate class ({cls.__name__}) without '{field}' class variable")
         # create during runtime so that user doesnt have to write separate algorithm class
         algorithm = type(cls.algorithm_name, (BaseAlgorithm,), {})
         # update class name to application name
         if cls.algorithm_application:
-            logger.debug(
-                f"updating application name from '{cls.__name__}' to '{cls.algorithm_application}'"
-            )
+            logger.debug(f"updating application name from '{cls.__name__}' to '{cls.algorithm_application}'")
             cls.__name__ = cls.algorithm_application
         model_location = get_properties_model_path(
             cls.algorithm_type, cls.algorithm_name, cls.__name__, cls.algorithm_version
@@ -129,6 +128,13 @@ class SimpleGenerator(AlgorithmConfiguration[S, T], ABC):
             Iterable[Any]
         """
         raise NotImplementedError("Not implemented in baseclass.")
+
+    def ensure_artifacts(self):
+
+        if self.__no_model__:
+            return "no model"
+        else:
+            return super().ensure_artifacts()
 
     def generate(self, target: Optional[T] = None) -> List[Any]:
         """do not implement. implement predict instead."""
@@ -175,9 +181,7 @@ class BaseAlgorithm(GeneratorAlgorithm[S, T]):
         """
         # check if model is downloaded only once.
         if not self.__artifacts_downloaded__:
-            logger.debug(
-                f"Downloading model: {configuration.algorithm_application}/{configuration.algorithm_version}"
-            )
+            logger.debug(f"Downloading model: {configuration.algorithm_application}/{configuration.algorithm_version}")
             # download model
             self.local_artifacts = configuration.ensure_artifacts()
             if self.local_artifacts:

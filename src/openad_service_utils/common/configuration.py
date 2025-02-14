@@ -50,9 +50,7 @@ class GT4SDConfiguration(BaseSettings):
     """
 
     # reimplemented .gt4sd to .openad_models
-    gt4sd_local_cache_path: str = os.path.join(
-        os.path.expanduser("~"), ".openad_models"
-    )
+    gt4sd_local_cache_path: str = os.path.join(os.path.expanduser("~"), ".openad_models")
     gt4sd_local_cache_path_algorithms: str = "algorithms"
     gt4sd_local_cache_path_properties: str = "properties"
     gt4sd_max_number_of_stuck_calls: int = 50
@@ -147,9 +145,7 @@ for key, val in gt4sd_artifact_management_configuration.local_cache_path.items()
         # logger.debug(f"local cache path for {key} already exists at {path}.")
 
 
-def upload_to_s3(
-    target_filepath: str, source_filepath: str, module: str = "algorithms"
-):
+def upload_to_s3(target_filepath: str, source_filepath: str, module: str = "algorithms"):
     """Upload an algorithm in source_filepath in target_filepath on a bucket in the model hub.
     Args:
         target_filepath: path to save the objects in s3.
@@ -178,9 +174,7 @@ def upload_to_s3(
         logger.exception("error in syncing the cache with S3")
 
 
-def sync_algorithm_with_s3(
-    prefix: Optional[str] = None, module: str = "algorithms"
-) -> str:
+def sync_algorithm_with_s3(prefix: Optional[str] = None, module: str = "algorithms") -> str:
     """Sync an algorithm in the local cache using environment variables.
 
     Args:
@@ -230,9 +224,7 @@ def sync_algorithm_with_s3(
     return os.path.join(folder_path, prefix) if prefix is not None else folder_path
 
 
-def get_cached_algorithm_path(
-    prefix: Optional[str] = None, module: str = "algorithms"
-) -> str:
+def get_cached_algorithm_path(prefix: Optional[str] = None, module: str = "algorithms") -> str:
     if module not in gt4sd_artifact_management_configuration.gt4sd_s3_modules:
         raise ValueError(
             f"Unknown cache module: {module}. Supported modules: "
@@ -262,15 +254,11 @@ def get_algorithm_subdirectories_from_s3_coordinates(
     prefix: Optional[str] = None,
 ) -> Set[str]:
     """Wrapper to initialize a client and list the directories in a bucket."""
-    client = GT4SDS3Client(
-        host=host, access_key=access_key, secret_key=secret_key, secure=secure
-    )
+    client = GT4SDS3Client(host=host, access_key=access_key, secret_key=secret_key, secure=secure)
     return client.list_directories(bucket=bucket, prefix=prefix)
 
 
-def get_algorithm_subdirectories_with_s3(
-    prefix: Optional[str] = None, module: str = "algorithms"
-) -> Set[str]:
+def get_algorithm_subdirectories_with_s3(prefix: Optional[str] = None, module: str = "algorithms") -> Set[str]:
     """Get algorithms in the s3 buckets.
 
     Args:
@@ -321,9 +309,7 @@ def get_algorithm_subdirectories_with_s3(
         )
 
 
-def get_algorithm_subdirectories_in_cache(
-    prefix: Optional[str] = None, module: str = "algorithms"
-) -> Set[str]:
+def get_algorithm_subdirectories_in_cache(prefix: Optional[str] = None, module: str = "algorithms") -> Set[str]:
     """Get algorithm subdirectories from the cache.
 
     Args:

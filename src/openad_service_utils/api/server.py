@@ -90,26 +90,15 @@ async def service(restful_request: dict):
             result = retrieve_job(original_request.get("url"))
             if result is None:
                 return {"error": {"reason": "job does not exist"}}
-        elif (
-            original_request.get("service_type")
-            in PropertyFactory.AVAILABLE_PROPERTY_PREDICTOR_TYPES()
-        ):
-            if (
-                ASYNC_ALLOW
-                and "async" in original_request
-                and original_request["async"] == True
-            ):
+        elif original_request.get("service_type") in PropertyFactory.AVAILABLE_PROPERTY_PREDICTOR_TYPES():
+            if ASYNC_ALLOW and "async" in original_request and original_request["async"] == True:
                 result = background_route_service(prop_requester, restful_request)
             else:
                 result = prop_requester.route_service(restful_request)
         # user request is for generation
         elif original_request.get("service_type") == "generate_data":
             # result = gen_requester.route_service(restful_request)
-            if (
-                ASYNC_ALLOW
-                and "async" in original_request
-                and original_request["async"] == True
-            ):
+            if ASYNC_ALLOW and "async" in original_request and original_request["async"] == True:
                 result = background_route_service(gen_requester, restful_request)
             else:
                 result = gen_requester.route_service(restful_request)
@@ -169,9 +158,7 @@ async def get_service_defs():
         logger.error("No property or generation services registered!")
     # log services
     try:
-        logger.debug(
-            f"Available types: {list(chain.from_iterable([i['valid_types'] for i in all_services]))}"
-        )
+        logger.debug(f"Available types: {list(chain.from_iterable([i['valid_types'] for i in all_services]))}")
     except Exception as e:
         logger.warning(f"could not print types: {str(e)}")
     return JSONResponse(all_services)
@@ -220,9 +207,7 @@ def is_running_in_kubernetes():
     return "KUBERNETES_SERVICE_HOST" in os.environ
 
 
-def start_server(
-    host="0.0.0.0", port=8080, log_level="info", max_workers=1, worker_gpu_min=2000
-):
+def start_server(host="0.0.0.0", port=8080, log_level="info", max_workers=1, worker_gpu_min=2000):
     logger.debug(f"Server Config: {get_config_instance().model_dump()}")
     if get_config_instance().SERVE_MAX_WORKERS > 0:
         # overwite max workers with env var
@@ -252,8 +237,15 @@ def start_server(
     except ImportError:
         logger.debug("cuda not available. Running on cpu.")
         pass
+
+    if os.environ.get("GT4SD_S3_ACCESS_KEY", ""):
+        logger.info(f"using private s3 model repository | Host: {os.environ.get('GT4SD_S3_HOST', '')}======")
+    else:
+        logger.info("using public gt4sd s3 model repository")
+
     config_settings = GT4SDConfiguration().model_dump(include=['OPENAD_S3_HOST','OPENAD_S3_HOST_HUB'])
     logger.info(f"S3 Config: {config_settings}")
+   
     logger.debug(f"Total workers: {max_workers}")
     # process is run on linux. spawn.
     multiprocessing.set_start_method("spawn")

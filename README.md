@@ -11,11 +11,11 @@
 
 Requirements :<br>
 - Linux or Macos <br>
-- Python 310.10 or 3.11 <br>
+- Python 3.10 or 3.11 <br>
 
 Install the latest version by tag, such as
 ```shell
-pip install git+https://github.com/acceleratedscience/openad_service_utils.git@0.3.0
+pip install git+https://github.com/acceleratedscience/openad_service_utils.git@0.3.1
 ```
 
 ## Model Implementations

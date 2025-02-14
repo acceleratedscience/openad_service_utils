@@ -10,6 +10,7 @@ from openad_service_utils.implementation.properties.simple import (
     DomainSubmodule,
     PredictorTypes,
     SimplePredictor,
+    SimplePredictorMultiAlgorithm,
     PropertyInfo,
 )
 
@@ -18,6 +19,7 @@ __all__ = [
     "ApplicationsRegistry",
     "SimpleGenerator",
     "SimplePredictor",
+    "SimplePredictorMultiAlgorithm",
     "PredictorTypes",
     "PropertyInfo",
     "DomainSubmodule",
