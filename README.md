@@ -36,6 +36,8 @@ downloading any needed model assets. A great example of this is Biomed Omics
 Protein Solubility 
 https://huggingface.co/ibm-research/biomed.omics.bl.sm.ma-ted-458m.protein_solubility
 
+_Work in progress here_
+
 ## Advanced
 
 ### Use your own private model not hosted on public OpenAD S3 bucket
