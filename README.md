@@ -44,12 +44,12 @@ To use your own private model cloud object store, set the following variables in
 
 ```python
 import os
-os.environ["GT4SD_S3_HOST"] = "s3.<region>.amazonaws.com"
-os.environ["GT4SD_S3_ACCESS_KEY"] = ""
-os.environ["GT4SD_S3_SECRET_KEY"] = ""
-os.environ["GT4SD_S3_HOST_HUB"] = "s3.<region>.amazonaws.com"
-os.environ["GT4SD_S3_ACCESS_KEY_HUB"] = ""
-os.environ["GT4SD_S3_SECRET_KEY_HUB"] = ""
+os.environ["OPENAD_S3_HOST"] = "s3.<region>.amazonaws.com"
+os.environ["OPENAD_S3_ACCESS_KEY"] = ""
+os.environ["OPENAD_S3_SECRET_KEY"] = ""
+os.environ["OPENAD_S3_HOST_HUB"] = "s3.<region>.amazonaws.com"
+os.environ["OPENAD_S3_ACCESS_KEY_HUB"] = ""
+os.environ["OPENAD_S3_SECRET_KEY_HUB"] = ""
 ```
 
 ### Allow Asynchronous results
