@@ -1,5 +1,7 @@
+"""
+"""
 import os
-from typing import List, Union, Dict, Any
+from typing import List, Any
 from openad_service_utils import start_server
 from pydantic.v1 import Field
 from openad_service_utils import (
@@ -28,7 +30,7 @@ class MySimplePredictor(SimplePredictor):
         PropertyInfo(name="property1", description=""),
         PropertyInfo(name="property2", description=""),
     ]
-    # user proviced params for api / model inference
+    # user provided params for api / model inference
     batch_size: int = Field(description="Prediction batch size", default=128)
     workers: int = Field(description="Number of data loading workers", default=8)
     device: str = Field(description="Device to be used for inference", default="cpu")
