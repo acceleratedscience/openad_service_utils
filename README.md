@@ -104,7 +104,6 @@ Divide the model code into three consecutive parts:
 2. Model setup. _Includes loading the model, and tokenizer (if any). Runs once per session._
 
 3. Model inference. _Includes model input. Runs once per inference, possibly many times per session._  
-![https://github.com/acceleratedscience/openad_service_utils/blob/gtm-readme-update/assets/github-code-3-parts-gray.png](https://github.com/acceleratedscience/openad_service_utils/blob/gtm-readme-update/assets/github-code-3-parts-gray.png)
 
 ![https://github.com/acceleratedscience/openad_service_utils/blob/gtm-readme-update/assets/github-code-3-parts-gray.png?raw=true](https://github.com/acceleratedscience/openad_service_utils/blob/gtm-readme-update/assets/github-code-3-parts-gray.png?raw=true)
 
