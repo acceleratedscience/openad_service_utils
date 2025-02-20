@@ -1,14 +1,17 @@
 """
                 NESTED PROPERTY EXAMPLE
-The following is an example of how you can nest multiple property inferences under the same simple class and register them for use
-The key Difference is rather than defining the SimplePredictorParamters in the Simple Predictor Class we abstracte it as Predictor Class
-and enable the setting then passing of the parameters to the Simple Predictor class.
+The following is an example of how you can nest multiple property inferences
+under one class and register them for use.
+The key difference is rather than defining the model input parameters in the
+SimplePredictor Class, we abstract them as Predictor Class
+and enable the setting then passing of the parameters to the SimplePredictor class.
 
-the benefits of this approach is the checkpoints live in separate library paths the downside is that the properties are not generated as
+The benefit of this approach is that the checkpoints live in separate library
+paths. The downside is that the properties are not generated as
 as part of the same command call or request.
 """
 
-from typing import List, Union, Dict, Any
+from typing import List, Any
 from pydantic.v1 import Field
 from openad_service_utils import (
     SimplePredictor,
@@ -119,14 +122,15 @@ class MySimplePredictorCombo(SimplePredictorMultiAlgorithm):
         PropertyInfo(name="ESOL", description=""),
     ]
 
-    # Note: in this example all of the above parameters get over written on registering of class
-    # At registeration you have the option
+    # Note: in this example all of the above parameters get overwritten on registering of class
+    # At registration you have the option TODO: Complete this thought
     # ------------------------- USER VARIABLES NOT TO BE EXPOSED TO CLIENT HERE -------------------------------------------
-    # User provided params for api / model inference
-    # If not re-speficied in the in the registration process in the case New Parameters are passed the metadata will not be passed bach
-    # with service definition to the openad toolkit but will be available to the application
+    # 
+    # If not re-specified on registering, if new parameters are passed, 
+    # metadata will not be passed back with service definition to openad 
+    # toolkit but will be available to the application. FIXME: Clarify this point. --de
 
-    # user proviced params for api / model inference
+    # user provided params for api / model inference
     batch_size: int = Field(description="Prediction batch size", default=128)
     workers: int = Field(description="Number of data loading workers", default=8)
     device: str = Field(description="Device to be used for inference", default="cpu")

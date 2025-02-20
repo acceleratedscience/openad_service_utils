@@ -34,21 +34,21 @@ standard used by other models available in OpenAD model service.
 
 ## Simplest example: wrap one model at a time
 
-Let's start by wrapping a protein solubility classifier using the MAMMAL
+For this example, we will wrap a protein solubility classifier using the MAMMAL
 algorithm, an open source model [published on HuggingFace by BioMedical
 Foundation Models (BMFM), IBM Research](https://huggingface.co/ibm-research/biomed.omics.bl.sm.ma-ted-458m.protein_solubility#usage).
 
 This protein solubility predictor demonstrates the simplest case for wrapping a
 model:
 
-- One model is wrapped at a time; that is, one model per module. _Later we will show
-how to wrap multiple models in a single module._
+- One model is wrapped at a time; that is, one model per class. _Later we will show
+how to wrap multiple models in a single class._
 - The model code already manages any needed model files: it stores them on
-HuggingFace Hub and downloads them locally when necessary. _OpenAD uses the
-environment setting can also manage model files, but that
-requires [some additional setup](https://TODO_link_to_Setup_Cloud_Model_Storage)._
+HuggingFace Hub and downloads them locally when necessary.
+_OpenAD can also manage model files, but that requires
+[some additional setup](https://TODO_link_to_Setup_Cloud_Model_Storage)._
 
-### Step 1: Start with the simplest code to run the model
+### Step 0: Start with the simplest code to run the model
 
 To start wrapping the model, select the simplest code needed to run the model.
 For this protein solubility classifier, let's use the code block [in the Usage section of biomed.omics...protein_solubility](https://huggingface.co/ibm-research/biomed.omics.bl.sm.ma-ted-458m.protein_solubility#usage):
@@ -97,13 +97,15 @@ ans = ProteinSolubilityTask.process_model_output(
 print(f"{ans=}")
 ```
 
-Divide the model code into three consecutive sections:
+Divide the model code into three consecutive chunks:
 
-1. Imports _and anything else that runs before model setup. Runs once per session._
+1. Imports. _Also anything else that must run before model setup. Runs once per session._
 
-2. Model setup and configuration. _Runs once per session._
+2. Model setup and load. _Runs once per session._
 
-3. Model query input and inference. _Runs once per inference, possibly many times per session._
+3. Model query input and inference. _Runs once per inference, possibly many times per session._  
+
+### Step 1: 
 _Work in progress here_
 
 ## Advanced
