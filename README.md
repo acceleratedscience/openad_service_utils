@@ -107,6 +107,8 @@ Divide the model code into three consecutive parts:
 https://github.com/acceleratedscience/openad_service_utils/blob/gtm-readme-update/assets/github-code-3-parts-gray.png
 ![Divide model code into three parts pdf](assets/divide-model-code-into-3-sections.pdf)  
 
+https://github.com/acceleratedscience/openad_service_utils/blob/gtm-readme-update/assets/github-code-3-parts-gray.png?raw=true
+
 ![Divide model code into three parts png](assets/divide-model-code-into-3-sections.png)  
 
 <object data="./assets/divide-model-code-into-3-sections.pdf" width="1920" height="2259" type='application/pdf'></object>
