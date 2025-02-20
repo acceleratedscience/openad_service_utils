@@ -97,7 +97,7 @@ ans = ProteinSolubilityTask.process_model_output(
 print(f"{ans=}")
 ```
 
-Divide the model code into three consecutive sections:
+Divide the model code into three consecutive parts:
 
 1. Imports. _Also anything else that must run before model setup. Runs once per session._
 
@@ -105,9 +105,9 @@ Divide the model code into three consecutive sections:
 
 3. Model inference. _Includes model input. Runs once per inference, possibly many times per session._  
 
-![Divide model code into three sections pdf](assets/divide-model-code-into-3-sections.pdf)  
+![Divide model code into three parts pdf](assets/divide-model-code-into-3-sections.pdf)  
 
-![Divide model code into three sections png](assets/divide-model-code-into-3-sections.png)  
+![Divide model code into three parts png](assets/divide-model-code-into-3-sections.png)  
 
 <object data="./assets/divide-model-code-into-3-sections.pdf" width="1920" height="2259" type='application/pdf'></object>
 
