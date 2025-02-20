@@ -1,6 +1,4 @@
-"""
-This module is an template example for wrapping a single predictor model for
-OpenAD Model Service.
+"""Example template for wrapping a single predictor model for OpenAD Model Service.
 
 To wrap multiple models with one class, see multiapp example here:
 openad_service_utils/examples/properties/simple_multi_application/implementation_multiapp.py
@@ -13,10 +11,9 @@ from openad_service_utils import (
     SimplePredictor,
     PredictorTypes,
     DomainSubmodule,
-    PropertyInfo,
 )
 
-# -----------------------USER MODEL IMPORTS--------------------------------
+# Wrapping Step 1: Replace this dummy import with the wrapped model's imports.
 from property_classifier_example import ClassificationModel
 
 
@@ -35,42 +32,45 @@ class MyPredictor(SimplePredictor):
             model family.  
         algorithm_application (str): name of the finetuned model, task, or
             application.  
-        property_type (PredictorTypes): PredictorTypes.MOLECULE | PredictorTypes.PROTEIN | PredictorTypes.CRYSTAL
+        algorithm_version (str): version name of this model instance. Defaults
+            to "v0".  
+        property_type (PredictorTypes):  
+            PredictorTypes.MOLECULE | PredictorTypes.PROTEIN | PredictorTypes.CRYSTAL
     
-        Example: For MoLFormer model finetuned on the ClinTox dataset,
-            MoLFormer takes SMILES strings as input. Accordingly,      
-            `domain` is DomainSubmodule("molecules");  
-            `algorithm_name` is "molformer" or "MoLFormer", case-sensitive.  
-            `algorithm_application` is "clintox" or "ClinTox", case-sensitive.
-            property_type is PredictorTypes.MOLECULE
+    Example: For MoLFormer model finetuned on the ClinTox dataset,
+        MoLFormer takes SMILES strings as input. Accordingly,      
+        `domain` is DomainSubmodule("molecules");  
+        `algorithm_name` is "molformer", case-sensitive.  
+        `algorithm_application` is "clintox", case-sensitive.
+        `algorithm_version` is the version name of this mode; we use the
+            default, "v0".
+        property_type is PredictorTypes.MOLECULE;
+        the S3 path when `NO_MODEL` is `False` is  
+        "molecules/molformer/clintox/v0" 
 
-        Note: when storing model files in S3 cloud object store
-        
+    Note: When storing model files in S3 cloud object store (`NO_MODEL`
+        is `False`), this is the S3 path:  
+        `domain`/`algorithm_name`/`algorithm_application`/`algorithm_version`   
     """
 
-    # s3 path: domain / algorithm_name / algorithm_application / algorithm_version
-    # necessary params
     domain: DomainSubmodule = DomainSubmodule("molecules")
     algorithm_name: str = "smi_ted"
     algorithm_application: str = "MyPredictor"
     algorithm_version: str = "v0"
     property_type: PredictorTypes = PredictorTypes.MOLECULE
-    # OPTIONAL (available_properties). Use only if your class implements many models the user can choose from.
-    available_properties: List[PropertyInfo] = [
-        PropertyInfo(name="property1", description=""),
-        PropertyInfo(name="property2", description=""),
-    ]
+
     # user provided params for api / model inference
     batch_size: int = Field(description="Prediction batch size", default=128)
     workers: int = Field(description="Number of data loading workers", default=8)
     device: str = Field(description="Device to be used for inference", default="cpu")
 
     def setup(self):
-        # setup your model
+        """
+        """
         self.model = None
         self.tokenizer = []
         print(">> model filepath: ", self.get_model_location())
-        # -----------------------User Code goes in here------------------------
+
         self.model_path = os.path.join(self.get_model_location(), "model.ckpt")  # load model
 
     def predict(self, sample: Any):
