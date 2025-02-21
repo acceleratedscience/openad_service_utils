@@ -105,7 +105,7 @@ Divide the model code into three consecutive parts:
 
 3. Model inference. _Includes model input. Runs once per inference, possibly many times per session._  
 
-![https://github.com/acceleratedscience/openad_service_utils/blob/gtm-readme-update/assets/github-code-3-parts-gray.png?raw=true](https://github.com/acceleratedscience/openad_service_utils/blob/gtm-readme-update/assets/github-code-3-parts-gray.png?raw=true)
+![./assets/model-code-simple-example-color-label.png?raw=true](./assets/model-code-simple-example-color-label?raw=true)
 
 
 ### Step 1: 
