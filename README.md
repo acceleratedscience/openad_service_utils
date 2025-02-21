@@ -48,7 +48,7 @@ HuggingFace Hub and downloads them locally when necessary.
 _OpenAD can also manage model files, but that requires
 [some additional setup](https://TODO_link_to_Setup_Cloud_Model_Storage)._
 
-### Step 0: Start with the simplest code to run the model
+### Step 1: Start with the simplest code to run the model
 
 To start wrapping the model, select the simplest code needed to run the model.
 For this protein solubility classifier, let's use the code block [in the Usage section of biomed.omics...protein_solubility](https://huggingface.co/ibm-research/biomed.omics.bl.sm.ma-ted-458m.protein_solubility#usage):
@@ -104,8 +104,6 @@ Divide the model code into three consecutive parts:
 2. Model setup. _Includes loading the model, and tokenizer (if any). Runs once per session._
 
 3. Model inference. _Includes model input. Runs once per inference, possibly many times per session._  
-
-![assets/model-code-simple-example-color-label.png?raw=true](assets/model-code-simple-example-color-label.png?raw=true)
 
 ![assets/model-code-simple-example-100-color.png?raw=true](assets/model-code-simple-example-100-color.png?raw=true)
 
