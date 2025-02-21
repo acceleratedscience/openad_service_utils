@@ -105,10 +105,12 @@ Divide the model code into three consecutive parts:
 
 3. Model inference. _Includes model input. Runs once per inference, possibly many times per session._  
 
-![./assets/model-code-simple-example-color-label.png?raw=true](./assets/model-code-simple-example-color-label.png?raw=true)
+![assets/model-code-simple-example-color-label.png?raw=true](assets/model-code-simple-example-color-label.png?raw=true)
 
-![./assets/model-code-simple-example-100-color.png?raw=true](./assets/model-code-simple-example-100-color.png?raw=true)
-### Step 1: 
+![assets/model-code-simple-example-100-color.png?raw=true](assets/model-code-simple-example-100-color.png?raw=true)
+
+### Step 1  
+
 _Work in progress here_
 
 ## Advanced
