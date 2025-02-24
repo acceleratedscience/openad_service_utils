@@ -14,14 +14,18 @@ from openad_service_utils import (
 )
 
 # Wrapping Step 1: Copy your model's imports here:
-from property_classifier_example import ClassificationModel
+from fuse.data.tokenizers.modular_tokenizer.op import ModularTokenizerOp
+
+from mammal.examples.protein_solubility.task import ProteinSolubilityTask
+from mammal.keys import CLS_PRED, SCORES
+from mammal.model import Mammal
 
 
 class MyPredictor(SimplePredictor):
     """Wrapped model sample class: use as a template to wrap a predictor model.
     
-    Class name `MyPredictor` is a placeholder. Replace it with a name tailored
-    to the model being wrapped.
+    `MyPredictor` is a placeholder. Replace it with a name tailored to the
+    model being wrapped.
 
     Attributes:
         domain (DomainSubmodule("molecules" | "proteins" | "crystals")): type 
@@ -52,6 +56,7 @@ class MyPredictor(SimplePredictor):
         is `False`), this is the S3 path:  
         `domain`/`algorithm_name`/`algorithm_application`/`algorithm_version`   
     """
+
     domain: DomainSubmodule = DomainSubmodule("molecules")
     algorithm_name: str = "smi_ted"
     algorithm_application: str = "MyPredictor"
@@ -64,11 +69,7 @@ class MyPredictor(SimplePredictor):
     device: str = Field(description="Device to be used for inference", default="cpu")
 
     def setup(self):
-        """Model setup. Loads the model and tokenizer, if any. Runs once.
-
-        To wrap a model, copy and modify the standalone model setup and load
-        code here. Remember to change variables to instance variables, so they
-        can be used in the `predict` method.
+        """
         """
         self.model = None
         self.tokenizer = []
