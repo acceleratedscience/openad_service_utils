@@ -255,7 +255,7 @@ class ProteinSolubility(SimplePredictor):
     property_type = PredictorTypes.PROTEIN
 ```
 
-### Step 6. Copy model setup code into the setup method, using instance variables
+### Step 6. Copy model setup code into the setup method; use instance variables
 
 After customizing required class attributes, we implement the setup method.  
 
@@ -293,7 +293,10 @@ variables into instance variables:
         self.tokenizer_op = ModularTokenizerOp.from_pretrained("ibm/biomed.omics.bl.sm.ma-ted-458m.protein_solubility")
 ```
 
+### Step 7. Copy model inference code into the predict method
 
+Next we copy model inference code into the predict method, just as we did with
+model setup & load code into the setup method.
 
 
 ## Advanced
