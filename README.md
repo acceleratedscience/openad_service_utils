@@ -298,6 +298,7 @@ variables into instance variables:
 Next we copy model inference code into the predict method, just as we did with
 model setup & load code into the setup method.
 
+_Work in progress at this point._
 
 ## Advanced
 
