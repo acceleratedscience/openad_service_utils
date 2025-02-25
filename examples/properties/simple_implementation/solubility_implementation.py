@@ -13,7 +13,7 @@ from openad_service_utils import (
     DomainSubmodule,
 )
 
-# Wrapping Step 1: Copy your model's imports here:
+# Wrapping Step 1: Copy the model's imports here:
 from fuse.data.tokenizers.modular_tokenizer.op import ModularTokenizerOp
 
 from mammal.examples.protein_solubility.task import ProteinSolubilityTask
@@ -75,19 +75,21 @@ class MyPredictor(SimplePredictor):
         self.tokenizer = []
         print(">> model filepath: ", self.get_model_location())
 
-        self.model_path = os.path.join(self.get_model_location(), "model.ckpt")  # load model
+        self.model_path = os.path.join(self.get_model_location(), "model.ckpt")
+        
+        # load model
+        self.model = ClassificationModel(
+            model=self.algorithm_application, model_path=self.model_path, tokenizer=self.tokenizer
+        )
+        self.model.to(self.device)
+        self.model.eval()
 
     def predict(self, sample: Any):
         """run predictions on your model"""
-        # -----------------------User Code goes in here------------------------
-        if not self.model:
-            self.model = ClassificationModel(
-                model=self.algorithm_application, model_path=self.model_path, tokenizer=self.tokenizer
-            )
-            self.model.to(self.device)
+        # Begin copied, adapted model inference code---------------------------
 
-        result = self.model.eval()
-        # --------------------------------------------------------------------------
+        result
+        # End copied, adapted model inference code-----------------------------
         return result
 
 

@@ -85,7 +85,8 @@ class MyPredictor(SimplePredictor):
             )
             self.model.to(self.device)
 
-        result = self.model.eval()
+        result = ???  # FIXME: Use something besides eval(). In PyTorch, this does NOT evaluate a model on input.
+                           # FIXME: model.eval() is void (returns nothing), and has the side effect of turning off randomness (dropout, etc) in the model.
         # --------------------------------------------------------------------------
         return result
 
