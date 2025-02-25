@@ -331,9 +331,10 @@ in the signature of the predict method in the parent class, SimplePredictor.
 
         # End copied, adapted model inference code------------------------------
         return result
-
 ```
 
+_TODO: Finish work in progress which stops here._
+TODO: Next step is actually testing the example and writing about running and testing the example.
 
 ## Advanced
 
