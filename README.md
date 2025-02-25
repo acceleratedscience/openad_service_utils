@@ -333,7 +333,7 @@ in the signature of the predict method in the parent class, SimplePredictor.
         return result
 ```
 
-_TODO: Finish work in progress which stops here._
+_TODO: Finish work in progress which stops here._  
 TODO: Next step is actually testing the example and writing about running and testing the example.
 
 ## Advanced
