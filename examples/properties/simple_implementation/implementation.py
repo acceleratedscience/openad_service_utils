@@ -13,7 +13,8 @@ from openad_service_utils import (
     DomainSubmodule,
 )
 
-# Wrapping Step 1: Copy your model's imports here:
+# Wrapping Step 1: Copy your model's imports here.
+# - And delete this placeholder import
 from property_classifier_example import ClassificationModel
 
 
@@ -58,7 +59,7 @@ class MyPredictor(SimplePredictor):
     algorithm_version: str = "v0"
     property_type: PredictorTypes = PredictorTypes.MOLECULE
 
-    # user provided params for api / model inference
+    # User provided params for api / model inference
     batch_size: int = Field(description="Prediction batch size", default=128)
     workers: int = Field(description="Number of data loading workers", default=8)
     device: str = Field(description="Device to be used for inference", default="cpu")
@@ -91,9 +92,9 @@ class MyPredictor(SimplePredictor):
         return result
 
 
-# register the function in global scope
+# Register the class in global scope
 MyPredictor.register(no_model=True)
 
 if __name__ == "__main__":
-    # start the server
+    # Start the server
     start_server(port=8080)

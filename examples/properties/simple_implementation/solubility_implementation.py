@@ -14,14 +14,17 @@ from openad_service_utils import (
 )
 
 # Wrapping Step 1: Copy the model's imports here:
+import torch
 from fuse.data.tokenizers.modular_tokenizer.op import ModularTokenizerOp
 
 from mammal.examples.protein_solubility.task import ProteinSolubilityTask
 from mammal.keys import CLS_PRED, SCORES
 from mammal.model import Mammal
 
+NO_MODEL = True
 
-class MyPredictor(SimplePredictor):
+
+class ProteinSolubility(SimplePredictor):
     """Wrapped model sample class: use as a template to wrap a predictor model.
     
     `MyPredictor` is a placeholder. Replace it with a name tailored to the
@@ -57,45 +60,81 @@ class MyPredictor(SimplePredictor):
         `domain`/`algorithm_name`/`algorithm_application`/`algorithm_version`   
     """
 
-    domain: DomainSubmodule = DomainSubmodule("molecules")
-    algorithm_name: str = "smi_ted"
-    algorithm_application: str = "MyPredictor"
+    domain: DomainSubmodule = DomainSubmodule("properties")
+    algorithm_name: str = "mammal"
+    algorithm_application: str = "solubility"
     algorithm_version: str = "v0"
-    property_type: PredictorTypes = PredictorTypes.MOLECULE
+    property_type: PredictorTypes = PredictorTypes.PROTEIN
 
-    # user provided params for api / model inference
-    batch_size: int = Field(description="Prediction batch size", default=128)
-    workers: int = Field(description="Number of data loading workers", default=8)
-    device: str = Field(description="Device to be used for inference", default="cpu")
+    # User-provided params for the api or for model inference:
+    # Removed sample params
 
     def setup(self):
-        """
-        """
-        self.model = None
-        self.tokenizer = []
-        print(">> model filepath: ", self.get_model_location())
+        """Model setup. Loads the model and tokenizer, if any. Runs once.
 
-        self.model_path = os.path.join(self.get_model_location(), "model.ckpt")
-        
-        # load model
-        self.model = ClassificationModel(
-            model=self.algorithm_application, model_path=self.model_path, tokenizer=self.tokenizer
-        )
-        self.model.to(self.device)
+        To wrap a model, copy and modify the standalone model setup and load
+        code here. Remember to change variables to instance variables, so they
+        can be used in the `predict` method.
+        """
+        # Load model
+        self.model = Mammal.from_pretrained(
+            "ibm/biomed.omics.bl.sm.ma-ted-458m.protein_solubility")
         self.model.eval()
 
-    def predict(self, sample: Any):
-        """run predictions on your model"""
-        # Begin copied, adapted model inference code---------------------------
+        # Load Tokenizer
+        self.tokenizer_op = ModularTokenizerOp.from_pretrained(
+            "ibm/biomed.omics.bl.sm.ma-ted-458m.protein_solubility")
 
-        result
-        # End copied, adapted model inference code-----------------------------
+    def predict(self, sample: Any = "NLMKRCTRGFRKLGKCTTLEEEKCKTLYPRGQCTCSDSKMNTHSCDCKSC"
+            ):
+        """Run inference code. Use instance variables for values from setup.
+        """
+        # Begin copied, adapted model inference code---------------------------
+        # convert to MAMMAL style
+        sample_dict = {"protein_seq": sample}  # Rename protein_seq -> sample
+        sample_dict = ProteinSolubilityTask.data_preprocessing(
+            sample_dict=sample_dict,
+            protein_sequence_key="protein_seq",
+            tokenizer_op=self.tokenizer_op,  # Rewrite tokenizer_op -> self.tokenizer_op
+            device=self.model.device,  # -> self.model
+        )
+
+        # running in generate mode
+        batch_dict = self.model.generate(  # model -> self.model
+            [sample_dict],
+            output_scores=True,
+            return_dict_in_generate=True,
+            max_new_tokens=5,
+        )
+
+        # Post-process the model's output
+        result = ProteinSolubilityTask.process_model_output(  # Rename ans to result
+            tokenizer_op=self.tokenizer_op,  # -> self.tokenizer_op
+            decoder_output=batch_dict[CLS_PRED][0],
+            decoder_output_scores=batch_dict[SCORES][0],
+        )
+
+        # Print prediction
+        # TODO: Consider removing or replacing with logging.
+        print(f"{result=}")  # ans -> result
+
+        print(f'{result["not_normalized_scores"].shape=}')
+        print(f'{len(result["not_normalized_scores"].shape)=}')
+        print(f'{result["normalized_scores"].shape=}')
+        if isinstance(result["not_normalized_scores"], torch.Tensor):
+            result["not_normalized_scores"] = result["not_normalized_scores"].item()
+
+        if isinstance(result["normalized_scores"], torch.Tensor):
+            result["normalized_scores"] = result["normalized_scores"].item()
+
+        # End copied, adapted model inference code------------------------------
         return result
 
 
-# register the function in global scope
-MyPredictor.register(no_model=True)
+# Register the wrapped-model class in global scope
+ProteinSolubility.register(no_model=NO_MODEL)
 
 if __name__ == "__main__":
-    # start the server
+    # Start the server so openad model service can connect:
+    # `openad model `
     start_server(port=8080)

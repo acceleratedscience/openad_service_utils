@@ -240,14 +240,16 @@ variables into instance variables:
 
 ```py
     def setup(self):
-        """ ...
+        """Model setup. Loads the model and tokenizer, if any. Runs once....
         """
         # Load Model
-        self.model = Mammal.from_pretrained("ibm/biomed.omics.bl.sm.ma-ted-458m.protein_solubility")
+        self.model = Mammal.from_pretrained(
+            "ibm/biomed.omics.bl.sm.ma-ted-458m.protein_solubility")
         self.model.eval()
 
         # Load Tokenizer
-        self.tokenizer_op = ModularTokenizerOp.from_pretrained("ibm/biomed.omics.bl.sm.ma-ted-458m.protein_solubility")
+        self.tokenizer_op = ModularTokenizerOp.from_pretrained(
+            "ibm/biomed.omics.bl.sm.ma-ted-458m.protein_solubility")
 ```
 
 ### Step 7. Copy model inference code into the predict method
@@ -255,11 +257,13 @@ variables into instance variables:
 Copy model inference code into the predict method, just as in the setup
 method. Convert variables into instance variables by prefixing with `self.`
 
-Here is part 3, inference code from protein solubility model. 
+Here is part 3, inference code from protein solubility model.
 
-- Notice the main input is the variable `protein_seq`. This input occurs in the
-first non-comment line of code, _and only there._
-- We mark wherever `model` or `tokenizer_op` occur.
+**Main input** The main input is the variable `protein_seq`. This input occurs
+in the first non-comment line of code, _and only there._
+
+- We mark all occurrences of `model` and `tokenizer_op` for us to convert to
+instance variables.
 
 ```py
 # convert to MAMMAL style
@@ -267,12 +271,12 @@ sample_dict = {"protein_seq": protein_seq}  # <-- main input variable
 sample_dict = ProteinSolubilityTask.data_preprocessing(
     sample_dict=sample_dict,
     protein_sequence_key="protein_seq",
-    tokenizer_op=tokenizer_op,  # tokenizer_op => self.tokenizer_op
-    device=model.device,  # => self.model
+    tokenizer_op=tokenizer_op,  # tokenizer_op (RHS only) -> self.tokenizer_op
+    device=model.device,  # -> self.model
 )
 
 # running in generate mode
-batch_dict = model.generate(  # => self.model
+batch_dict = model.generate(  # -> self.model
     [sample_dict],
     output_scores=True,
     return_dict_in_generate=True,
@@ -281,7 +285,7 @@ batch_dict = model.generate(  # => self.model
 
 # Post-process the model's output
 ans = ProteinSolubilityTask.process_model_output(
-    tokenizer_op=tokenizer_op,  # ==> self.tokenizer_op
+    tokenizer_op=tokenizer_op,  # -> self.tokenizer_op
     decoder_output=batch_dict[CLS_PRED][0],
     decoder_output_scores=batch_dict[SCORES][0],
 )
@@ -291,27 +295,25 @@ print(f"{ans=}")
 ```
 
 In the wrapped-model template `predict` method, the main input parameter is
-`sample`.
-
-We align these by renaming protein_seq to `sample`, since that name may appear
-in the signature of the predict method in the parent class, SimplePredictor.
+`sample`. In the first line of model code, we rename protein_seq to `sample`,
+so that it matches the input argument.
 
 ```py
     def predict(self, sample: Any):
-        """Run inference code here; instance variables to use values from setup.
+        """Run inference code. Use instance variables for values from setup.
         """
         # Begin copied, adapted model inference code----------------------------
         # convert to MAMMAL style
-        sample_dict = {"protein_seq": sample}  # Rename protein_seq => sample
+        sample_dict = {"protein_seq": sample}  # Rename protein_seq -> sample
         sample_dict = ProteinSolubilityTask.data_preprocessing(
             sample_dict=sample_dict,
             protein_sequence_key="protein_seq",
-            tokenizer_op=self.tokenizer_op,  # tokenizer_op => self.tokenizer_op
-            device=self.model.device,  # => self.model
+            tokenizer_op=self.tokenizer_op,  # Rewrite tokenizer_op -> self.tokenizer_op
+            device=self.model.device,  # -> self.model
         )
-        
+
         # running in generate mode
-        batch_dict = self.model.generate(  # => self.model
+        batch_dict = self.model.generate(  # model -> self.model
             [sample_dict],
             output_scores=True,
             return_dict_in_generate=True,
@@ -320,14 +322,14 @@ in the signature of the predict method in the parent class, SimplePredictor.
         
         # Post-process the model's output
         result = ProteinSolubilityTask.process_model_output(  # Rename ans to result
-            tokenizer_op=self.tokenizer_op,  # ==> self.tokenizer_op
+            tokenizer_op=self.tokenizer_op,  # -> self.tokenizer_op
             decoder_output=batch_dict[CLS_PRED][0],
             decoder_output_scores=batch_dict[SCORES][0],
         )
         
         # Print prediction
         # TODO: Consider removing or replacing with logging.
-        print(f"{result=}")  # ans => result
+        print(f"{result=}")  # ans -> result
 
         # End copied, adapted model inference code------------------------------
         return result
