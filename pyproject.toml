@@ -4,7 +4,17 @@ version = "0.3.1"
 description = "Utility library to extend an existing model to OpenAD Toolkit and give it an API interface."
 authors = [{name = "Brian Duenas", email = "brian.duenas@ibm.com"}]
 requires-python = ">= 3.9"
-dependencies = ["pydantic-settings", "minio", "pydantic", "pandas", "fastapi", "uvicorn", "colorlog", "tenacity"]
+dependencies = [
+    "pydantic-settings",
+    "minio",
+    "pydantic",
+    "pandas",
+    "fastapi",
+    "uvicorn",
+    "colorlog",
+    "tenacity",
+    "async-lru>=2.0.4",
+]
 
 [project.urls]
 Homepage = "https://github.com/acceleratedscience/openad_service_utils"

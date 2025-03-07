@@ -8,7 +8,7 @@ from openad_service_utils import (
     DomainSubmodule,
     PropertyInfo,
 )
-
+import time
 # -----------------------USER MODEL LIBRARY-----------------------------------
 from property_classifier_example import ClassificationModel
 
@@ -51,6 +51,7 @@ class MySimplePredictor(SimplePredictor):
             self.model.to(self.device)
 
         result = self.model.eval()
+        time.sleep(5)
         # --------------------------------------------------------------------------
         return result
 

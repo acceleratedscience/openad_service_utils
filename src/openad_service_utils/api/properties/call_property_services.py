@@ -3,10 +3,12 @@ import glob
 import json
 import os
 from pathlib import Path
+import asyncio
 
 from pandas import DataFrame
 from pydantic import BaseModel
 from functools import lru_cache, wraps
+from async_lru import alru_cache
 from openad_service_utils.utils.convert import json_string_to_dict
 from openad_service_utils.api.config import get_config_instance
 
@@ -101,6 +103,22 @@ def conditional_lru_cache(maxsize=100):
     return decorator
 
 
+def async_conditional_lru_cache(maxsize=10000, ttl=None):
+    def decorator(func):
+        if get_config_instance().ENABLE_CACHE_RESULTS:
+            cached_func = alru_cache(maxsize=maxsize, ttl=ttl)(func)
+            return cached_func
+        else:
+
+            @wraps(func)
+            async def no_cache(*args, **kwargs):
+                return await func(*args, **kwargs)
+
+            return no_cache
+
+    return decorator
+
+
 class service_requester:
     property_requestor = None
     valid_services = ["property", "prediction", "generation", "training"]
@@ -114,8 +132,8 @@ class service_requester:
     def get_available_services(self):
         return get_services()
 
-    @conditional_lru_cache(maxsize=100)
-    def route_service(self, request):
+    @async_conditional_lru_cache(maxsize=1000)
+    async def route_service(self, request):
         if get_config_instance().ENABLE_CACHE_RESULTS:
             request = json_string_to_dict(request)
         result = None
@@ -140,7 +158,7 @@ class service_requester:
         if category == "properties":
             if self.property_requestor is None:
                 self.property_requestor = request_properties()
-            result = self.property_requestor.request(
+            result = await self.property_requestor.request(
                 request["service_type"],
                 request["parameters"],
                 request.get("api_key", ""),
@@ -150,7 +168,7 @@ class service_requester:
 
     async def __call__(self, req: json):
         req = await req.json()
-        return self.route_service(req)
+        return await self.route_service(req)
 
 
 class request_properties:
@@ -159,7 +177,7 @@ class request_properties:
     def __init__(self) -> None:
         pass
 
-    def request(self, service_type, parameters: dict, apikey: str):
+    async def request(self, service_type, parameters: dict, apikey: str):
         results = []
         if service_type not in PropertyFactory.AVAILABLE_PROPERTY_PREDICTOR_TYPES():
             return {f"No service of type {service_type} available "}
@@ -247,12 +265,14 @@ class request_properties:
                         )
 
                 else:
+                    # Run model inference asynchronously
+                    result = await asyncio.to_thread(predictor, subject)
                     # All other propoerty Requests handled here.
                     results.append(
                         {
                             "subject": subject,
                             "property": property_type,
-                            "result": predictor(subject),
+                            "result": result,
                         }
                     )
         return results

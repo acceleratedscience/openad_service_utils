@@ -94,7 +94,7 @@ async def service(restful_request: dict):
             if ASYNC_ALLOW and "async" in original_request and original_request["async"] == True:
                 result = background_route_service(prop_requester, restful_request)
             else:
-                result = prop_requester.route_service(restful_request)
+                result = await prop_requester.route_service(restful_request)
         # user request is for generation
         elif original_request.get("service_type") == "generate_data":
             # result = gen_requester.route_service(restful_request)
