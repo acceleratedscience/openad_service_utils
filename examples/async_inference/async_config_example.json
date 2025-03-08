@@ -1,0 +1,23 @@
+{
+  "max_queue_size": 2000,
+  "default_request_timeout": 600,
+  "default_request_priority": "normal",
+  "max_workers": 8,
+  "max_models": 10,
+  "max_memory_mb": 8000,
+  "eviction_strategy": "least_recently_used",
+  "memory_headroom_mb": 2000,
+  "result_ttl_hours": 48,
+  "result_dir": "/tmp/openad_async_results",
+  "cleanup_interval_seconds": 7200,
+  "model_specific_settings": {
+    "get_molecule_property_molecule_property_logp": {
+      "max_memory_mb": 1000,
+      "priority": "high"
+    },
+    "generate_data_molecule_generator_lstm": {
+      "max_memory_mb": 4000,
+      "priority": "normal"
+    }
+  }
+}

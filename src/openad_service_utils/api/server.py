@@ -5,9 +5,10 @@ import os
 import signal
 import sys
 from concurrent.futures import ProcessPoolExecutor
+from typing import Dict, Any, Optional, List, Union
 
 import uvicorn
-from fastapi import FastAPI, Request, HTTPException
+from fastapi import FastAPI, Request, HTTPException, Query, Path, Body
 from fastapi.responses import HTMLResponse, JSONResponse
 from pandas import DataFrame
 import copy
@@ -33,7 +34,20 @@ from openad_service_utils.utils.convert import dict_to_json_string
 from openad_service_utils.api.async_call import background_route_service, retrieve_job
 from openad_service_utils.common.configuration import GT4SDConfiguration
 
-app = FastAPI()
+# Import the new asynchronous inference system
+from openad_service_utils.common.async_utils.config import (
+    AsyncInferenceConfig, get_default_config, get_config_from_env
+)
+from openad_service_utils.common.async_utils.service_adapters import (
+    get_property_adapter, get_generation_adapter, shutdown_adapters
+)
+from openad_service_utils.common.async_utils.request_queue import RequestPriority
+
+app = FastAPI(
+    title="OpenAD Service API",
+    description="API for OpenAD model inference services with asynchronous request handling",
+    version="2.0.0",
+)
 kube_probe = FastAPI()
 
 # Set up logging configuration
@@ -42,14 +56,22 @@ setup_logging()
 # Create a logger
 logger = logging.getLogger(__name__)
 
+# Initialize the service requesters
 gen_requester = generation_request()
-
 prop_requester = property_request()
 
+# Initialize the async service adapters
+async_config = get_config_from_env()
+property_adapter = get_property_adapter(prop_requester, async_config)
+generation_adapter = get_generation_adapter(gen_requester, async_config)
+
+# Check if async is allowed
 try:
-    ASYNC_ALLOW = os.environ["ASYNC_ALLOW"]
+    ASYNC_ALLOW = os.environ.get("ASYNC_ALLOW", "false").lower() in ("true", "1", "yes")
 except:
     ASYNC_ALLOW = False
+
+logger.info(f"Async processing is {'enabled' if ASYNC_ALLOW else 'disabled'}")
 
 
 def run_cleanup():
@@ -76,8 +98,14 @@ async def health():
     return "UP"
 
 
-@app.post("/service")
+@app.post("/service", summary="Process a service request")
 async def service(restful_request: dict):
+    """
+    Process a service request for property prediction or data generation.
+    
+    If the request has "async": true and async processing is enabled, the request
+    will be processed asynchronously and a request ID will be returned.
+    """
     logger.info(f"Processing request {restful_request}")
     original_request = copy.deepcopy(restful_request)
     if get_config_instance().ENABLE_CACHE_RESULTS:
@@ -85,22 +113,87 @@ async def service(restful_request: dict):
         restful_request = dict_to_json_string(restful_request)
 
     try:
-        # user request is for property prediction
+        # Check if this is a request to get a result
         if original_request.get("service_type") == "get_result":
-            result = retrieve_job(original_request.get("url"))
-            if result is None:
+            # First try the new async system
+            request_id = original_request.get("request_id")
+            if request_id:
+                # Try to get the result from the property adapter first
+                logger.warning(f"Checking request status for {request_id}")
+                result = property_adapter.get_request_status(request_id)
+                if result and "error" not in result:
+                    return result
+                
+                # If not found, try the generation adapter
+                result = generation_adapter.get_request_status(request_id)
+                if result and "error" not in result:
+                    return result
+                
+                # If not found in either adapter, return an error
                 return {"error": {"reason": "job does not exist"}}
+            
+            # Fall back to the old system if no request_id
+            url = original_request.get("url")
+            if url:
+                result = retrieve_job(url)
+                if result is None:
+                    return {"error": {"reason": "job does not exist"}}
+                return result
+            
+            # No request_id or url provided
+            return {"error": {"reason": "no request_id or url provided"}}
+            
+        # Check if this is a property prediction request
         elif original_request.get("service_type") in PropertyFactory.AVAILABLE_PROPERTY_PREDICTOR_TYPES():
-            if ASYNC_ALLOW and "async" in original_request and original_request["async"] == True:
-                result = background_route_service(prop_requester, restful_request)
+            # Check if async processing is requested and allowed
+            logger.warning(f"Processing property request: {original_request.get('async')}")
+            if ASYNC_ALLOW and original_request.get("async", False):
+                logger.warning(f"Processing property request asynchronously")
+                # Use the new async system
+                if original_request.get("use_enhanced_async", False):
+                    logger.warning(f"Using enhanced async system")
+                    # Get priority if specified
+                    priority = original_request.get("priority", "normal")
+                    timeout = original_request.get("timeout_seconds")
+                    
+                    # Submit the request to the async system
+                    result = property_adapter.submit_async_request(
+                        request_data=restful_request,
+                        priority=priority,
+                        timeout_seconds=timeout
+                    )
+                    return result
+                else:
+                    logger.warning(f"Using legacy async system")
+                    # Use the legacy async system
+                    result = background_route_service(prop_requester, restful_request)
             else:
+                logger.warning(f"Processing property request synchronously")
+                # Process synchronously
                 result = prop_requester.route_service(restful_request)
-        # user request is for generation
+                
+        # Check if this is a generation request
         elif original_request.get("service_type") == "generate_data":
-            # result = gen_requester.route_service(restful_request)
-            if ASYNC_ALLOW and "async" in original_request and original_request["async"] == True:
-                result = background_route_service(gen_requester, restful_request)
+            # Check if async processing is requested and allowed
+            if ASYNC_ALLOW and original_request.get("async", False):
+                # Use the new async system
+                if original_request.get("use_enhanced_async", False):
+                    # Get priority if specified
+                    priority = original_request.get("priority", "normal")
+                    timeout = original_request.get("timeout_seconds")
+                    
+                    # Submit the request to the async system
+                    result = generation_adapter.submit_async_request(
+                        request_data=original_request,
+                        priority=priority,
+                        timeout_seconds=timeout
+                    )
+                    return result
+                else:
+                    # Use the legacy async system
+                    result = background_route_service(gen_requester, restful_request)
             else:
+                # Process synchronously
                 result = gen_requester.route_service(restful_request)
         else:
             logger.error(f"Error processing request: {original_request}")
@@ -108,13 +201,16 @@ async def service(restful_request: dict):
                 status_code=500,
                 detail={"error": "service mismatch", "input": original_request},
             )
+            
         # cleanup resources before returning request
         run_cleanup()
+        
         if result is None:
             raise HTTPException(
                 status_code=500,
                 detail={"error": "service not found", "input": original_request},
             )
+            
         if isinstance(result, DataFrame):
             return result.to_dict(orient="records")
         else:
@@ -132,43 +228,125 @@ async def service(restful_request: dict):
         )
 
 
-@app.get("/service")
+@app.get("/service", summary="Get service definitions")
 async def get_service_defs():
-    """return service definitions"""
+    """
+    Return service definitions for all available services.
+    """
     logger.info("Retrieving service definitions")
     all_services = []
+    
     # get generation service list
     gen_services: list = get_generation_services()
     if gen_services:
         if ASYNC_ALLOW:
             for i in range(len(gen_services)):
                 gen_services[i]["async_allow"] = ASYNC_ALLOW
+                # Add enhanced async flag for new services
+                gen_services[i]["enhanced_async_support"] = True
         all_services.extend(gen_services)
         logger.debug(f"generation models registered: {len(gen_services)}")
+        
     # get property service list
     prop_services = get_property_services()
     if ASYNC_ALLOW:
         for i in range(len(prop_services)):
             prop_services[i]["async_allow"] = ASYNC_ALLOW
+            # Add enhanced async flag for new services
+            prop_services[i]["enhanced_async_support"] = True
     if prop_services:
         all_services.extend(prop_services)
         logger.debug(f"property models registered: {len(prop_services)}")
+        
     # check if services available
     if not all_services:
         logger.error("No property or generation services registered!")
+        
     # log services
     try:
         logger.debug(f"Available types: {list(chain.from_iterable([i['valid_types'] for i in all_services]))}")
     except Exception as e:
         logger.warning(f"could not print types: {str(e)}")
+        
     return JSONResponse(all_services)
 
 
-@app.get("/admin/details")
+@app.get("/admin/details", summary="Get server details")
 def server_details():
-    """return server details"""
+    """
+    Return server configuration details.
+    """
     logger.info("Retrieving server details")
-    return JSONResponse(get_config_instance().model_dump())
+    config = get_config_instance().model_dump()
+    
+    # Add async configuration
+    config["async"] = {
+        "enabled": ASYNC_ALLOW,
+        "config": async_config.dict(),
+    }
+    
+    return JSONResponse(config)
+
+
+# Add new endpoints for the enhanced async API
+
+@app.get("/async/status/{request_id}", summary="Get async request status")
+async def get_async_status(request_id: str = Path(..., description="The request ID")):
+    """
+    Get the status of an asynchronous request.
+    """
+    # Try to get the status from the property adapter first
+    status = property_adapter.get_request_status(request_id)
+    if status and "error" not in status:
+        return status
+    
+    # If not found, try the generation adapter
+    status = generation_adapter.get_request_status(request_id)
+    if status and "error" not in status:
+        return status
+    
+    # If not found in either adapter, return an error
+    raise HTTPException(
+        status_code=404,
+        detail={"error": "Request not found", "request_id": request_id},
+    )
+
+
+@app.delete("/async/cancel/{request_id}", summary="Cancel async request")
+async def cancel_async_request(request_id: str = Path(..., description="The request ID")):
+    """
+    Cancel an asynchronous request.
+    """
+    # Try to cancel the request in the property adapter first
+    result = property_adapter.cancel_request(request_id)
+    if result and "error" not in result:
+        return result
+    
+    # If not found, try the generation adapter
+    result = generation_adapter.cancel_request(request_id)
+    if result and "error" not in result:
+        return result
+    
+    # If not found in either adapter, return an error
+    raise HTTPException(
+        status_code=404,
+        detail={"error": "Request not found or could not be canceled", "request_id": request_id},
+    )
+
+
+@app.get("/async/stats", summary="Get async system statistics")
+async def get_async_stats():
+    """
+    Get statistics about the asynchronous request processing system.
+    """
+    property_stats = property_adapter.get_queue_stats()
+    generation_stats = generation_adapter.get_queue_stats()
+    
+    return {
+        "property_service": property_stats,
+        "generation_service": generation_stats,
+        "config": async_config.dict(),
+    }
 
 
 # Function to run the main service
@@ -259,6 +437,9 @@ def start_server(host="0.0.0.0", port=8080, log_level="info", max_workers=1, wor
         signal.signal(signal.SIGWINCH, ignore_winch_signal)
         # Keep the main process running to handle signals and wait for child processes
         executor.shutdown(wait=True)
+        
+    # Shutdown the async adapters
+    shutdown_adapters(wait=True)
 
 
 if __name__ == "__main__":
