@@ -1,6 +1,6 @@
-"""       This library defines nested parameters
-For each Service you wih to define place a Class of your Naming based on 
-the below template then use it in the registration of the Function 
+"""This library defines nested parameters
+For each Service you wih to define place a Class of your Naming based on
+the below template then use it in the registration of the Function
 """
 
 from typing import List, Union, Dict, Any

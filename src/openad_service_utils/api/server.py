@@ -1,15 +1,24 @@
 import logging
 import gc
+import asyncio
+import redis
 import multiprocessing
 import os
 import signal
 import sys
 from concurrent.futures import ProcessPoolExecutor
-
 import uvicorn
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi import Depends
 from pandas import DataFrame
+
+
+from openad_service_utils.api.job_manager import JobManager, get_slaves
+
+job_manager: JobManager = None
+
+from starlette.responses import JSONResponse
 import copy
 
 from openad_service_utils.api.generation.call_generation_services import (
@@ -40,15 +49,21 @@ setup_logging()
 
 # Create a logger
 logger = logging.getLogger(__name__)
-
-gen_requester = generation_request()
-
-prop_requester = property_request()
+SLAVES = None
 
 try:
     ASYNC_ALLOW = os.environ["ASYNC_ALLOW"]
 except:
     ASYNC_ALLOW = False
+
+
+async def get_job_manager() -> JobManager:
+
+    redis_client = redis.Redis(host="localhost", port=6379, db=0)  # Replace with your Redis server details
+    job_manager = JobManager(redis_client, " Master Queue")
+    logger.info("Created New Job Manager")
+
+    return job_manager  # Return the global job_manager instance
 
 
 def run_cleanup():
@@ -76,9 +91,12 @@ async def health():
 
 
 @app.post("/service")
-async def service(restful_request: dict):
+async def service(restful_request: dict, job_manager: JobManager = Depends(get_job_manager)):
     logger.info(f"Processing request {restful_request}")
     original_request = copy.deepcopy(restful_request)
+    gen_requester = generation_request()
+    prop_requester = property_request()
+
     if get_config_instance().ENABLE_CACHE_RESULTS:
         # convert input to string for caching
         restful_request = dict_to_json_string(restful_request)
@@ -90,10 +108,23 @@ async def service(restful_request: dict):
             if result is None:
                 return {"error": {"reason": "job does not exist"}}
         elif original_request.get("service_type") in PropertyFactory.AVAILABLE_PROPERTY_PREDICTOR_TYPES():
+            prop_result = None
+
             if ASYNC_ALLOW and "async" in original_request and original_request["async"] == True:
                 result = background_route_service(prop_requester, restful_request)
             else:
-                result = prop_requester.route_service(restful_request)
+                prop_requester = property_request()
+                job_id = await job_manager.submit_job(property_request, "route_service", restful_request)
+                logger.info(f"job {job_id} submitted")
+                all_req_result = await job_manager.get_result_by_id(job_id)
+
+                logger.info("-------------------------- result -----------------------------------")
+                logger.info("await result for " + str(all_req_result))
+                logger.info("------------------------------------------------------------------")
+                request_result = all_req_result["result"]
+                return request_result
+
+                # result = prop_requester.route_service(restful_request)
         # user request is for generation
         elif original_request.get("service_type") == "generate_data":
             # result = gen_requester.route_service(restful_request)
@@ -206,8 +237,11 @@ def is_running_in_kubernetes():
     return "KUBERNETES_SERVICE_HOST" in os.environ
 
 
-def start_server(host="0.0.0.0", port=8080, log_level="info", max_workers=1, worker_gpu_min=2000):
+def start_server(host="0.0.0.0", port=8081, log_level="info", max_workers=1, worker_gpu_min=2000):
     logger.debug(f"Server Config: {get_config_instance().model_dump()}")
+
+    # Assuming JobManager is in the same file or imported correctly
+
     if get_config_instance().SERVE_MAX_WORKERS > 0:
         # overwite max workers with env var
         max_workers = get_config_instance().SERVE_MAX_WORKERS
@@ -242,12 +276,17 @@ def start_server(host="0.0.0.0", port=8080, log_level="info", max_workers=1, wor
         logger.info("using public gt4sd s3 model repository")
     logger.debug(f"Total workers: {max_workers}")
     # process is run on linux. spawn.
-    multiprocessing.set_start_method("spawn")
+    multiprocessing.set_start_method("spawn", force=True)
+    global SLAVES
+
     with ProcessPoolExecutor() as executor:
         executor.submit(run_main_service, host, port, log_level, max_workers)
         if is_running_in_kubernetes():
             logger.debug("Running in Kubernetes, starting health probe")
             executor.submit(run_health_service, host, port + 1, log_level, 1)
+        if SLAVES is None:
+            SLAVES = asyncio.run(get_slaves())
+
         signal.signal(signal.SIGINT, lambda s, f: signal_handler(s, f, executor))
         signal.signal(signal.SIGTERM, lambda s, f: signal_handler(s, f, executor))
         signal.signal(signal.SIGWINCH, ignore_winch_signal)
