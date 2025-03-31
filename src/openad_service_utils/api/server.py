@@ -14,7 +14,7 @@ from fastapi import Depends
 from pandas import DataFrame
 
 
-from openad_service_utils.api.job_manager import JobManager, get_slaves
+from openad_service_utils.api.job_manager import JobManager, get_slaves, get_job_manager, delete_sync_submission_queue
 
 job_manager: JobManager = None
 
@@ -55,15 +55,6 @@ try:
     ASYNC_ALLOW = os.environ["ASYNC_ALLOW"]
 except:
     ASYNC_ALLOW = False
-
-
-async def get_job_manager() -> JobManager:
-
-    redis_client = redis.Redis(host="localhost", port=6379, db=0)  # Replace with your Redis server details
-    job_manager = JobManager(redis_client, " Master Queue")
-    logger.info("Created New Job Manager")
-
-    return job_manager  # Return the global job_manager instance
 
 
 def run_cleanup():
@@ -284,6 +275,7 @@ def start_server(host="0.0.0.0", port=8081, log_level="info", max_workers=1, wor
         if is_running_in_kubernetes():
             logger.debug("Running in Kubernetes, starting health probe")
             executor.submit(run_health_service, host, port + 1, log_level, 1)
+        delete_sync_submission_queue()
         if SLAVES is None:
             SLAVES = asyncio.run(get_slaves())
 
