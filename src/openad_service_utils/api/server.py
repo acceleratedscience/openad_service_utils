@@ -12,9 +12,14 @@ from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi import Depends
 from pandas import DataFrame
+from openad_service_utils.api.job_manager import (
+    JobManager,
+    get_slaves,
+    get_job_manager,
+    delete_sync_submission_queue,
+    retrieve_async_job,
+)
 
-
-from openad_service_utils.api.job_manager import JobManager, get_slaves, get_job_manager, delete_sync_submission_queue
 
 job_manager: JobManager = None
 
@@ -39,7 +44,8 @@ from openad_service_utils.api.config import get_config_instance
 import traceback
 from itertools import chain
 from openad_service_utils.utils.convert import dict_to_json_string
-from openad_service_utils.api.async_call import background_route_service, retrieve_job
+
+# from openad_service_utils.api.async_call import background_route_service, retrieve_job
 
 app = FastAPI()
 kube_probe = FastAPI()
@@ -85,8 +91,6 @@ async def health():
 async def service(restful_request: dict, job_manager: JobManager = Depends(get_job_manager)):
     logger.info(f"Processing request {restful_request}")
     original_request = copy.deepcopy(restful_request)
-    gen_requester = generation_request()
-    prop_requester = property_request()
 
     if get_config_instance().ENABLE_CACHE_RESULTS:
         # convert input to string for caching
@@ -95,16 +99,16 @@ async def service(restful_request: dict, job_manager: JobManager = Depends(get_j
     try:
         # user request is for property prediction
         if original_request.get("service_type") == "get_result":
-            result = retrieve_job(original_request.get("url"))
+            result = retrieve_async_job(original_request.get("url"))
             if result is None:
                 return {"error": {"reason": "job does not exist"}}
         elif original_request.get("service_type") in PropertyFactory.AVAILABLE_PROPERTY_PREDICTOR_TYPES():
-            prop_result = None
 
             if ASYNC_ALLOW and "async" in original_request and original_request["async"] == True:
-                result = background_route_service(prop_requester, restful_request)
+                return await job_manager.submit_job(
+                    property_request, "route_service_async", restful_request, async_submission=True
+                )
             else:
-                prop_requester = property_request()
                 job_id = await job_manager.submit_job(property_request, "route_service", restful_request)
                 logger.info(f"job {job_id} submitted")
                 all_req_result = await job_manager.get_result_by_id(job_id)
@@ -115,14 +119,28 @@ async def service(restful_request: dict, job_manager: JobManager = Depends(get_j
                 request_result = all_req_result["result"]
                 return request_result
 
-                # result = prop_requester.route_service(restful_request)
         # user request is for generation
         elif original_request.get("service_type") == "generate_data":
-            # result = gen_requester.route_service(restful_request)
             if ASYNC_ALLOW and "async" in original_request and original_request["async"] == True:
-                result = background_route_service(gen_requester, restful_request)
+                return await job_manager.submit_job(
+                    generation_request, "route_service_async", restful_request, async_submission=True
+                )
             else:
-                result = gen_requester.route_service(restful_request)
+                job_id = await job_manager.submit_job(generation_request, "route_service", restful_request)
+                logger.info(f"job {job_id} submitted")
+                all_req_result = await job_manager.get_result_by_id(job_id)
+
+                logger.info("-------------------------- result -----------------------------------")
+                logger.info("await result for " + str(all_req_result))
+                logger.info("------------------------------------------------------------------")
+                request_result = all_req_result["result"]
+                return request_result
+
+            """if ASYNC_ALLOW and "async" in original_request and original_request["async"] == True:
+                a_background_job = background_job(gen_requester)
+                result = await job_manager.submit_job(a_background_job, "route_service", restful_request)
+            else:
+                result = gen_requester.route_service(restful_request)"""
         else:
             logger.error(f"Error processing request: {original_request}")
             raise HTTPException(
