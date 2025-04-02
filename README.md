@@ -80,9 +80,55 @@ Enables Multi-Processing of synchronous Calls, Defaults to 1 Thread for safety, 
 ### ENABLE_CACHE_RESULTS
 Enables Caching of Results for command requests, this should only be activated for Deterministic Requests, no functions that use random seeds should this be activated for.<br>
     Default: `ENABLE_CACHE_RESULTS: bool = False`
-### ASYNC_POOL_MAX
-The Default value for Asynchronous requests is 1, this is so server capacity is managed to the minimum. It is up to the developer and Deployer of a service to set this higher than 1 based on benchmarking. <br>   
-    Default `ASYNC_POOL_MAX: int = 1`
+
+
+## Job_Manager Settings
+### Examples for each Variable:
+
+1. **QUEUES**: If you want to set the number of subprocesses to 4 (default is 2), you would add the following line in your environment setup (e.g., `.env` file or system environment variables):
+
+   ```
+   JOB_QUEUES=4
+   ```
+
+
+
+
+3. **ASYNC_PATH**: If you want to save async job results in a custom directory, e.g., `~/openad_async_archive`, update the environment variable like so:
+
+   ```
+   ASYNC_PATH=~/openad_async_archive
+   ```
+
+   This will make `ASYNC_PATH` equal to `~/openad_async_archive`.
+
+4. **ASYNC_CLEANUP_AGE**: To change the cleanup age from 3 days to 7 days, update the environment variable:
+
+   ```
+   ASYNC_CLEANUP_AGE=7
+   ```
+
+   This will make `ASYNC_CLEANUP_AGE` equal to `7`.
+
+5. **ASYNC_QUEUE_ALLOCATION**: If you want to allocate 2 subprocesses for handling async requests, set the environment variable as follows:
+
+   ```
+   ASYNC_QUEUE_ALLOCATION=2
+   ```
+
+   This will make `ASYNC_QUEUE_ALLOCATION` equal to `2`.
+
+6. **ASYNC_ALLOW**: To enable asynchronous requests, update the environment variable:
+
+   ```
+   ASYNC_ALLOW=True
+   ```
+
+   This will make `ASYNC_ALLOW` equal to `True`, enabling async requests. Conversely, to disable them, set it to `False`:
+
+   ```
+   ASYNC_ALLOW=False
+   ```
 
 
 ## Local Cache locations for models

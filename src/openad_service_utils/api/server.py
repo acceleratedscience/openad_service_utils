@@ -44,8 +44,7 @@ from openad_service_utils.api.config import get_config_instance
 import traceback
 from itertools import chain
 from openad_service_utils.utils.convert import dict_to_json_string
-
-# from openad_service_utils.api.async_call import background_route_service, retrieve_job
+import pandas as pd
 
 app = FastAPI()
 kube_probe = FastAPI()
@@ -134,6 +133,7 @@ async def service(restful_request: dict, job_manager: JobManager = Depends(get_j
                 logger.info("await result for " + str(all_req_result))
                 logger.info("------------------------------------------------------------------")
                 request_result = all_req_result["result"]
+
                 return request_result
 
             """if ASYNC_ALLOW and "async" in original_request and original_request["async"] == True:
