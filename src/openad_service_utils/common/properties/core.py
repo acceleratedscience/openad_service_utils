@@ -30,6 +30,8 @@ PropertyValue = Union[float, int]
 
 
 class DomainSubmodule(str, Enum):
+    "property generated domains."
+
     molecules: str = "molecules"
     properties: str = "properties"
     crystals: str = "crystals"
@@ -45,13 +47,9 @@ class PropertyPredictorParameters(BaseModel):
 class S3Parameters(PropertyPredictorParameters):
     algorithm_type: str = "prediction"
 
-    domain: DomainSubmodule = Field(
-        ..., example="molecules", description="Submodule of gt4sd.properties"
-    )
+    domain: DomainSubmodule = Field(..., example="molecules", description="Submodule of gt4sd.properties")
     algorithm_name: str = Field(..., example="MCA", description="Name of the algorithm")
-    algorithm_version: str = Field(
-        ..., example="v0", description="Version of the algorithm"
-    )
+    algorithm_version: str = Field(..., example="v0", description="Version of the algorithm")
     algorithm_application: str = Field(..., example="Tox21")
 
 
@@ -74,9 +72,7 @@ class IpAdressParameters(PropertyPredictorParameters):
 class PropertyPredictor:
     """PropertyPredictor base class."""
 
-    def __init__(
-        self, parameters: PropertyPredictorParameters = PropertyPredictorParameters()
-    ) -> None:
+    def __init__(self, parameters: PropertyPredictorParameters = PropertyPredictorParameters()) -> None:
         """Construct a PropertyPredictor using the related parameters.
         Args:
             parameters: parameters to configure the predictor.
