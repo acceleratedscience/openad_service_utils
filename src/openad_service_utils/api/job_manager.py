@@ -14,6 +14,7 @@ import random
 import logging
 import pandas
 from pathlib import Path
+from multiprocessing import Pool
 
 # Create a logger
 logger = logging.getLogger(__name__)
@@ -56,7 +57,13 @@ except:
 
 
 class JobManager:
+    """The Job manager class is designed to manage jobs running in OpenAD Daemons or workers
+    it has 2 roles:
+          1> as a API for commuicating with Workers and Submitting and retrieving jobs from Redis Quesues
+          2> as the process for independant workers that run as asynchronous processes under the server"""
+
     def __init__(self, redis_client, Name, Async_enabled=False):
+        """Initialize the JobManager object with a redis client and a name"""
         self.redis_client = redis_client
         self.name = Name
         self.async_enabled = Async_enabled
@@ -74,7 +81,16 @@ class JobManager:
         return job_info_list
 
     async def submit_job(self, instance: Any, methodname: str, args: Tuple[Any] = (), async_submission=False):
-        job_id = str(uuid.uuid4())
+        """Submit New Jobs to appropriate quueses
+        ASYNC_SUBMISSION_QUEUE is the queue for asynchronous jobs
+        SUBMISSION_QUEUE is for submitted jobs
+
+        jobs are only pulled of the queues one a worker/Daemon is ready to process it.
+        The standard SUBMISSION_QUEUE is cleared on restart
+
+        All submitted jobs are set to expire and cleared from redis ater 7 days by default
+        """
+        job_id = str(uuid.uuid4())  # Create a unique job_id
 
         # Store the function information and arguments in the queue
         self.redis_client.set(
@@ -104,22 +120,24 @@ class JobManager:
                 "async": async_submission,
             }
         )
-        self.redis_client.expire(job_id, 345600)
+        self.redis_client.expire(job_id, 345600)  # Expire all jobs in cache after 7 days
         if not async_submission:
             self.redis_client.rpush(SUBMISSION_QUEUE, job_id)
         else:
             print("async job written to queue")
             self.redis_client.rpush(ASYNC_SUBMISSION_QUEUE, job_id)
             self.___write_job_header_file__(args, job_id)
+
         return job_id
 
     def ___write_job_header_file__(self, restful_request, job_id) -> str:
-        """writes the job descriptor to file"""
+        """writes the job descriptor to file for asynchrounous jobs"""
         with open(f"{ASYNC_PATH}/{job_id}.request", "w") as fd:
             fd.write(json.dumps(restful_request))
             fd.close()
 
     async def _get_job_info_by_id(self, job_id):
+        """looks for a synchronous job if it s compled by its job id"""
         try:
             job_info = pickle.loads(self.redis_client.get(f"job:{job_id}"))
         except:
@@ -149,7 +167,9 @@ class JobManager:
             raise Exception(f"Failed to retrieve job result for ID {job_id}")
 
     async def process_jobs(self):
+        """process active jobs as part of the Daemon process by pulling them off Submission QUEUES
 
+        Not async jobs are a lower priority and only will be enabled for pooled async enabled workers"""
         logger.info(f"                    Starting Process Daemon {self.name} Async Enabled {self.async_enabled}")
         try:
             while True:
@@ -248,15 +268,14 @@ class JobManager:
 
 
 def slave_thread(extra_q, async_allow=False):
+    """create a slave thread and starte it for Daemon Workers"""
     redis_client = redis.Redis(host="localhost", port=6379, db=0)
     daemon = JobManager(redis_client, f"{extra_q}", async_allow)
     asyncio.run(daemon.process_jobs())
 
 
-from multiprocessing import Pool
-
-
 async def get_slaves() -> list:
+    """Loops through the number of slaves to create"""
     extra_queues = QUEUES
     daemons = []
     slave_pool = Pool(processes=extra_queues)
@@ -272,6 +291,7 @@ async def get_slaves() -> list:
 
 
 async def get_job_manager() -> JobManager:
+    """creates a new job manager"""
 
     redis_client = redis.Redis(host="localhost", port=6379, db=0)  # Replace with your Redis server details
     job_manager = JobManager(redis_client, " Master Queue")
@@ -281,6 +301,7 @@ async def get_job_manager() -> JobManager:
 
 
 def delete_sync_submission_queue():
+    """cleares out the Submission Queue"""
 
     redis_client = redis.Redis(host="localhost", port=6379, db=0)  # Replace with your Redis server details
     redis_client.delete(SUBMISSION_QUEUE)
@@ -305,6 +326,7 @@ def cleanup_old_files(localRepo=ASYNC_PATH, age=3):
 
 
 def retrieve_async_job(url) -> dict:
+    """retrieves Async Jobs from Disk"""
     cleanup_old_files(localRepo=ASYNC_PATH, age=3)
     requested = os.path.exists(f"{ASYNC_PATH}/{url}.request")
     running = os.path.exists(f"{ASYNC_PATH}/{url}.running")
@@ -316,7 +338,7 @@ def retrieve_async_job(url) -> dict:
                 logger.info("Successfully retrieve job :" + url)
                 return result
         except Exception as e:
-            logger.warning("User attempted to retrieve not existing job: " + url)
+            logger.warning("User attempted to retrieve non existing job: " + url)
             return None
     elif running:
         return {"warning": {"reason": "job is still running"}}
@@ -324,5 +346,5 @@ def retrieve_async_job(url) -> dict:
     elif requested:
         return {"warning": {"reason": "job is still in the queue"}}
     else:
-        logger.warning("User attempted to retrieve not existing job: " + url)
+        logger.warning("User attempted to retrieve non existing job: " + url)
         return None
