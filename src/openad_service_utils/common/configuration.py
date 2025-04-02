@@ -30,7 +30,7 @@ from typing import Dict, Optional, Set
 
 from pydantic_settings import BaseSettings
 from openad_service_utils.utils.logging_config import setup_logging
-from .s3 import GT4SDS3Client, S3SyncError, sync_folder_with_s3, upload_file_to_s3
+from openad_service_utils.common.s3 import GT4SDS3Client, S3SyncError, sync_folder_with_s3, upload_file_to_s3
 
 # Set up logging configuration
 setup_logging()
@@ -38,6 +38,9 @@ setup_logging()
 # Create a logger
 logger = logging.getLogger(__name__)
 
+
+class GT4SD_DEFAULTS:
+    GT4SD_S3_HOST: str = "s3.par01.cloud-object-storage.appdomain.cloud"
 
 class GT4SDConfiguration(BaseSettings):
     """GT4SDConfiguration settings from environment variables.
@@ -56,39 +59,39 @@ class GT4SDConfiguration(BaseSettings):
     gt4sd_create_unverified_ssl_context: bool = False
     gt4sd_disable_cudnn: bool = False
 
-    # gt4sd_s3_host: str = "s3.par01.cloud-object-storage.appdomain.cloud"
-    # gt4sd_s3_access_key: str = "6e9891531d724da89997575a65f4592e"
-    # gt4sd_s3_secret_key: str = "5997d63c4002cc04e13c03dc0c2db9dae751293dab106ac5"
-    # gt4sd_s3_secure: bool = True
-    # gt4sd_s3_bucket_algorithms: str = "gt4sd-cos-algorithms-artifacts"
-    # gt4sd_s3_bucket_properties: str = "gt4sd-cos-properties-artifacts"
-
-    # gt4sd_s3_host_hub: str = "s3.par01.cloud-object-storage.appdomain.cloud"
-    # gt4sd_s3_access_key_hub: str = "d9536662ebcf462f937efb9f58012830"
-    # gt4sd_s3_secret_key_hub: str = "934d1f3afdaea55ac586f6c2f729ac2ba2694bb8e975ee0b"
-    # gt4sd_s3_secure_hub: bool = True
-    # gt4sd_s3_bucket_hub_algorithms: str = "gt4sd-cos-hub-algorithms-artifacts"
-    # gt4sd_s3_bucket_hub_properties: str = "gt4sd-cos-hub-properties-artifacts"
-
     # use environment variables for private cos buckets or default to public buckets
-    gt4sd_s3_host: str = os.getenv("GT4SD_S3_HOST", "s3.par01.cloud-object-storage.appdomain.cloud")
-    gt4sd_s3_access_key: str = os.getenv("GT4SD_S3_ACCESS_KEY", "6e9891531d724da89997575a65f4592e")
-    gt4sd_s3_secret_key: str = os.getenv("GT4SD_S3_SECRET_KEY", "5997d63c4002cc04e13c03dc0c2db9dae751293dab106ac5")
-    gt4sd_s3_secure: bool = os.getenv("GT4SD_S3_SECURE", True)
-    gt4sd_s3_bucket_algorithms: str = os.getenv("GT4SD_S3_BUCKET_ALGORITHMS", "gt4sd-cos-algorithms-artifacts")
-    gt4sd_s3_bucket_properties: str = os.getenv("GT4SD_S3_BUCKET_PROPERTIES", "gt4sd-cos-properties-artifacts")
+    OPENAD_S3_HOST: str = os.getenv(
+        "GT4SD_S3_HOST", "s3.par01.cloud-object-storage.appdomain.cloud"
+    )
+    OPENAD_S3_ACCESS_KEY: str = os.getenv(
+        "GT4SD_S3_ACCESS_KEY", "6e9891531d724da89997575a65f4592e"
+    )
+    OPENAD_S3_SECRET_KEY: str = os.getenv(
+        "GT4SD_S3_SECRET_KEY", "5997d63c4002cc04e13c03dc0c2db9dae751293dab106ac5"
+    )
+    OPENAD_S3_SECURE: bool = os.getenv("GT4SD_S3_SECURE", True)
+    OPENAD_S3_BUCKET_ALGORITHMS: str = os.getenv(
+        "GT4SD_S3_BUCKET_ALGORITHMS", "gt4sd-cos-algorithms-artifacts"
+    )
+    OPENAD_S3_BUCKET_PROPERTIES: str = os.getenv(
+        "GT4SD_S3_BUCKET_PROPERTIES", "gt4sd-cos-properties-artifacts"
+    )
 
     # use environment variables for private cos hub buckets or default to public buckets
-    gt4sd_s3_host_hub: str = os.getenv("GT4SD_S3_HOST_HUB", "s3.par01.cloud-object-storage.appdomain.cloud")
-    gt4sd_s3_access_key_hub: str = os.getenv("GT4SD_S3_ACCESS_KEY_HUB", "d9536662ebcf462f937efb9f58012830")
-    gt4sd_s3_secret_key_hub: str = os.getenv(
+    OPENAD_S3_HOST_HUB: str = os.getenv(
+        "GT4SD_S3_HOST_HUB", "s3.par01.cloud-object-storage.appdomain.cloud"
+    )
+    OPENAD_S3_ACCESS_KEY_HUB: str = os.getenv(
+        "GT4SD_S3_ACCESS_KEY_HUB", "d9536662ebcf462f937efb9f58012830"
+    )
+    OPENAD_S3_SECRET_KEY_HUB: str = os.getenv(
         "GT4SD_S3_SECRET_KEY_HUB", "934d1f3afdaea55ac586f6c2f729ac2ba2694bb8e975ee0b"
     )
-    gt4sd_s3_secure_hub: bool = os.getenv("GT4SD_S3_SECURE_HUB", True)
-    gt4sd_s3_bucket_hub_algorithms: str = os.getenv(
+    OPENAD_S3_SECURE_HUB: bool = os.getenv("GT4SD_S3_SECURE_HUB", True)
+    OPENAD_S3_BUCKET_HUB_ALGORITHMS: str = os.getenv(
         "GT4SD_S3_BUCKET_HUB_ALGORITHMS", "gt4sd-cos-hub-algorithms-artifacts"
     )
-    gt4sd_s3_bucket_hub_properties: str = os.getenv(
+    OPENAD_S3_BUCKET_HUB_PROPERTIES: str = os.getenv(
         "GT4SD_S3_BUCKET_HUB_PROPERTIES", "gt4sd-cos-hub-properties-artifacts"
     )
 
@@ -118,12 +121,12 @@ class GT4SDArtifactManagementConfiguration:
             "properties": gt4sd_configuration.gt4sd_local_cache_path_properties,
         }
         self.s3_bucket: Dict[str, str] = {
-            "algorithms": gt4sd_configuration.gt4sd_s3_bucket_algorithms,
-            "properties": gt4sd_configuration.gt4sd_s3_bucket_properties,
+            "algorithms": gt4sd_configuration.OPENAD_S3_BUCKET_ALGORITHMS,
+            "properties": gt4sd_configuration.OPENAD_S3_BUCKET_PROPERTIES,
         }
         self.s3_bucket_hub: Dict[str, str] = {
-            "algorithms": gt4sd_configuration.gt4sd_s3_bucket_hub_algorithms,
-            "properties": gt4sd_configuration.gt4sd_s3_bucket_hub_properties,
+            "algorithms": gt4sd_configuration.OPENAD_S3_BUCKET_HUB_ALGORITHMS,
+            "properties": gt4sd_configuration.OPENAD_S3_BUCKET_HUB_PROPERTIES,
         }
 
 
@@ -159,13 +162,13 @@ def upload_to_s3(target_filepath: str, source_filepath: str, module: str = "algo
 
     try:
         upload_file_to_s3(
-            host=gt4sd_configuration_instance.gt4sd_s3_host_hub,
-            access_key=gt4sd_configuration_instance.gt4sd_s3_access_key_hub,
-            secret_key=gt4sd_configuration_instance.gt4sd_s3_secret_key_hub,
+            host=gt4sd_configuration_instance.OPENAD_S3_HOST_HUB,
+            access_key=gt4sd_configuration_instance.OPENAD_S3_ACCESS_KEY_HUB,
+            secret_key=gt4sd_configuration_instance.OPENAD_S3_SECRET_KEY_HUB,
             bucket=gt4sd_artifact_management_configuration.s3_bucket_hub[module],
             target_filepath=target_filepath,
             source_filepath=source_filepath,
-            secure=gt4sd_configuration_instance.gt4sd_s3_secure_hub,
+            secure=gt4sd_configuration_instance.OPENAD_S3_SECURE_HUB,
         )
     except S3SyncError:
         logger.exception("error in syncing the cache with S3")
@@ -197,24 +200,24 @@ def sync_algorithm_with_s3(prefix: Optional[str] = None, module: str = "algorith
     try:
         # sync with the public bucket
         sync_folder_with_s3(
-            host=gt4sd_configuration_instance.gt4sd_s3_host,
-            access_key=gt4sd_configuration_instance.gt4sd_s3_access_key,
-            secret_key=gt4sd_configuration_instance.gt4sd_s3_secret_key,
+            host=gt4sd_configuration_instance.OPENAD_S3_HOST,
+            access_key=gt4sd_configuration_instance.OPENAD_S3_ACCESS_KEY,
+            secret_key=gt4sd_configuration_instance.OPENAD_S3_SECRET_KEY,
             bucket=gt4sd_artifact_management_configuration.s3_bucket[module],
             folder_path=folder_path,
             prefix=prefix,
-            secure=gt4sd_configuration_instance.gt4sd_s3_secure,
+            secure=gt4sd_configuration_instance.OPENAD_S3_SECURE,
         )
         # sync with the public bucket hub
-        # sync_folder_with_s3(
-        #     host=gt4sd_configuration_instance.gt4sd_s3_host_hub,
-        #     access_key=gt4sd_configuration_instance.gt4sd_s3_access_key_hub,
-        #     secret_key=gt4sd_configuration_instance.gt4sd_s3_secret_key_hub,
-        #     bucket=gt4sd_artifact_management_configuration.s3_bucket_hub[module],
-        #     folder_path=folder_path,
-        #     prefix=prefix,
-        #     secure=gt4sd_configuration_instance.gt4sd_s3_secure_hub,
-        # )
+        sync_folder_with_s3(
+            host=gt4sd_configuration_instance.OPENAD_S3_HOST_HUB,
+            access_key=gt4sd_configuration_instance.OPENAD_S3_ACCESS_KEY_HUB,
+            secret_key=gt4sd_configuration_instance.OPENAD_S3_SECRET_KEY_HUB,
+            bucket=gt4sd_artifact_management_configuration.s3_bucket_hub[module],
+            folder_path=folder_path,
+            prefix=prefix,
+            secure=gt4sd_configuration_instance.OPENAD_S3_SECURE_HUB,
+        )
     except S3SyncError:
         logger.exception("error in syncing the cache with S3")
         raise
@@ -276,21 +279,21 @@ def get_algorithm_subdirectories_with_s3(prefix: Optional[str] = None, module: s
     try:
         # directories in the read-only public bucket
         dirs = get_algorithm_subdirectories_from_s3_coordinates(
-            host=gt4sd_configuration_instance.gt4sd_s3_host,
-            access_key=gt4sd_configuration_instance.gt4sd_s3_access_key,
-            secret_key=gt4sd_configuration_instance.gt4sd_s3_secret_key,
+            host=gt4sd_configuration_instance.OPENAD_S3_HOST,
+            access_key=gt4sd_configuration_instance.OPENAD_S3_ACCESS_KEY,
+            secret_key=gt4sd_configuration_instance.OPENAD_S3_SECRET_KEY,
             bucket=gt4sd_artifact_management_configuration.s3_bucket[module],
-            secure=gt4sd_configuration_instance.gt4sd_s3_secure,
+            secure=gt4sd_configuration_instance.OPENAD_S3_SECURE,
             prefix=prefix,
         )
 
         # directories in the write public-hub bucket
         dirs_hub = get_algorithm_subdirectories_from_s3_coordinates(
-            host=gt4sd_configuration_instance.gt4sd_s3_host_hub,
-            access_key=gt4sd_configuration_instance.gt4sd_s3_access_key_hub,
-            secret_key=gt4sd_configuration_instance.gt4sd_s3_secret_key_hub,
+            host=gt4sd_configuration_instance.OPENAD_S3_HOST_HUB,
+            access_key=gt4sd_configuration_instance.OPENAD_S3_ACCESS_KEY_HUB,
+            secret_key=gt4sd_configuration_instance.OPENAD_S3_SECRET_KEY_HUB,
             bucket=gt4sd_artifact_management_configuration.s3_bucket_hub[module],
-            secure=gt4sd_configuration_instance.gt4sd_s3_secure_hub,
+            secure=gt4sd_configuration_instance.OPENAD_S3_SECURE_HUB,
             prefix=prefix,
         )
 
@@ -330,3 +333,8 @@ def reset_logging_root_logger():
     root = logging.getLogger()
     root.handlers = []
     root.filters = []
+
+if __name__ == "__main__":
+    c = GT4SDConfiguration()
+    for i in c:
+        print(i)
