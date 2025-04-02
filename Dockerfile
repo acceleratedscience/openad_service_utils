@@ -4,6 +4,6 @@ COPY . /app
 
 WORKDIR /app
 RUN apt-get update && apt-get install -y redis-server &&  apt-get clean
-RUN pip install -e .
+RUN pip install -e . && mkdir -p /app/data
 ENV ASYNC_ALLOW=True
-CMD  redis-server --daemonize yes && python examples/properties/simple_implementation/implementation.py 
+CMD cd /app/data && redis-server  --daemonize yes  && python /app/examples/properties/simple_implementation/implementation.py 
