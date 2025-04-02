@@ -93,8 +93,7 @@ Enables Caching of Results for command requests, this should only be activated f
 
 
 
-
-3. **ASYNC_PATH**: If you want to save async job results in a custom directory, e.g., `~/openad_async_archive`, update the environment variable like so:
+2. **ASYNC_PATH**: If you want to save async job results in a custom directory, e.g., the default is  `/tmp/openad_async_archive`, update the environment variable like so:
 
    ```
    ASYNC_PATH=~/openad_async_archive
@@ -102,15 +101,15 @@ Enables Caching of Results for command requests, this should only be activated f
 
    This will make `ASYNC_PATH` equal to `~/openad_async_archive`.
 
-4. **ASYNC_CLEANUP_AGE**: To change the cleanup age from 3 days to 7 days, update the environment variable:
+3. **ASYNC_CLEANUP_AGE**: Sets the Clean up age for asynchronous job results on disk, default is 3 days, you can update the environment variable:
 
    ```
    ASYNC_CLEANUP_AGE=7
    ```
 
-   This will make `ASYNC_CLEANUP_AGE` equal to `7`.
+   This will make `ASYNC_CLEANUP_AGE` equal to `7` days.
 
-5. **ASYNC_QUEUE_ALLOCATION**: If you want to allocate 2 subprocesses for handling async requests, set the environment variable as follows:
+4. **ASYNC_QUEUE_ALLOCATION**: If you want to allocate 2 subprocesses for handling async requests, set the environment variable as follows:
 
    ```
    ASYNC_QUEUE_ALLOCATION=2
@@ -118,7 +117,7 @@ Enables Caching of Results for command requests, this should only be activated f
 
    This will make `ASYNC_QUEUE_ALLOCATION` equal to `2`.
 
-6. **ASYNC_ALLOW**: To enable asynchronous requests, update the environment variable:
+5. **ASYNC_ALLOW**: To enable asynchronous requests, update the environment variable, the default value for this is `False`:
 
    ```
    ASYNC_ALLOW=True
@@ -126,9 +125,7 @@ Enables Caching of Results for command requests, this should only be activated f
 
    This will make `ASYNC_ALLOW` equal to `True`, enabling async requests. Conversely, to disable them, set it to `False`:
 
-   ```
-   ASYNC_ALLOW=False
-   ```
+   
 
 
 ## Local Cache locations for models
