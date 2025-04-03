@@ -91,7 +91,8 @@ async def health():
 
 @app.post("/service")
 async def service(restful_request: dict, job_manager: JobManager = Depends(get_job_manager)):
-    logger.info(f"Processing request {restful_request}")
+    # logger.info(f"Processing request {restful_request}")
+    logger.info(f"User Request Received ")
     original_request = copy.deepcopy(restful_request)
 
     if get_config_instance().ENABLE_CACHE_RESULTS:
@@ -111,13 +112,13 @@ async def service(restful_request: dict, job_manager: JobManager = Depends(get_j
                     property_request, "route_service_async", restful_request, async_submission=True
                 )
             else:
+                logger.info(f"submitting job  ")
                 job_id = await job_manager.submit_job(property_request, "route_service", restful_request)
-                logger.info(f"job {job_id} submitted")
+
+                logger.warning("await result for " + str(job_id))
+
                 all_req_result = await job_manager.get_result_by_id(job_id)
 
-                logger.info("-------------------------- result -----------------------------------")
-                logger.info("await result for " + str(all_req_result))
-                logger.info("------------------------------------------------------------------")
                 request_result = all_req_result["result"]
                 return request_result
 
@@ -128,22 +129,13 @@ async def service(restful_request: dict, job_manager: JobManager = Depends(get_j
                     generation_request, "route_service_async", restful_request, async_submission=True
                 )
             else:
+                logger.info(f"submitting job  ")
                 job_id = await job_manager.submit_job(generation_request, "route_service", restful_request)
-                logger.info(f"job {job_id} submitted")
                 all_req_result = await job_manager.get_result_by_id(job_id)
-
-                logger.info("-------------------------- result -----------------------------------")
-                logger.info("await result for " + str(all_req_result))
-                logger.info("------------------------------------------------------------------")
+                logger.warning("await result for " + str(job_id))
                 request_result = all_req_result["result"]
-
                 return request_result
 
-            """if ASYNC_ALLOW and "async" in original_request and original_request["async"] == True:
-                a_background_job = background_job(gen_requester)
-                result = await job_manager.submit_job(a_background_job, "route_service", restful_request)
-            else:
-                result = gen_requester.route_service(restful_request)"""
         else:
             logger.error(f"Error processing request: {original_request}")
             raise HTTPException(
@@ -288,9 +280,9 @@ def start_server(host="0.0.0.0", port=8081, log_level="info", max_workers=1, wor
     else:
         logger.info("using public gt4sd s3 model repository")
 
-    config_settings = GT4SDConfiguration().model_dump(include=['OPENAD_S3_HOST','OPENAD_S3_HOST_HUB'])
+    config_settings = GT4SDConfiguration().model_dump(include=["OPENAD_S3_HOST", "OPENAD_S3_HOST_HUB"])
     logger.info(f"S3 Config: {config_settings}")
-   
+
     logger.debug(f"Total workers: {max_workers}")
     # process is run on linux. spawn.
     multiprocessing.set_start_method("spawn", force=True)

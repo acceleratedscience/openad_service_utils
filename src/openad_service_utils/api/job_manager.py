@@ -88,7 +88,7 @@ class JobManager:
         jobs are only pulled of the queues one a worker/Daemon is ready to process it.
         The standard SUBMISSION_QUEUE is cleared on restart
 
-        All submitted jobs are set to expire and cleared from redis ater 7 days by default
+        All submitted jobs are set to expire and cleared from redis ater 4 days by default
         """
         job_id = str(uuid.uuid4())  # Create a unique job_id
 
@@ -108,19 +108,8 @@ class JobManager:
                 }
             ),
         )
-        print(
-            {
-                "instance": instance,
-                "methodname": methodname,
-                "args": args,
-                "result": None,
-                "error": False,
-                "status": "Submitted",
-                "job_id": job_id,
-                "async": async_submission,
-            }
-        )
-        self.redis_client.expire(job_id, 345600)  # Expire all jobs in cache after 7 days
+
+        self.redis_client.expire(job_id, 345600)  # Expire all jobs in cache after 4 days
         if not async_submission:
             self.redis_client.rpush(SUBMISSION_QUEUE, job_id)
         else:
@@ -157,7 +146,7 @@ class JobManager:
                 # Job is still running or not found, wait for a short period and try again
                 while job_info["status"] not in ["error", "completed", "failed"]:
                     i += 1
-                    logger.info(f"await result for {job_id}    " + str(i))
+                    # logger.info(f"await result for {job_id}    " + str(i))
                     await asyncio.sleep(1)
                     job_info = await self._get_job_info_by_id(job_id)
 
@@ -178,23 +167,21 @@ class JobManager:
                 task = self.redis_client.lpop(SUBMISSION_QUEUE)
                 if task is not None:
                     job_id = task.decode()
-                    logger.warning(
-                        f"                    Job Allocated Process Daemon {self.name} Async Queue looking {job_id}"
-                    )
+                    logger.warning(f" Job Allocated Process Daemon {self.name} Async Queue looking {job_id}")
                 elif self.async_enabled:
                     cleanup_old_files(localRepo=ASYNC_PATH, age=ASYNC_CLEANUP_AGE)
                     task = self.redis_client.lpop(ASYNC_SUBMISSION_QUEUE)
                     if task is not None:
-                        logger.warning(
-                            f"                    Task Found Daemon {self.name} Async Queue looking {job_id}"
-                        )
+                        logger.warning(f" Task Found Daemon {self.name} Async Queue looking {job_id}")
                         job_id = task.decode()
                         async_job = True
 
                 if job_id is not None:
                     job_info = await self._get_job_info_by_id(job_id)
-                    logger.info(f"             got a live one 1  {job_id}    {self.name}")
-                    logger.info("job_info   " + str(job_info))
+                    logger.warning(
+                        f" Job {job_id}  job has been pulled off queue to be processed by Daemon {self.name}"
+                    )
+                    # logger.warning("job_info   " + str(job_info))
                     instance, methodname, args, result, error, job_id = (
                         job_info["instance"],
                         job_info["methodname"],
@@ -215,7 +202,7 @@ class JobManager:
                             fd.close()
                     try:
 
-                        logger.info(f"                    Running {self.name} " + str(job_info))
+                        logger.info(f"                    Running {self.name} " + str(job_id))
 
                         instance = instance()
                         result = instance.route_service(args)
@@ -235,7 +222,7 @@ class JobManager:
                         logger.info(
                             (f"---------------------------------Completed {self.name}---------------------------")
                         )
-                        logger.info("result----" + str(result))
+                        logger.info("result Returned for job_id" + str(job_id))
 
                         # Put the completed job back into the queue to be retrieved by get_result_by_id()
 
@@ -295,7 +282,6 @@ async def get_job_manager() -> JobManager:
 
     redis_client = redis.Redis(host="localhost", port=6379, db=0)  # Replace with your Redis server details
     job_manager = JobManager(redis_client, " Master Queue")
-    logger.info("Created New Job Manager")
 
     return job_manager  # Return the global job_manager instance
 
