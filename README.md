@@ -14,6 +14,10 @@ Requirements:
 - Linux or Macos  
 - Python 3.10.10+ or 3.11  
 
+- Install a local redis oss instalation
+see Redis Install instructions 
+`https://redis.io/docs/latest/operate/oss_and_stack/install/install-redis/`
+
 Install the latest model wrapper by tag:
 
 ```shell
