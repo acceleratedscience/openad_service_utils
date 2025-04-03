@@ -1,5 +1,4 @@
 # simple_implementation.py
-
 ###  Name the child class of SimpleGenerator as you model application and configure
 ###  Model checkpoints and files need to be bootstraped by the naming scheme to a path
 
@@ -8,7 +7,6 @@ from pydantic.v1 import Field
 from openad_service_utils import SimpleGenerator
 from time import sleep
 import random
-
 
 NO_MODEL = True  # if you are simply providing an api to generate a data set then use false , otherwide True
 
@@ -46,21 +44,22 @@ class MySimpleGenerator(SimpleGenerator):
 
     # Override target description in this case we put we make the target a list
     def get_target_description(self) -> Optional[Dict[str, str]]:
-        """Get description of the target for generation."""
+        """Get description of the target for generation.
+        if not included it will default to a object which is typically a dictionary enclosed in double quotes"""
         return {
-            "title": "List of Antigend",
+            "title": "List of Antigen",
             "type": "list",
             "description": "List of Antigen Sequences to be matched with l-chain and Chain sequences",
         }
 
     def predict(self, targets: List) -> List[Any]:
-        print("------------------------------------sampling")
-        print(targets)
         """Implement the generation logic for the new model
         Returns:
             List[Any]: return your predictions
         """
 
+        print("------------------------------------sampling")
+        print(targets)
         # Implement the generation logic for the model, This is cancelled out as Example is using NO_MODEL=True
         # self.model.net(self.temperature)
         results = []

@@ -1,4 +1,8 @@
+""" " This module enables running of jobs by the wrapper
+as parallel processes supporting asychrnous and synchronous user interaction"""
+
 import uuid
+import gc
 import os
 from typing import List, Dict
 import redis
@@ -15,6 +19,7 @@ import logging
 import pandas
 from pathlib import Path
 from multiprocessing import Pool
+from openad_service_utils.api.config import get_config_instance
 
 # Create a logger
 logger = logging.getLogger(__name__)
@@ -247,11 +252,25 @@ class JobManager:
                         f"job:{job_id}",
                         pickle.dumps(job_info),
                     )
-
+                    run_cleanup()
                 # print(f"looping {self.name}")
                 await asyncio.sleep(random.randint(1, 6))
         except Exception as e:
             logger.error("Exception     " + str(e))
+
+
+def run_cleanup():
+    if get_config_instance().AUTO_CLEAR_GPU_MEM:
+        try:
+            import torch
+
+            logger.debug(f"cleaning gpu memory for process ID: {os.getpid()}")
+            torch.cuda.empty_cache()
+        except ImportError:
+            pass  # do nothing
+    if get_config_instance().AUTO_GARABAGE_COLLECT:
+        logger.debug(f"manual garbage collection on process ID: {os.getpid()}")
+        gc.collect()
 
 
 def slave_thread(extra_q, async_allow=False):
