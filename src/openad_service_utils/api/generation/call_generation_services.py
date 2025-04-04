@@ -133,9 +133,9 @@ class service_requester:
             try:
                 SAMPLE_SIZE = int(request["sample_size"])
             except:
-                SAMPLE_SIZE = 10
+                SAMPLE_SIZE = -1
         else:
-            SAMPLE_SIZE = 10
+            SAMPLE_SIZE = -1
 
         if category == "generation":
             if self.property_requestor == None:  # noqa: E711
@@ -172,8 +172,22 @@ class request_generation:
     def __init__(self) -> None:
         pass
 
-    def request(self, generator_application, parameters: dict, apikey: str, sample_size=10):
+    def request(self, generator_application, parameters: dict, apikey: str, sample_size=-1):
         results = []
+        for model in self.models_cache:
+            if (
+                generator_application == model["service_type"]
+                and model["generator_type"]["algorithm_application"] == parameters["property_type"][0]
+            ):
+                results.append(
+                    {
+                        "subject": model["subject"],
+                        "generator": model["generator"],
+                        "result": model["result"],
+                    }
+                )
+        if len(results) > 0:
+            return results
         logger.debug("generator_application :" + generator_application + " params" + str(parameters))
         generator_type = get_generator_type(generator_application, parameters)
         if len(parameters["subjects"]) > 0:
@@ -217,6 +231,7 @@ class request_generation:
                 # self.models_cache.append({model_type: model})
 
         # run model inference
+
         result = list(model.sample(sample_size))
         # return result
         result = pd.DataFrame(result)

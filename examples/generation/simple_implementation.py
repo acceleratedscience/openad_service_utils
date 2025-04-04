@@ -36,13 +36,20 @@ class MySimpleGenerator(SimpleGenerator):
     lchain: list = Field(description="L chain sequence", default=None)
     hchain: list = Field(description="H chain sequence", default=None)
 
+    default_sample_size: int = Field(
+        description="default_sample_size, if 0 and no sample defined in the command,then return full dataset from one call of the generator",
+        default=0,
+    )
+
     def setup(self):
         print(">> model filepath: ", self.get_model_location())  # load model
         # self.model_path = self.get_model_location()
         # self.model = MyModel(self.model_path)
+
         return
 
     # Override target description in this case we put we make the target a list
+
     def get_target_description(self) -> Optional[Dict[str, str]]:
         """Get description of the target for generation.
         if not included it will default to a object which is typically a dictionary enclosed in double quotes"""
@@ -57,7 +64,7 @@ class MySimpleGenerator(SimpleGenerator):
         Returns:
             List[Any]: return your predictions
         """
-
+        self
         print("------------------------------------sampling")
         print(targets)
         # Implement the generation logic for the model, This is cancelled out as Example is using NO_MODEL=True
