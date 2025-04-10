@@ -88,7 +88,7 @@ class JobManager:
         jobs are only pulled of the queues one a worker/Daemon is ready to process it.
         The standard SUBMISSION_QUEUE is cleared on restart
 
-        All submitted jobs are set to expire and cleared from redis ater 7 days by default
+        All submitted jobs are set to expire and cleared from redis ater 4 days by default
         """
         job_id = str(uuid.uuid4())  # Create a unique job_id
 
@@ -205,6 +205,7 @@ class JobManager:
                     )
 
                     job_info["status"] = "In Progress"
+                    logger.warning(f"                    Running {self.name} " + str(job_info))
                     self.redis_client.set(
                         f"job:{job_id}",
                         pickle.dumps(job_info),
@@ -218,20 +219,28 @@ class JobManager:
                         logger.info(f"                    Running {self.name} " + str(job_info))
 
                         instance = instance()
+                        logger.info(f"                    Running step 1 {self.name} " + str(job_info))
                         result = instance.route_service(args)
+                        logger.info(f"                    Running step 2 {self.name} " + str(job_info))
                         if async_job:
                             with open(f"{ASYNC_PATH}/{job_id}.running", "w") as fd:
                                 fd.write("run")
                                 fd.close()
+                        logger.info(f"                    Running step 3 {self.name} " + str(job_info))
+
                         # Store the result within the returned tuple
+                        logger.info(f"                    Running step 4 {self.name} " + str(job_info))
                         job_info["result"] = result
+                        logger.info(f"                    Running step 5 {self.name} " + str(job_info))
                         job_info["status"] = "completed"
+                        logger.info(f"                    Running step 6 {self.name} " + str(job_info))
                         if async_job:
                             with open(f"{ASYNC_PATH}/{job_id}.result", "w") as fd:
                                 if isinstance(result, pandas.DataFrame):
                                     result = result.to_json()
                                 fd.write(json.dumps(result))
                                 fd.close()
+                        logger.info(f"                    Running step 7 {self.name} " + str(job_info))
                         logger.info(
                             (f"---------------------------------Completed {self.name}---------------------------")
                         )
