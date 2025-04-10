@@ -59,17 +59,20 @@ class GT4SDConfiguration(BaseSettings):
     gt4sd_create_unverified_ssl_context: bool = False
     gt4sd_disable_cudnn: bool = False
 
+    ACCESS_KEY_ID_NAME: str = "AWS_ACCESS_KEY_ID"
+    SECRET_ACCESS_KEY_NAME: str = "AWS_SECRET_ACCESS_KEY"
+
     # use environment variables for private cos buckets or default to public buckets
     OPENAD_S3_HOST: str = os.getenv(
         "GT4SD_S3_HOST", "s3.par01.cloud-object-storage.appdomain.cloud"
     )
     OPENAD_S3_ACCESS_KEY: str = os.getenv(
-        "GT4SD_S3_ACCESS_KEY", "6e9891531d724da89997575a65f4592e"
+        ACCESS_KEY_ID_NAME, "6e9891531d724da89997575a65f4592e"
     )
     OPENAD_S3_SECRET_KEY: str = os.getenv(
-        "GT4SD_S3_SECRET_KEY", "5997d63c4002cc04e13c03dc0c2db9dae751293dab106ac5"
+        SECRET_ACCESS_KEY_NAME, "5997d63c4002cc04e13c03dc0c2db9dae751293dab106ac5"
     )
-    OPENAD_S3_SECURE: bool = os.getenv("GT4SD_S3_SECURE", True)
+    OPENAD_S3_SECURE: bool | str = os.getenv("GT4SD_S3_SECURE", True)
     OPENAD_S3_BUCKET_ALGORITHMS: str = os.getenv(
         "GT4SD_S3_BUCKET_ALGORITHMS", "gt4sd-cos-algorithms-artifacts"
     )
@@ -82,12 +85,12 @@ class GT4SDConfiguration(BaseSettings):
         "GT4SD_S3_HOST_HUB", "s3.par01.cloud-object-storage.appdomain.cloud"
     )
     OPENAD_S3_ACCESS_KEY_HUB: str = os.getenv(
-        "GT4SD_S3_ACCESS_KEY_HUB", "d9536662ebcf462f937efb9f58012830"
+        ACCESS_KEY_ID_NAME, "d9536662ebcf462f937efb9f58012830"
     )
     OPENAD_S3_SECRET_KEY_HUB: str = os.getenv(
-        "GT4SD_S3_SECRET_KEY_HUB", "934d1f3afdaea55ac586f6c2f729ac2ba2694bb8e975ee0b"
+        SECRET_ACCESS_KEY_NAME, "934d1f3afdaea55ac586f6c2f729ac2ba2694bb8e975ee0b"
     )
-    OPENAD_S3_SECURE_HUB: bool = os.getenv("GT4SD_S3_SECURE_HUB", True)
+    OPENAD_S3_SECURE_HUB: bool | str = os.getenv("GT4SD_S3_SECURE_HUB", True)
     OPENAD_S3_BUCKET_HUB_ALGORITHMS: str = os.getenv(
         "GT4SD_S3_BUCKET_HUB_ALGORITHMS", "gt4sd-cos-hub-algorithms-artifacts"
     )
