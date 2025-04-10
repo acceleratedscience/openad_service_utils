@@ -2,6 +2,7 @@
 as parallel processes supporting asychrnous and synchronous user interaction"""
 
 import uuid
+import traceback
 import gc
 import os
 from typing import List, Dict
@@ -208,16 +209,21 @@ class JobManager:
                     try:
 
                         logger.info(f"                    Running {self.name} " + str(job_id))
-
+                        logger.info(f"                    Running step 1 {self.name} " + str(job_info))
                         instance = instance()
+                        logger.info(f"                    Running step 2 {self.name} " + str(job_id))
                         result = instance.route_service(args)
+                        logger.info(f"                    Running step 3 Result {self.name} " + str(result))
+                        logger.info(f"                    Running step 3 {self.name} " + str(job_id))
                         if async_job:
                             with open(f"{ASYNC_PATH}/{job_id}.running", "w") as fd:
                                 fd.write("run")
                                 fd.close()
                         # Store the result within the returned tuple
                         job_info["result"] = result
+                        logger.info(f"                    Running step 4 {self.name} " + str(job_info))
                         job_info["status"] = "completed"
+                        logger.info(f"                    Running step 5 {self.name} " + str(job_info))
                         if async_job:
                             with open(f"{ASYNC_PATH}/{job_id}.result", "w") as fd:
                                 if isinstance(result, pandas.DataFrame):
@@ -234,6 +240,7 @@ class JobManager:
                     except Exception as e:
                         # Handle any exceptions that occur during function execution
                         logger.error(f"Error processing job {job_id}: {str(e)}")
+                        logger.error(traceback.format_exc())
                         if async_job:
                             result = {"error": str(e)}
                             with open(f"{ASYNC_PATH}/{job_id}.result", "w") as fd:
