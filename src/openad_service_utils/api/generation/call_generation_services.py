@@ -88,8 +88,14 @@ def get_services() -> list:
     """pulls the list of available services once server is ready"""
     # !TODO: FIX THIS UGLY LOGIC
     global ALL_AVAILABLE_SERVICES
+    logger.warning("available services debug")
+    logger.warning(ALL_AVAILABLE_SERVICES)
     if not ALL_AVAILABLE_SERVICES:
         ALL_AVAILABLE_SERVICES = generate_service_defs("generate")
+
+        logger.warning("available services REGENERATED")
+        logger.warning(ALL_AVAILABLE_SERVICES)
+
     return ALL_AVAILABLE_SERVICES.copy()
 
 
@@ -115,6 +121,9 @@ class service_requester:
 
         current_service = None
         for service in get_services():
+            logger.warning("service type\n\n\n" + str(type(service)))
+
+            logger.warning("service \n\n\n" + str(service))
             if (
                 service["service_type"] == request["service_type"]
                 and service["service_name"] == request["service_name"]
