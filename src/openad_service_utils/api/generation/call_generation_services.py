@@ -122,8 +122,10 @@ class service_requester:
         current_service = None
         for service in get_services():
             logger.warning("service type\n\n\n" + str(type(service)))
-
             logger.warning("service \n\n\n" + str(service))
+
+            logger.warning("request type\n\n\n" + str(type(request)))
+            logger.warning("request \n\n\n" + str(request))
             if (
                 service["service_type"] == request["service_type"]
                 and service["service_name"] == request["service_name"]
