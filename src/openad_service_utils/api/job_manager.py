@@ -4,6 +4,7 @@ as parallel processes supporting asychrnous and synchronous user interaction"""
 import uuid
 import traceback
 import gc
+import ast
 import os
 from typing import List, Dict
 import redis
@@ -188,14 +189,14 @@ class JobManager:
                         f" Job {job_id}  job has been pulled off queue to be processed by Daemon {self.name}"
                     )
                     # logger.warning("job_info   " + str(job_info))
-                    instance, methodname, args, result, error, job_id = (
+                    instance, methodname, result, error, job_id = (
                         job_info["instance"],
                         job_info["methodname"],
-                        job_info["args"],
                         job_info["result"],
                         job_info["error"],
                         job_info["job_id"],
                     )
+                    args = ast.literal_eval(job_info["args"])
 
                     job_info["status"] = "In Progress"
                     self.redis_client.set(
