@@ -196,7 +196,9 @@ class JobManager:
                         job_info["error"],
                         job_info["job_id"],
                     )
-                    args = ast.literal_eval(job_info["args"])
+                    args = job_info["args"]
+                    if not isinstance(args, dict):
+                        args = ast.literal_eval(args)
 
                     job_info["status"] = "In Progress"
                     self.redis_client.set(
