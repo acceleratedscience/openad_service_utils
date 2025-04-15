@@ -31,7 +31,7 @@ logger = logging.getLogger(__name__)
 try:
     QUEUES = int(os.environ["JOB_QUEUES"])
 except:
-    QUEUES = 2
+    QUEUES = 1
 
 SUBMISSION_QUEUE = "submissions"  # redis submission queue for general jobs
 
