@@ -198,7 +198,7 @@ class JobManager:
                     )
                     args = job_info["args"]
                     if not isinstance(args, dict):
-                        args = ast.literal_eval(args)
+                        args = ast.literal_eval(str(args))
 
                     job_info["status"] = "In Progress"
                     self.redis_client.set(
@@ -266,7 +266,7 @@ class JobManager:
                 # print(f"looping {self.name}")
                 await asyncio.sleep(random.randint(1, 6))
         except Exception as e:
-            logger.error("Exception     " + str(e))
+            logger.error("Exception     " + str(e), exc_info=True)
 
 
 def run_cleanup():
