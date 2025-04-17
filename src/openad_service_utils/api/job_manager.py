@@ -197,8 +197,11 @@ class JobManager:
                         job_info["job_id"],
                     )
                     args = job_info["args"]
-                    if not isinstance(args, dict):
-                        args = ast.literal_eval(str(args))
+                    # if not isinstance(args, dict):
+                    #     args = ast.literal_eval(str(args))
+                    if isinstance(args, str):
+                        logger.warning(f"args is not a dict. {type(args)=}")
+                        args = json.loads(args)
 
                     job_info["status"] = "In Progress"
                     self.redis_client.set(
