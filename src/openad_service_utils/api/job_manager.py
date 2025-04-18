@@ -26,41 +26,27 @@ from openad_service_utils.api.config import get_config_instance
 # Create a logger
 logger = logging.getLogger(__name__)
 
+# Get the server configuration environment variables
+settings = get_config_instance()
 
 # QUEUES defines the number of sub processess allocated to a Pool of Worker Daemons to process requests
-try:
-    QUEUES = int(os.environ["JOB_QUEUES"])
-except:
-    QUEUES = 1
+QUEUES = settings.REDIS_JOB_QUEUES
 
 SUBMISSION_QUEUE = "submissions"  # redis submission queue for general jobs
 
 ASYNC_SUBMISSION_QUEUE = "async_submissions"  # redis queue for asyncrhonous jobs
 
 # ASYNC_PATH defines the path all async jobs results get saved to
-try:
-    ASYNC_PATH = os.environ["ASYNC_PATH"]
-except:
-    ASYNC_PATH = "/tmp/openad_async_archive"
+ASYNC_PATH = settings.ASYNC_JOB_PATH
 
 # ASYNC_CLEANUP_AGE defines the age in days that async results are cleaned up after
-try:
-    ASYNC_CLEANUP_AGE = int(os.environ["ASYNC_CLEANUP_AGE"])
-
-except:
-    ASYNC_CLEANUP_AGE = 3
+ASYNC_CLEANUP_AGE = settings.ASYNC_CLEANUP_AGE
 
 # ASYNC_QUEUE_ALLOCATION defines the number of subprocesses allocated from the pool to process async requests
-try:
-    ASYNC_QUEUE_ALLOCATION = os.environ["ASYNC_QUEUE_ALLOCATION"]
-except:
-    ASYNC_QUEUE_ALLOCATION = 1
+ASYNC_QUEUE_ALLOCATION = settings.ASYNC_QUEUE_ALLOCATION
 
 # ASYNC_ALLOW turns async requests on and off
-try:
-    ASYNC_ALLOW = os.environ["ASYNC_ALLOW"]
-except:
-    ASYNC_ALLOW = False
+ASYNC_ALLOW = settings.ASYNC_ALLOW
 
 
 class JobManager:
@@ -273,7 +259,7 @@ class JobManager:
 
 
 def run_cleanup():
-    if get_config_instance().AUTO_CLEAR_GPU_MEM:
+    if settings.AUTO_CLEAR_GPU_MEM:
         try:
             import torch
 
@@ -281,14 +267,14 @@ def run_cleanup():
             torch.cuda.empty_cache()
         except ImportError:
             pass  # do nothing
-    if get_config_instance().AUTO_GARABAGE_COLLECT:
+    if settings.AUTO_GARABAGE_COLLECT:
         logger.debug(f"manual garbage collection on process ID: {os.getpid()}")
         gc.collect()
 
 
 def slave_thread(extra_q, async_allow=False):
     """create a slave thread and starte it for Daemon Workers"""
-    redis_client = redis.Redis(host="localhost", port=6379, db=0)
+    redis_client = redis.Redis(host=settings.REDIS_HOST, port=settings.REDIS_PORT, db=settings.REDIS_DB, password=settings.REDIS_PASSWORD)
     daemon = JobManager(redis_client, f"{extra_q}", async_allow)
     asyncio.run(daemon.process_jobs())
 
@@ -311,8 +297,7 @@ async def get_slaves() -> list:
 
 async def get_job_manager() -> JobManager:
     """creates a new job manager"""
-
-    redis_client = redis.Redis(host="localhost", port=6379, db=0)  # Replace with your Redis server details
+    redis_client = redis.Redis(host=settings.REDIS_HOST, port=settings.REDIS_PORT, db=settings.REDIS_DB, password=settings.REDIS_PASSWORD)
     job_manager = JobManager(redis_client, " Master Queue")
 
     return job_manager  # Return the global job_manager instance
@@ -320,8 +305,7 @@ async def get_job_manager() -> JobManager:
 
 def delete_sync_submission_queue():
     """cleares out the Submission Queue"""
-
-    redis_client = redis.Redis(host="localhost", port=6379, db=0)  # Replace with your Redis server details
+    redis_client = redis.Redis(host=settings.REDIS_HOST, port=settings.REDIS_PORT, db=settings.REDIS_DB, password=settings.REDIS_PASSWORD)
     redis_client.delete(SUBMISSION_QUEUE)
     logger.warning("Deleted Submission Queue")
 

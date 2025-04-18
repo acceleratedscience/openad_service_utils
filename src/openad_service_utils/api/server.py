@@ -55,18 +55,18 @@ kube_probe = FastAPI()
 # Set up logging configuration
 setup_logging()
 
+# Get the server configuration environment variables
+settings = get_config_instance()
+
 # Create a logger
 logger = logging.getLogger(__name__)
 SLAVES = None
 
-try:
-    ASYNC_ALLOW = os.environ["ASYNC_ALLOW"]
-except:
-    ASYNC_ALLOW = False
+ASYNC_ALLOW = settings.ASYNC_ALLOW
 
 
 def run_cleanup():
-    if get_config_instance().AUTO_CLEAR_GPU_MEM:
+    if settings.AUTO_CLEAR_GPU_MEM:
         try:
             import torch
 
@@ -74,7 +74,7 @@ def run_cleanup():
             torch.cuda.empty_cache()
         except ImportError:
             pass  # do nothing
-    if get_config_instance().AUTO_GARABAGE_COLLECT:
+    if settings.AUTO_GARABAGE_COLLECT:
         logger.debug(f"manual garbage collection on process ID: {os.getpid()}")
         gc.collect()
 
@@ -95,7 +95,7 @@ async def service(restful_request: dict, job_manager: JobManager = Depends(get_j
     logger.info(f"User Request Received ")
     original_request = copy.deepcopy(restful_request)
 
-    if get_config_instance().ENABLE_CACHE_RESULTS:
+    if settings.ENABLE_CACHE_RESULTS:
         # convert input to string for caching
         restful_request = dict_to_json_string(restful_request)
 
@@ -202,7 +202,7 @@ async def get_service_defs():
 def server_details():
     """return server details"""
     logger.info("Retrieving server details")
-    return JSONResponse(get_config_instance().model_dump())
+    return JSONResponse(settings.model_dump())
 
 
 # Function to run the main service
@@ -242,13 +242,13 @@ def is_running_in_kubernetes():
 
 
 def start_server(host="0.0.0.0", port=8081, log_level="info", max_workers=1, worker_gpu_min=2000):
-    logger.debug(f"Server Config: {get_config_instance().model_dump()}")
+    logger.debug(f"Server Config: {settings.model_dump()}")
 
     # Assuming JobManager is in the same file or imported correctly
 
-    if get_config_instance().SERVE_MAX_WORKERS > 0:
+    if settings.SERVE_MAX_WORKERS > 0:
         # overwite max workers with env var
-        max_workers = get_config_instance().SERVE_MAX_WORKERS
+        max_workers = settings.SERVE_MAX_WORKERS
     try:
         import torch
 
