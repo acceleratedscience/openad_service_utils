@@ -7,7 +7,7 @@ import gc
 import ast
 import os
 from typing import List, Dict
-import redis
+import redis.asyncio as redis
 import asyncio
 import uuid
 from typing import List, Tuple, Dict
@@ -57,7 +57,7 @@ class JobManager:
 
     def __init__(self, redis_client, Name, Async_enabled=False):
         """Initialize the JobManager object with a redis client and a name"""
-        self.redis_client = redis_client
+        self.redis_client: redis.Redis = redis_client
         self.name = Name
         self.async_enabled = Async_enabled
         cleanup_old_files(localRepo=ASYNC_PATH, age=ASYNC_CLEANUP_AGE)
@@ -66,7 +66,7 @@ class JobManager:
         """Retrieve all jobs' information from Redis."""
 
         job_info_list = []
-        for key in self.redis_client.keys("job:*"):
+        for key in await self.redis_client.keys("job:*"):
             job_id = key.decode().split(":")[1]  # Extract the job ID from the key
             job_info = await self._get_job_info_by_id(job_id)
             job_info_list.append(job_info)
@@ -86,7 +86,7 @@ class JobManager:
         job_id = str(uuid.uuid4())  # Create a unique job_id
 
         # Store the function information and arguments in the queue
-        self.redis_client.set(
+        await self.redis_client.set(
             f"job:{job_id}",
             pickle.dumps(
                 {
@@ -102,12 +102,12 @@ class JobManager:
             ),
         )
 
-        self.redis_client.expire(job_id, 345600)  # Expire all jobs in cache after 4 days
+        await self.redis_client.expire(f"job:{job_id}", 345600)  # Expire all jobs in cache after 4 days
         if not async_submission:
-            self.redis_client.rpush(SUBMISSION_QUEUE, job_id)
+            await self.redis_client.rpush(SUBMISSION_QUEUE, job_id)
         else:
             print("async job written to queue")
-            self.redis_client.rpush(ASYNC_SUBMISSION_QUEUE, job_id)
+            await self.redis_client.rpush(ASYNC_SUBMISSION_QUEUE, job_id)
             self.___write_job_header_file__(args, job_id)
 
         return job_id
@@ -121,7 +121,7 @@ class JobManager:
     async def _get_job_info_by_id(self, job_id):
         """looks for a synchronous job if it s compled by its job id"""
         try:
-            job_info = pickle.loads(self.redis_client.get(f"job:{job_id}"))
+            job_info = pickle.loads(await self.redis_client.get(f"job:{job_id}"))
         except:
             return None
         return job_info if job_info else None
@@ -157,13 +157,13 @@ class JobManager:
             while True:
                 job_id = None
                 async_job = False
-                task = self.redis_client.lpop(SUBMISSION_QUEUE)
+                task = await self.redis_client.lpop(SUBMISSION_QUEUE)
                 if task is not None:
                     job_id = task.decode()
                     logger.warning(f" Job Allocated Process Daemon {self.name} Async Queue looking {job_id}")
                 elif self.async_enabled:
                     cleanup_old_files(localRepo=ASYNC_PATH, age=ASYNC_CLEANUP_AGE)
-                    task = self.redis_client.lpop(ASYNC_SUBMISSION_QUEUE)
+                    task = await self.redis_client.lpop(ASYNC_SUBMISSION_QUEUE)
                     if task is not None:
                         logger.warning(f" Task Found Daemon {self.name} Async Queue looking {job_id}")
                         job_id = task.decode()
@@ -190,7 +190,7 @@ class JobManager:
                         args = json.loads(args)
 
                     job_info["status"] = "In Progress"
-                    self.redis_client.set(
+                    await self.redis_client.set(
                         f"job:{job_id}",
                         pickle.dumps(job_info),
                     )
@@ -247,7 +247,7 @@ class JobManager:
                         # Put the completed job back into the queue to be retrieved by get_result_by_id()
                     job_id = job_info["job_id"]
 
-                    self.redis_client.set(
+                    await self.redis_client.set(
                         f"job:{job_id}",
                         pickle.dumps(job_info),
                     )
@@ -303,10 +303,10 @@ async def get_job_manager() -> JobManager:
     return job_manager  # Return the global job_manager instance
 
 
-def delete_sync_submission_queue():
+async def delete_sync_submission_queue():
     """cleares out the Submission Queue"""
     redis_client = redis.Redis(host=settings.REDIS_HOST, port=settings.REDIS_PORT, db=settings.REDIS_DB, password=settings.REDIS_PASSWORD)
-    redis_client.delete(SUBMISSION_QUEUE)
+    await redis_client.delete(SUBMISSION_QUEUE)
     logger.warning("Deleted Submission Queue")
 
 

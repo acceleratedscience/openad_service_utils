@@ -19,10 +19,6 @@ from openad_service_utils.api.job_manager import (
     delete_sync_submission_queue,
     retrieve_async_job,
 )
-
-
-job_manager: JobManager = None
-
 from starlette.responses import JSONResponse
 import copy
 
@@ -47,13 +43,13 @@ from openad_service_utils.utils.convert import dict_to_json_string
 
 from openad_service_utils.common.configuration import GT4SDConfiguration
 import pandas as pd
+from contextlib import asynccontextmanager
 
-
-app = FastAPI()
-kube_probe = FastAPI()
 
 # Set up logging configuration
 setup_logging()
+
+job_manager: JobManager = None
 
 # Get the server configuration environment variables
 settings = get_config_instance()
@@ -62,7 +58,19 @@ settings = get_config_instance()
 logger = logging.getLogger(__name__)
 SLAVES = None
 
-ASYNC_ALLOW = settings.ASYNC_ALLOW
+
+# create lifecycle event to initialize the job manager
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    await delete_sync_submission_queue()
+    yield
+    logger.debug("Shutting down server...")
+    # Cleanup code here
+
+
+# Create FastAPI app with lifespan event
+app = FastAPI(lifespan=lifespan)
+kube_probe = FastAPI()
 
 
 def run_cleanup():
@@ -107,7 +115,7 @@ async def service(restful_request: dict, job_manager: JobManager = Depends(get_j
                 return {"error": {"reason": "job does not exist"}}
         elif original_request.get("service_type") in PropertyFactory.AVAILABLE_PROPERTY_PREDICTOR_TYPES():
 
-            if ASYNC_ALLOW and "async" in original_request and original_request["async"] == True:
+            if settings.ASYNC_ALLOW and "async" in original_request and original_request["async"] == True:
                 return await job_manager.submit_job(
                     property_request, "route_service_async", restful_request, async_submission=True
                 )
@@ -124,7 +132,7 @@ async def service(restful_request: dict, job_manager: JobManager = Depends(get_j
 
         # user request is for generation
         elif original_request.get("service_type") == "generate_data":
-            if ASYNC_ALLOW and "async" in original_request and original_request["async"] == True:
+            if settings.ASYNC_ALLOW and "async" in original_request and original_request["async"] == True:
                 return await job_manager.submit_job(
                     generation_request, "route_service_async", restful_request, async_submission=True
                 )
@@ -174,16 +182,16 @@ async def get_service_defs():
     # get generation service list
     gen_services: list = get_generation_services()
     if gen_services:
-        if ASYNC_ALLOW:
+        if settings.ASYNC_ALLOW:
             for i in range(len(gen_services)):
-                gen_services[i]["async_allow"] = ASYNC_ALLOW
+                gen_services[i]["async_allow"] = settings.ASYNC_ALLOW
         all_services.extend(gen_services)
         logger.debug(f"generation models registered: {len(gen_services)}")
     # get property service list
     prop_services = get_property_services()
-    if ASYNC_ALLOW:
+    if settings.ASYNC_ALLOW:
         for i in range(len(prop_services)):
-            prop_services[i]["async_allow"] = ASYNC_ALLOW
+            prop_services[i]["async_allow"] = settings.ASYNC_ALLOW
     if prop_services:
         all_services.extend(prop_services)
         logger.debug(f"property models registered: {len(prop_services)}")
@@ -293,7 +301,6 @@ def start_server(host="0.0.0.0", port=8081, log_level="info", max_workers=1, wor
         if is_running_in_kubernetes():
             logger.debug("Running in Kubernetes, starting health probe")
             executor.submit(run_health_service, host, port + 1, log_level, 1)
-        delete_sync_submission_queue()
         if SLAVES is None:
             SLAVES = asyncio.run(get_slaves())
 
