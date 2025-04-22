@@ -110,7 +110,7 @@ async def service(restful_request: dict, job_manager: JobManager = Depends(get_j
     try:
         # user request is for property prediction
         if original_request.get("service_type") == "get_result":
-            result = retrieve_async_job(original_request.get("url"))
+            result = await retrieve_async_job(original_request.get("url"))
             if result is None:
                 return {"error": {"reason": "job does not exist"}}
         elif original_request.get("service_type") in PropertyFactory.AVAILABLE_PROPERTY_PREDICTOR_TYPES():

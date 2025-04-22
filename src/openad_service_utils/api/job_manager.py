@@ -21,6 +21,7 @@ import logging
 import pandas
 from pathlib import Path
 from multiprocessing import Pool
+import aiofiles
 from openad_service_utils.api.config import get_config_instance
 
 # Create a logger
@@ -60,7 +61,6 @@ class JobManager:
         self.redis_client: redis.Redis = redis_client
         self.name = Name
         self.async_enabled = Async_enabled
-        cleanup_old_files(localRepo=ASYNC_PATH, age=ASYNC_CLEANUP_AGE)
 
     async def get_all_jobs(self):
         """Retrieve all jobs' information from Redis."""
@@ -108,15 +108,14 @@ class JobManager:
         else:
             print("async job written to queue")
             await self.redis_client.rpush(ASYNC_SUBMISSION_QUEUE, job_id)
-            self.___write_job_header_file__(args, job_id)
+            await self.___write_job_header_file__(args, job_id)
 
         return job_id
 
-    def ___write_job_header_file__(self, restful_request, job_id) -> str:
+    async def ___write_job_header_file__(self, restful_request, job_id) -> str:
         """writes the job descriptor to file for asynchrounous jobs"""
-        with open(f"{ASYNC_PATH}/{job_id}.request", "w") as fd:
-            fd.write(json.dumps(restful_request))
-            fd.close()
+        async with aiofiles.open(f"{ASYNC_PATH}/{job_id}.request", "w") as fd:
+            await fd.write(json.dumps(restful_request))
 
     async def _get_job_info_by_id(self, job_id):
         """looks for a synchronous job if it s compled by its job id"""
@@ -162,7 +161,7 @@ class JobManager:
                     job_id = task.decode()
                     logger.warning(f" Job Allocated Process Daemon {self.name} Async Queue looking {job_id}")
                 elif self.async_enabled:
-                    cleanup_old_files(localRepo=ASYNC_PATH, age=ASYNC_CLEANUP_AGE)
+                    await cleanup_old_files(localRepo=ASYNC_PATH, age=ASYNC_CLEANUP_AGE)
                     task = await self.redis_client.lpop(ASYNC_SUBMISSION_QUEUE)
                     if task is not None:
                         logger.warning(f" Task Found Daemon {self.name} Async Queue looking {job_id}")
@@ -195,33 +194,36 @@ class JobManager:
                         pickle.dumps(job_info),
                     )
                     if async_job:
-                        with open(f"{ASYNC_PATH}/{job_id}.running", "w") as fd:
-                            fd.write("")
-                            fd.close()
+                        async with aiofiles.open(f"{ASYNC_PATH}/{job_id}.running", "w") as fd:
+                            await fd.write("")
                     try:
 
                         logger.info(f"                    Running {self.name} " + str(job_id))
                         logger.info(f"                    Running step 1 {self.name} " + str(job_info))
                         instance = instance()
                         logger.info(f"                    Running step 2 {self.name} " + str(job_id))
-                        result = instance.route_service(args)
+
+                        # Call the method on the instance - this is the main function
+                        if os.environ.get("DEBUG_ASYNC_THREAD", "False") == "True":
+                            result = await asyncio.to_thread(instance.route_service, args)
+                        else:
+                            result = instance.route_service(args)
+
                         logger.info(f"                    Running step 3 Result {self.name} " + str(result))
                         logger.info(f"                    Running step 3 {self.name} " + str(job_id))
                         if async_job:
-                            with open(f"{ASYNC_PATH}/{job_id}.running", "w") as fd:
-                                fd.write("run")
-                                fd.close()
+                            async with aiofiles.open(f"{ASYNC_PATH}/{job_id}.running", "w") as fd:
+                                await fd.write("run")
                         # Store the result within the returned tuple
                         job_info["result"] = result
                         logger.info(f"                    Running step 4 {self.name} " + str(job_info))
                         job_info["status"] = "completed"
                         logger.info(f"                    Running step 5 {self.name} " + str(job_info))
                         if async_job:
-                            with open(f"{ASYNC_PATH}/{job_id}.result", "w") as fd:
+                            async with aiofiles.open(f"{ASYNC_PATH}/{job_id}.result", "w") as fd:
                                 if isinstance(result, pandas.DataFrame):
                                     result = result.to_json()
-                                fd.write(json.dumps(result))
-                                fd.close()
+                                await fd.write(json.dumps(result))
                         logger.info(
                             (f"---------------------------------Completed {self.name}---------------------------")
                         )
@@ -235,9 +237,8 @@ class JobManager:
                         logger.error(traceback.format_exc())
                         if async_job:
                             result = {"error": str(e)}
-                            with open(f"{ASYNC_PATH}/{job_id}.result", "w") as fd:
-                                fd.write(json.dumps(result))
-                                fd.close()
+                            async with aiofiles.open(f"{ASYNC_PATH}/{job_id}.result", "w") as fd:
+                                await fd.write(json.dumps(result))
                         #
                         job_info["result"] = {"error": str(e)}
                         # Store the exception within the returned tuple
@@ -310,7 +311,7 @@ async def delete_sync_submission_queue():
     logger.warning("Deleted Submission Queue")
 
 
-def cleanup_old_files(localRepo=ASYNC_PATH, age=3):
+async def cleanup_old_files(localRepo=ASYNC_PATH, age=3):
     """Cleans up old archive files"""
     if not os.path.exists(localRepo):
         os.mkdir(localRepo)
@@ -327,17 +328,18 @@ def cleanup_old_files(localRepo=ASYNC_PATH, age=3):
                 os.rmdir(item)
 
 
-def retrieve_async_job(url) -> dict:
+async def retrieve_async_job(url) -> dict:
     """retrieves Async Jobs from Disk"""
-    cleanup_old_files(localRepo=ASYNC_PATH, age=3)
+    await cleanup_old_files(localRepo=ASYNC_PATH, age=3)
     requested = os.path.exists(f"{ASYNC_PATH}/{url}.request")
     running = os.path.exists(f"{ASYNC_PATH}/{url}.running")
     finished = os.path.exists(f"{ASYNC_PATH}/{url}.result")
     if finished:
         try:
-            with open(f"{ASYNC_PATH}/{url}.result", "r") as fd:
-                result = json.load(fd)
-                logger.info("Successfully retrieve job :" + url)
+            async with aiofiles.open(f"{ASYNC_PATH}/{url}.result", "r") as fd:
+                content = await fd.read()
+                result = json.loads(content)
+                logger.info("Successfully retrieved job: " + url)
                 return result
         except Exception as e:
             logger.warning("User attempted to retrieve non existing job: " + url)
