@@ -21,7 +21,7 @@ see Redis Install instructions
 Install the latest model wrapper by tag:
 
 ```shell
-pip install git+https://github.com/acceleratedscience/openad_service_utils.git@0.3.1
+pip install git+https://github.com/acceleratedscience/openad_service_utils.git@0.4.0
 ```
 
 ## Why use OpenAD model wrapper?
