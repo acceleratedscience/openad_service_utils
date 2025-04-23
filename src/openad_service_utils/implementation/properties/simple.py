@@ -232,7 +232,10 @@ class SimplePredictor(PredictorAlgorithm, BasePredictorParameters):
         cls.__name__ = class_fields.get("algorithm_application")
         cls.__no_model__ = no_model
         # setup s3 class params
+        print(cls.__annotations__)
+        print(PredictorParameters)
         model_param_class: PredictorParameters = type(cls.__name__ + "Parameters", (PredictorParameters,), class_fields)
+
         if class_fields.get("available_properties"):
             if not isinstance(class_fields.get("available_properties"), list):
                 raise ValueError("available_properties must be of List[PropertyInfo]")
@@ -273,7 +276,7 @@ class SimplePredictorMultiAlgorithm(SimplePredictor):
         return (
             super().get_model_location().replace(f"/{self.algorithm_application}/", f"/{self.get_selected_property()}/")
         )
-    
+
     def _update_parameters(self, parameters: PredictorParameters):
         """Update model params with user input"""
         if self.configuration:

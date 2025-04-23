@@ -5,7 +5,7 @@ import json
 import traceback
 
 import pandas as pd
-from pydantic import BaseModel
+from pydantic.v1 import BaseModel
 
 from openad_service_utils.api.generation.generate_service_defs import (
     create_service_defs,
@@ -88,8 +88,14 @@ def get_services() -> list:
     """pulls the list of available services once server is ready"""
     # !TODO: FIX THIS UGLY LOGIC
     global ALL_AVAILABLE_SERVICES
+    logger.warning("available services debug")
+    logger.warning(ALL_AVAILABLE_SERVICES)
     if not ALL_AVAILABLE_SERVICES:
         ALL_AVAILABLE_SERVICES = generate_service_defs("generate")
+
+        logger.warning("available services REGENERATED")
+        logger.warning(ALL_AVAILABLE_SERVICES)
+
     return ALL_AVAILABLE_SERVICES.copy()
 
 
@@ -115,6 +121,11 @@ class service_requester:
 
         current_service = None
         for service in get_services():
+            logger.warning("service type\n\n\n" + str(type(service)))
+            logger.warning("service \n\n\n" + str(service))
+
+            logger.warning("request type\n\n\n" + str(type(request)))
+            logger.warning("request \n\n\n" + str(request))
             if (
                 service["service_type"] == request["service_type"]
                 and service["service_name"] == request["service_name"]
@@ -133,9 +144,9 @@ class service_requester:
             try:
                 SAMPLE_SIZE = int(request["sample_size"])
             except:
-                SAMPLE_SIZE = 10
+                SAMPLE_SIZE = -1
         else:
-            SAMPLE_SIZE = 10
+            SAMPLE_SIZE = -1
 
         if category == "generation":
             if self.property_requestor == None:  # noqa: E711
@@ -159,8 +170,7 @@ def get_generator_type(generator_application: str, parameters):
     for service in service_list:
         if (
             generator_application == service["service_type"]
-            and service["generator_type"]["algorithm_application"]
-            == parameters["property_type"][0]
+            and service["generator_type"]["algorithm_application"] == parameters["property_type"][0]
         ):
             return service["generator_type"]
 
@@ -173,16 +183,23 @@ class request_generation:
     def __init__(self) -> None:
         pass
 
-    def request(
-        self, generator_application, parameters: dict, apikey: str, sample_size=10
-    ):
+    def request(self, generator_application, parameters: dict, apikey: str, sample_size=-1):
         results = []
-        logger.debug(
-            "generator_application :"
-            + generator_application
-            + " params"
-            + str(parameters)
-        )
+        for model in self.models_cache:
+            if (
+                generator_application == model["service_type"]
+                and model["generator_type"]["algorithm_application"] == parameters["property_type"][0]
+            ):
+                results.append(
+                    {
+                        "subject": model["subject"],
+                        "generator": model["generator"],
+                        "result": model["result"],
+                    }
+                )
+        if len(results) > 0:
+            return results
+        logger.debug("generator_application :" + generator_application + " params" + str(parameters))
         generator_type = get_generator_type(generator_application, parameters)
         if len(parameters["subjects"]) > 0:
             subject = parameters["subjects"][0]
@@ -217,9 +234,7 @@ class request_generation:
                     if len(target) == 1:
                         target = target[0]
                 logger.debug(f"running sample: {target=} {parms=} {sample_size=}")
-                model = GeneratorRegistry.get_application_instance(
-                    **parms, target=target
-                )
+                model = GeneratorRegistry.get_application_instance(**parms, target=target)
                 # self.models_cache.append({model_type: model})
             else:
                 logger.debug(f"running sample: {parms=} {sample_size=}")
@@ -227,6 +242,7 @@ class request_generation:
                 # self.models_cache.append({model_type: model})
 
         # run model inference
+
         result = list(model.sample(sample_size))
         # return result
         result = pd.DataFrame(result)
@@ -292,9 +308,7 @@ if __name__ == "__main__":
         ts = datetime.timestamp(dt)
         if request["service_type"] != "get_crystal_property":
             logger.debug(
-                "\n\n Properties for subject:  "
-                + ", ".join(request["parameters"]["subjects"])
-                + "   ",
+                "\n\n Properties for subject:  " + ", ".join(request["parameters"]["subjects"]) + "   ",
                 datetime.fromtimestamp(ts),
             )
             result = requestor.route_service(request)

@@ -1,15 +1,25 @@
 import logging
 import gc
+import asyncio
+import redis
 import multiprocessing
 import os
 import signal
 import sys
 from concurrent.futures import ProcessPoolExecutor
-
 import uvicorn
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi import Depends
 from pandas import DataFrame
+from openad_service_utils.api.job_manager import (
+    JobManager,
+    get_slaves,
+    get_job_manager,
+    delete_sync_submission_queue,
+    retrieve_async_job,
+)
+from starlette.responses import JSONResponse
 import copy
 
 from openad_service_utils.api.generation.call_generation_services import (
@@ -30,30 +40,41 @@ from openad_service_utils.api.config import get_config_instance
 import traceback
 from itertools import chain
 from openad_service_utils.utils.convert import dict_to_json_string
-from openad_service_utils.api.async_call import background_route_service, retrieve_job
-from openad_service_utils.common.configuration import GT4SDConfiguration
 
-app = FastAPI()
-kube_probe = FastAPI()
+from openad_service_utils.common.configuration import GT4SDConfiguration
+import pandas as pd
+from contextlib import asynccontextmanager
+
 
 # Set up logging configuration
 setup_logging()
 
+job_manager: JobManager = None
+
+# Get the server configuration environment variables
+settings = get_config_instance()
+
 # Create a logger
 logger = logging.getLogger(__name__)
+SLAVES = None
 
-gen_requester = generation_request()
 
-prop_requester = property_request()
+# create lifecycle event to initialize the job manager
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    await delete_sync_submission_queue()
+    yield
+    logger.debug("Shutting down server...")
+    # Cleanup code here
 
-try:
-    ASYNC_ALLOW = os.environ["ASYNC_ALLOW"]
-except:
-    ASYNC_ALLOW = False
+
+# Create FastAPI app with lifespan event
+app = FastAPI(lifespan=lifespan)
+kube_probe = FastAPI()
 
 
 def run_cleanup():
-    if get_config_instance().AUTO_CLEAR_GPU_MEM:
+    if settings.AUTO_CLEAR_GPU_MEM:
         try:
             import torch
 
@@ -61,7 +82,7 @@ def run_cleanup():
             torch.cuda.empty_cache()
         except ImportError:
             pass  # do nothing
-    if get_config_instance().AUTO_GARABAGE_COLLECT:
+    if settings.AUTO_GARABAGE_COLLECT:
         logger.debug(f"manual garbage collection on process ID: {os.getpid()}")
         gc.collect()
 
@@ -77,31 +98,52 @@ async def health():
 
 
 @app.post("/service")
-async def service(restful_request: dict):
-    logger.info(f"Processing request {restful_request}")
+async def service(restful_request: dict, job_manager: JobManager = Depends(get_job_manager)):
+    # logger.info(f"Processing request {restful_request}")
+    logger.info(f"User Request Received ")
     original_request = copy.deepcopy(restful_request)
-    if get_config_instance().ENABLE_CACHE_RESULTS:
+
+    if settings.ENABLE_CACHE_RESULTS:
         # convert input to string for caching
         restful_request = dict_to_json_string(restful_request)
 
     try:
         # user request is for property prediction
         if original_request.get("service_type") == "get_result":
-            result = retrieve_job(original_request.get("url"))
+            result = await retrieve_async_job(original_request.get("url"))
             if result is None:
                 return {"error": {"reason": "job does not exist"}}
         elif original_request.get("service_type") in PropertyFactory.AVAILABLE_PROPERTY_PREDICTOR_TYPES():
-            if ASYNC_ALLOW and "async" in original_request and original_request["async"] == True:
-                result = background_route_service(prop_requester, restful_request)
+
+            if settings.ASYNC_ALLOW and "async" in original_request and original_request["async"] == True:
+                return await job_manager.submit_job(
+                    property_request, "route_service_async", restful_request, async_submission=True
+                )
             else:
-                result = prop_requester.route_service(restful_request)
+                logger.info(f"submitting job  ")
+                job_id = await job_manager.submit_job(property_request, "route_service", restful_request)
+
+                logger.warning("await result for " + str(job_id))
+
+                all_req_result = await job_manager.get_result_by_id(job_id)
+
+                request_result = all_req_result["result"]
+                return request_result
+
         # user request is for generation
         elif original_request.get("service_type") == "generate_data":
-            # result = gen_requester.route_service(restful_request)
-            if ASYNC_ALLOW and "async" in original_request and original_request["async"] == True:
-                result = background_route_service(gen_requester, restful_request)
+            if settings.ASYNC_ALLOW and "async" in original_request and original_request["async"] == True:
+                return await job_manager.submit_job(
+                    generation_request, "route_service_async", restful_request, async_submission=True
+                )
             else:
-                result = gen_requester.route_service(restful_request)
+                logger.info(f"submitting job  ")
+                job_id = await job_manager.submit_job(generation_request, "route_service", restful_request)
+                all_req_result = await job_manager.get_result_by_id(job_id)
+                logger.warning("await result for " + str(job_id))
+                request_result = all_req_result["result"]
+                return request_result
+
         else:
             logger.error(f"Error processing request: {original_request}")
             raise HTTPException(
@@ -140,16 +182,16 @@ async def get_service_defs():
     # get generation service list
     gen_services: list = get_generation_services()
     if gen_services:
-        if ASYNC_ALLOW:
+        if settings.ASYNC_ALLOW:
             for i in range(len(gen_services)):
-                gen_services[i]["async_allow"] = ASYNC_ALLOW
+                gen_services[i]["async_allow"] = settings.ASYNC_ALLOW
         all_services.extend(gen_services)
         logger.debug(f"generation models registered: {len(gen_services)}")
     # get property service list
     prop_services = get_property_services()
-    if ASYNC_ALLOW:
+    if settings.ASYNC_ALLOW:
         for i in range(len(prop_services)):
-            prop_services[i]["async_allow"] = ASYNC_ALLOW
+            prop_services[i]["async_allow"] = settings.ASYNC_ALLOW
     if prop_services:
         all_services.extend(prop_services)
         logger.debug(f"property models registered: {len(prop_services)}")
@@ -168,7 +210,7 @@ async def get_service_defs():
 def server_details():
     """return server details"""
     logger.info("Retrieving server details")
-    return JSONResponse(get_config_instance().model_dump())
+    return JSONResponse(settings.model_dump())
 
 
 # Function to run the main service
@@ -207,11 +249,14 @@ def is_running_in_kubernetes():
     return "KUBERNETES_SERVICE_HOST" in os.environ
 
 
-def start_server(host="0.0.0.0", port=8080, log_level="info", max_workers=1, worker_gpu_min=2000):
-    logger.debug(f"Server Config: {get_config_instance().model_dump()}")
-    if get_config_instance().SERVE_MAX_WORKERS > 0:
+def start_server(host="0.0.0.0", port=8081, log_level="info", max_workers=1, worker_gpu_min=2000):
+    logger.debug(f"Server Config: {settings.model_dump()}")
+
+    # Assuming JobManager is in the same file or imported correctly
+
+    if settings.SERVE_MAX_WORKERS > 0:
         # overwite max workers with env var
-        max_workers = get_config_instance().SERVE_MAX_WORKERS
+        max_workers = settings.SERVE_MAX_WORKERS
     try:
         import torch
 
@@ -243,17 +288,22 @@ def start_server(host="0.0.0.0", port=8080, log_level="info", max_workers=1, wor
     else:
         logger.info("using public gt4sd s3 model repository")
 
-    config_settings = GT4SDConfiguration().model_dump(include=['OPENAD_S3_HOST','OPENAD_S3_HOST_HUB'])
+    config_settings = GT4SDConfiguration().model_dump(include=["OPENAD_S3_HOST", "OPENAD_S3_HOST_HUB"])
     logger.info(f"S3 Config: {config_settings}")
-   
+
     logger.debug(f"Total workers: {max_workers}")
     # process is run on linux. spawn.
-    multiprocessing.set_start_method("spawn")
+    multiprocessing.set_start_method("spawn", force=True)
+    global SLAVES
+
     with ProcessPoolExecutor() as executor:
         executor.submit(run_main_service, host, port, log_level, max_workers)
         if is_running_in_kubernetes():
             logger.debug("Running in Kubernetes, starting health probe")
             executor.submit(run_health_service, host, port + 1, log_level, 1)
+        if SLAVES is None:
+            SLAVES = asyncio.run(get_slaves())
+
         signal.signal(signal.SIGINT, lambda s, f: signal_handler(s, f, executor))
         signal.signal(signal.SIGTERM, lambda s, f: signal_handler(s, f, executor))
         signal.signal(signal.SIGWINCH, ignore_winch_signal)

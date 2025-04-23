@@ -105,6 +105,8 @@ class GeneratorAlgorithm(ABC, Generic[S, T]):
 
     generate: Untargeted
 
+    number_of_items = -1
+
     def __init__(
         self,
         configuration: AlgorithmConfiguration[S, T],
@@ -205,7 +207,8 @@ class GeneratorAlgorithm(ABC, Generic[S, T]):
 
         Args:
             number_of_items: number of items to generate.
-                Defaults to 100.
+                Defaults to 100. If 0, generates exactly the items returned
+                by the model.
 
         Raises:
             SamplingError: when requesting too many items.
@@ -216,8 +219,7 @@ class GeneratorAlgorithm(ABC, Generic[S, T]):
         Yields:
             the items.
         """
-        self.number_of_items = number_of_items
-
+        logger.info("Sampling " + str(number_of_items))
         if number_of_items > self.max_samples:
             detail = f"{number_of_items} is too many items to generate, " f"must be under {self.max_samples+1} samples."
             self.timeout(set(), detail=detail, error=SamplingError)  # type: ignore
@@ -226,6 +228,23 @@ class GeneratorAlgorithm(ABC, Generic[S, T]):
         stuck_counter = 0
         item_set_length = 0
         start = time()
+
+        if number_of_items == -1:
+            try:
+
+                if self.configuration.validate_item("default_sample_size"):
+
+                    number_of_items = getattr(self.configuration, "default_sample_size")
+            except:
+                number_of_items = 10
+
+        if number_of_items == 0:
+            generated_items = self.generate()
+            for item in generated_items:
+                yield item
+            return
+
+        self.number_of_items = number_of_items
         while True:
             if time() - start > self.max_runtime:
                 detail = f"Sampling took longer than maximal runtime ({self.max_runtime} seconds). "
