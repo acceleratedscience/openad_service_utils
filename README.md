@@ -88,9 +88,11 @@ Next up, you can run: result open/edit/copy/display/as dataframe/save [as '<file
 
 The following are experimental or advanced settings that can be included as environmental variables
 
+<!-- prettier-ignore -->
 **AUTO_CLEAR_GPU_MEM**  
 Clears the GPU memory for an Inference call  
-Default: `AUTO_CLEAR_GPU_MEM: bool = True`
+Type:    `bool`
+Default: `True`
 
 **AUTO_GARABAGE_COLLECT**  
 Calls the Garbage Collector after an Inference call  
