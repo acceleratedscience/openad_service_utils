@@ -86,11 +86,11 @@ Next up, you can run: result open/edit/copy/display/as dataframe/save [as '<file
 
 ## Experimental Settings
 
-The following are experimental or advanced settings that can be included as environmental variables
+The following are experimental or advanced settings that can be included as environmental variables.
 
 <!-- prettier-ignore -->
 **AUTO_CLEAR_GPU_MEM**  
-Clears the GPU memory for an Inference call
+Clears the GPU memory for an Inference call  
 <sub>Type:    `bool`</sub>  
 <sub>Default: `True`</sub>
 
