@@ -29,7 +29,7 @@ pip install git+https://github.com/acceleratedscience/openad_service_utils.git@0
 
 -   To enable your model(s) to be used in the [OpenAD toolkit]
 -   To wrap your model(s) in a quick and easy FastAPI service  
-    --> No need to write all the FastAPI endpoints from scratch
+    &rarr; No need to write all the FastAPI endpoints from scratch
 -   To containerize your model(s) in Kubernetes (e.g. OpenShift), Docker, Podman, etc.
 
 The OpenAD Model Wrapper makes your container code simpler, following the format of other models available in the [OpenAD model service](https://openad.accelerate.science/docs/model-service/available-models).
