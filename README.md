@@ -89,16 +89,7 @@ Next up, you can run: result open/edit/copy/display/as dataframe/save [as '<file
 The following are experimental or advanced settings that can be included as environmental variables.
 
 <!-- prettier-ignore -->
-**AUTO_CLEAR_GPU_MEM**  
-Clears the GPU memory for an Inference call  
-<sub>Type:    `bool`</sub>  
-<sub>Default: `True`</sub>
-
-**AUTO_GARABAGE_COLLECT**  
-Calls the Garbage Collector after an Inference call  
-<sub>Type: `bool` / Default: `True`</sub>
-
-**SERVE_MAX_WORKERS** _: int : default: -1_  
+**** _: int : default: -1_  
 Enables multi-processing of synchronous calls.  
 Defaults to one thread for safety, depends on performance sizing whether you choose to use more.
 
@@ -111,9 +102,12 @@ Enables caching of results for command requests.
 This should only be activated for deterministic requests, no functions that use random seeds should this be activated for.  
 Default: `ENABLE_CACHE_RESULTS: bool = False`
 
-| Parameter Name      | Type | Default | Description                                                                                                 |
-| ------------------- | ---- | ------- | :---------------------------------------------------------------------------------------------------------- |
-| `SERVE_MAX_WORKERS` | int  | -1      | Maximum number of worker processes for the server. Set to -1 for auto-scaling based on available CPU cores. |
+| Parameter Name          | Type | Default | Description                                                                                      |
+| ----------------------- | ---- | ------- | :----------------------------------------------------------------------------------------------- |
+| `AUTO_CLEAR_GPU_MEM`    | bool | True    | Clears the GPU memory for an Inference call                                                      |
+| `AUTO_GARABAGE_COLLECT` | bool | True    | Calls the Garbage Collector after an Inference call                                              |
+| `SERVE_MAX_WORKERS`     | int  | -1      | Enables multi-processing of synchronous calls.                                                   |
+|                         |      |         | Defaults to one thread for safety, depends on performance sizing whether you choose to use more. |
 
 <br>
 
