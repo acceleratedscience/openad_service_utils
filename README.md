@@ -98,13 +98,12 @@ Clears the GPU memory for an Inference call
 Calls the Garbage Collector after an Inference call  
 <sub>Type: `bool` / Default: `True`</sub>
 
-**SERVE_MAX_WORKERS**  
+**SERVE_MAX_WORKERS** _: int : default: -1_  
 Enables multi-processing of synchronous calls.  
 Defaults to one thread for safety, depends on performance sizing whether you choose to use more.
 
 ```
-# Default
-SERVE_MAX_WORKERS: int = -1
+SERVE_MAX_WORKERS = -1
 ```
 
 **ENABLE_CACHE_RESULTS**  
