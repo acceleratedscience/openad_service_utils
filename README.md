@@ -91,12 +91,12 @@ The following are experimental or advanced settings that can be included as envi
 <!-- prettier-ignore -->
 **AUTO_CLEAR_GPU_MEM**  
 Clears the GPU memory for an Inference call
-<sub>Type:    `bool`</sub>
+<sub>Type:    `bool`</sub>  
 <sub>Default: `True`</sub>
 
 **AUTO_GARABAGE_COLLECT**  
 Calls the Garbage Collector after an Inference call  
-Default `AUTO_GARABAGE_COLLECT: bool = True`
+<sub>Type: `bool` / Default: `True`</sub>
 
 **SERVE_MAX_WORKERS**  
 Enables multi-processing of synchronous calls.  
