@@ -88,26 +88,12 @@ Next up, you can run: result open/edit/copy/display/as dataframe/save [as '<file
 
 The following are experimental or advanced settings that can be included as environmental variables.
 
-<!-- prettier-ignore -->
-**** _: int : default: -1_  
-Enables multi-processing of synchronous calls.  
-Defaults to one thread for safety, depends on performance sizing whether you choose to use more.
-
-```
-SERVE_MAX_WORKERS = -1
-```
-
-**ENABLE_CACHE_RESULTS**  
-Enables caching of results for command requests.  
-This should only be activated for deterministic requests, no functions that use random seeds should this be activated for.  
-Default: `ENABLE_CACHE_RESULTS: bool = False`
-
-| Parameter Name          | Type | Default | Description                                                                                      |
-| ----------------------- | ---- | ------- | :----------------------------------------------------------------------------------------------- |
-| `AUTO_CLEAR_GPU_MEM`    | bool | True    | Clears the GPU memory for an Inference call                                                      |
-| `AUTO_GARABAGE_COLLECT` | bool | True    | Calls the Garbage Collector after an Inference call                                              |
-| `SERVE_MAX_WORKERS`     | int  | -1      | Enables multi-processing of synchronous calls.                                                   |
-|                         |      |         | Defaults to one thread for safety, depends on performance sizing whether you choose to use more. |
+| Parameter Name          | Type | Default | Description                                                                                                                                          |
+| ----------------------- | ---- | ------- | :--------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `AUTO_CLEAR_GPU_MEM`    | bool | True    | Clears the GPU memory for an Inference call                                                                                                          |
+| `AUTO_GARABAGE_COLLECT` | bool | True    | Calls the Garbage Collector after an Inference call                                                                                                  |
+| `SERVE_MAX_WORKERS`     | int  | -1      | Enables multi-processing of synchronous calls. Defaults to one thread for safety, choose more depending on performance sizing                        |
+| `ENABLE_CACHE_RESULTS`  | bool | False   | Enables caching of results for command requests. This should only be activated for deterministic requests, never for functions that use random seeds |
 
 <br>
 
