@@ -100,8 +100,12 @@ Calls the Garbage Collector after an Inference call
 
 **SERVE_MAX_WORKERS**  
 Enables multi-processing of synchronous calls.  
-Defaults to one thread for safety, depends on performance sizing whether you choose to use more.  
-Default: `SERVE_MAX_WORKERS: int = -1`
+Defaults to one thread for safety, depends on performance sizing whether you choose to use more.
+
+```
+# Default
+SERVE_MAX_WORKERS: int = -1
+```
 
 **ENABLE_CACHE_RESULTS**  
 Enables caching of results for command requests.  
