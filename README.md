@@ -91,7 +91,7 @@ The following are experimental or advanced settings that can be included as envi
 <!-- prettier-ignore -->
 **AUTO_CLEAR_GPU_MEM**  
 Clears the GPU memory for an Inference call  
-Type:    `bool`
+Type:    `bool`  
 Default: `True`
 
 **AUTO_GARABAGE_COLLECT**  
