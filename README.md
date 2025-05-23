@@ -111,6 +111,10 @@ Enables caching of results for command requests.
 This should only be activated for deterministic requests, no functions that use random seeds should this be activated for.  
 Default: `ENABLE_CACHE_RESULTS: bool = False`
 
+| Parameter Name      | Type | Default | Description                                                                                                 |
+| ------------------- | ---- | ------- | ----------------------------------------------------------------------------------------------------------- |
+| `SERVE_MAX_WORKERS` | int  | -1      | Maximum number of worker processes for the server. Set to -1 for auto-scaling based on available CPU cores. |
+
 <br>
 
 ## Job_Manager Settings
