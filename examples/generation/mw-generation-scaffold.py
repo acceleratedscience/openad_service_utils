@@ -1,5 +1,6 @@
-###  Generation Wrapper
-###  ------------------
+###  Model wrapper scaffold for generative models
+###  --------------------------------------------
+###  https://github.com/acceleratedscience/openad_service_utils
 
 ###  Checklist:
 ###  ----------
@@ -41,7 +42,9 @@ NO_MODEL = False
 
 # Register the algorithm with the config that returns your model implementation
 class MySimpleGenerator(SimpleGenerator):
-    """<model implementation description>"""  ### <-- Update
+    """
+    <model implementation description>
+    """  ### <-- Update
 
     # Registry parameters to fetch model from S3
     # - - -
@@ -77,7 +80,6 @@ class MySimpleGenerator(SimpleGenerator):
         ### -----------------------------------------
 
         print(">> Model filepath: ", self.get_model_location())
-        return
 
     # Override target description in this case we put we make the target a list
     def get_target_description(self) -> Optional[Dict[str, str]]:
@@ -100,26 +102,27 @@ class MySimpleGenerator(SimpleGenerator):
             List[Any]: ...
         """
 
-        # -----------------------------------------
-        # ZONE D: INSERT MODEL EXECUTION HERE
-        # - - - - - - - - - - - - - - - - - - - - -
-        # Example:
-        #   results = []
-        #   for target in targets:
-        #       for lchain in self.lchain:
-        #           for hchain in self.hchain:
-        #               results.append(
-        #                   {
-        #                       "lchain": lchain,
-        #                       "hchain": hchain,
-        #                       "antigen": target,
-        #                       "score": random.uniform(0.01, 1),
-        #                   }
-        #               )
-        #   return results
-        # -----------------------------------------
+        ### -----------------------------------------
+        ### ZONE D: INSERT MODEL EXECUTION HERE
+        ### - - - - - - - - - - - - - - - - - - - - -
+        ### Example:
+        ###   results = []
+        ###   for target in targets:
+        ###       for lchain in self.lchain:
+        ###           for hchain in self.hchain:
+        ###               results.append(
+        ###                   {
+        ###                       "lchain": lchain,
+        ###                       "hchain": hchain,
+        ###                       "antigen": target,
+        ###                       "score": random.uniform(0.01, 1),
+        ###                   }
+        ###               )
+        ###   return results
+        ### -----------------------------------------
 
-        print("\n------------------------------------\nSampling")
+        print("\n-------------")
+        print("Targets:")
         print(targets)
 
 

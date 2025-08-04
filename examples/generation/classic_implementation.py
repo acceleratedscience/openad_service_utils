@@ -3,7 +3,7 @@
 ###  Rename the base classes [ BaseGenerator, BaseAlgorithm, BaseConfiguration ] and configure
 ###  Model checkpoints and files need to be bootstraped by the naming scheme to a path
 ###  schema:    algorithm_type / algorithm_name / algorithm_application / algorithm_version ]
-###  exmaple:   conditional_generation / MyGeneratorAlgorithm / MyGenerator / v0
+###  example:   conditional_generation / MyGeneratorAlgorithm / MyGenerator / v0
 
 
 from typing import List, Dict, Any
@@ -13,6 +13,10 @@ from openad_service_utils import (
     BaseAlgorithm,
     BaseConfiguration,
 )  # model scaffold
+
+# - - - - - - - - - - - - - - - - - - - - -
+# ZONE A: INSERT MODEL IMPORTS HERE
+# - - - - - - - - - - - - - - - - - - - - -
 
 
 class MyGenerator(BaseGenerator):
@@ -37,10 +41,14 @@ class MyGenerator(BaseGenerator):
 class MyGeneratorAlgorithm(BaseAlgorithm[Dict[str, Any], str]):
     """Registry algorithm name"""
 
+    # - - - - - - - - - - - - - - - - - - - - -
+    # ZONE B: INSERT MODEL EXECUTION CODE HERE
+    # - - - - - - - - - - - - - - - - - - - - -
+
     pass
 
 
-# register the algorithm to the config that returns your model implementation
+# Register the algorithm to the config that returns your model implementation
 class MyClassicGenerator(BaseConfiguration[Dict[str, Any], str]):
     """model implementation description"""
 
