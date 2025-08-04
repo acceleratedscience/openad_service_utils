@@ -11,6 +11,8 @@ _A library to onboard models to the [OpenAD toolkit]_
 ![macOS](https://img.shields.io/badge/mac%20os-000000?style=for-the-badge&logo=macos&logoColor=F0F0F0)
 ![Python](https://img.shields.io/badge/python-3670A0?style=for-the-badge&logo=python&logoColor=ffdd54)
 
+<br>
+
 ## Installation
 
 Requirements:
@@ -27,7 +29,7 @@ pip install git+https://github.com/acceleratedscience/openad_service_utils.git@0
 
 ## Why Use the Wrapper?
 
--   To enable your model(s) to be used in the [OpenAD toolkit]
+-   To enable your model(s)\*\*\*\* to be used in the [OpenAD toolkit]
 -   To wrap your model(s) in a quick and easy FastAPI service  
     &rarr; No need to write all the FastAPI endpoints from scratch
 -   To containerize your model(s) in Kubernetes (e.g. OpenShift), Docker, Podman, etc.
@@ -89,7 +91,7 @@ Next up, you can run: result open/edit/copy/display/as dataframe/save [as '<file
 The following are experimental or advanced settings that can be included as environmental variables.
 
 | Parameter Name          | Type | Default | Description                                                                                                                                          |
-| ----------------------- | ---- | ------- | :--------------------------------------------------------------------------------------------------------------------------------------------------- |
+| :---------------------- | :--- | :------ | :--------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `AUTO_CLEAR_GPU_MEM`    | bool | True    | Clears the GPU memory for an Inference call                                                                                                          |
 | `AUTO_GARABAGE_COLLECT` | bool | True    | Calls the Garbage Collector after an Inference call                                                                                                  |
 | `SERVE_MAX_WORKERS`     | int  | -1      | Enables multi-processing of synchronous calls. Defaults to one thread for safety, choose more depending on performance sizing                        |
@@ -99,52 +101,30 @@ The following are experimental or advanced settings that can be included as envi
 
 ## Job_Manager Settings
 
-### Examples for each Variable:
+The following are settings related to the job manager that can be included as environmental variables.
 
-1. **QUEUES**: If you want to set the number of subprocesses to 4 (default is 2), you would add the following line in your environment setup (e.g., `.env` file or system environment variables):
+| Parameter Name         | Type | Default                     | Description                                                               |
+| :--------------------- | :--- | :-------------------------- | :------------------------------------------------------------------------ |
+| JOB_QUEUES             | int  | 2                           | The number of subprocesses that is allowed                                |
+| ASYNC_ALLOW            | bool | True                        | Enable asynchronous requests                                              |
+| ASYNC_QUEUE_ALLOCATION | int  | 1                           | The number of subprocesses that is allowed for async requests             |
+| ASYNC_PATH             | str  | `/tmp/openad_async_archive` | Save async job results in a custom directory                              |
+| ASYNC_CLEANUP_AGE      | int  | 3                           | Number of days after which asynchronous job results are cleaned from disk |
 
-    ```
-    JOB_QUEUES=4
-    ```
+<br>
 
-2. **ASYNC_PATH**: If you want to save async job results in a custom directory, e.g., the default is `/tmp/openad_async_archive`, update the environment variable like so:
+## Cache Files
 
-    ```
-    ASYNC_PATH=~/openad_async_archive
-    ```
+The cache files for your models are stored on the following locations:
 
-    This will make `ASYNC_PATH` equal to `~/openad_async_archive`.
-
-3. **ASYNC_CLEANUP_AGE**: Sets the Clean up age for asynchronous job results on disk, default is 3 days, you can update the environment variable:
-
-    ```
-    ASYNC_CLEANUP_AGE=7
-    ```
-
-    This will make `ASYNC_CLEANUP_AGE` equal to `7` days.
-
-4. **ASYNC_QUEUE_ALLOCATION**: If you want to allocate 2 subprocesses for handling async requests, set the environment variable as follows:
+-   Generation models
 
     ```
-    ASYNC_QUEUE_ALLOCATION=2
+    ~/.openad_models / algorithms / algorithm_type / algorithm_name / algorithm_application / algorithm_version
     ```
 
-    This will make `ASYNC_QUEUE_ALLOCATION` equal to `2`.
-
-5. **ASYNC_ALLOW**: To enable asynchronous requests, update the environment variable, the default value for this is `False`:
+-   Property models
 
     ```
-    ASYNC_ALLOW=True
+    ~/.openad_models / properties / domain / algorithm_name / algorithm_application / algorithm_version
     ```
-
-    This will make `ASYNC_ALLOW` equal to `True`, enabling async requests. Conversely, to disable them, set it to `False`:
-
-## Local Cache locations for models
-
-### Generation Models location
-
-`~/.openad_models / algorithms / algorithm_type / algorithm_name / algorithm_application / algorithm_version`
-
-### Property Models location
-
-`~/.openad_models / properties / domain / algorithm_name / algorithm_application / algorithm_version`
