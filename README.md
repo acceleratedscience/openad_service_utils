@@ -120,11 +120,11 @@ The cache files for your models are stored on the following locations:
 -   Generation models
 
     ```
-    ~/.openad_models / algorithms / algorithm_type / algorithm_name / algorithm_application / algorithm_version
+    ~/.openad_models/algorithms/<algorithm_type>/<algorithm_name>/<algorithm_application>/<algorithm_version>
     ```
 
 -   Property models
 
     ```
-    ~/.openad_models / properties / domain / algorithm_name / algorithm_application / algorithm_version
+    ~/.openad_models/properties/<domain>/<algorithm_name>/<algorithm_application>/<algorithm_version>
     ```
