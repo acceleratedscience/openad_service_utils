@@ -8,7 +8,7 @@ When a request is received, the wrapper first looks at the `service_type` to det
 
 ### Property Prediction
 
-For property prediction, the wrapper uses the `service_type` (e.g., `molecule`, `protein`, `crystal`) and the `service_name` to look up the appropriate predictor in the `PropertyPredictorRegistry`.
+For property prediction, the wrapper uses the `service_type` (e.g., `get_molecule_property`, `get_protein_property`, `get_crystal_property`) and the `service_name` to look up the appropriate predictor in the `PropertyPredictorRegistry`.
 
 ### Data Generation
 
