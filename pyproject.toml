@@ -14,7 +14,7 @@ dependencies = [
  "colorlog",
  "tenacity",
  "redis",
- "aiofiles>=24.1.0",
+ "aiofiles",
 ]
 
 [project.urls]
@@ -25,3 +25,8 @@ Repository = "https://github.com/acceleratedscience/openad_service_utils"
 [build-system]
 requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
+
+[dependency-groups]
+dev = [
+    "ipykernel>=6.30.1",
+]
