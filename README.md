@@ -23,17 +23,13 @@ The OpenAD Model Wrapper lets you wrap any model into a standardized RESTful API
 
 <br>
 
-## Tl;dr
+## How to Wrap a Model
 
-1. Download this repo
+1. Install the wrapper utils
 
     ```
-    git clone git@github.com:acceleratedscience/openad_service_utils.git
-    ```
-
-    <!--
     pip install git+https://github.com/acceleratedscience/openad_service_utils.git@0.4.0
-    -->
+    ```
 
 2. Choose the appropriate wrapper scaffold file.
 
