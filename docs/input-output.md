@@ -8,13 +8,13 @@ The API expects a JSON object with a `service_type` and `service_name` field tha
 
 ### Property Prediction
 
-For property prediction, the `service_type` should be one of the available property predictor types (e.g., `molecule`, `protein`, `crystal`). The `parameters` object must contain `property_type` (a list of properties to predict) and `subjects` (a list of inputs to predict on). Additional parameters may be required depending on the specific model.
+For property prediction, the `service_type` should be one of the values from the `PredictorTypes` enum: `get_protein_property`, `get_molecule_property`, or `get_crystal_property`. The `parameters` object must contain `property_type` (a list of properties to predict) and `subjects` (a list of inputs to predict on). Additional parameters may be required depending on the specific model.
 
 **Example:**
 
 ```json
 {
-  "service_type": "molecule",
+  "service_type": "get_molecule_property",
   "service_name": "MySimplePredictor",
   "parameters": {
     "property_type": ["LogP", "TPSA"],

@@ -11,7 +11,7 @@ Create a new Python file for your predictor. For this tutorial, we will name it 
 Import the necessary classes from the `openad_service_utils` library.
 
 ```python
-from openad_service_utils import SimplePredictor, PredictorTypes, PropertyInfo
+from openad_service_utils import SimplePredictor, PredictorTypes, PropertyInfo, DomainSubmodule
 from typing import Optional, List, Any
 from pydantic.v1 import Field
 ```
@@ -31,7 +31,7 @@ Define the metadata for your model. This includes the `domain`, `algorithm_name`
 
 ```python
 class MySimplePredictor(SimplePredictor):
-    domain: str = "molecules"
+    domain: DomainSubmodule = DomainSubmodule.molecules
     algorithm_name: str = "MyAlgorithm"
     algorithm_application: str = "mypredictor"
     algorithm_version: str = "v0"
@@ -67,7 +67,7 @@ When a user makes a request, they can provide values for these parameters:
 
 ```json
 {
-  "service_type": "molecule",
+  "service_type": "get_molecule_property",
   "service_name": "mypredictor",
   "parameters": {
     "property_type": ["LogP"],

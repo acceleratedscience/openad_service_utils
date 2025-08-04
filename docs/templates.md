@@ -7,11 +7,11 @@ This document provides sample configuration templates for common use cases.
 This template shows how to configure a simple property predictor.
 
 ```python
-from openad_service_utils import SimplePredictor, PredictorTypes, PropertyInfo
+from openad_service_utils import SimplePredictor, PredictorTypes, PropertyInfo, DomainSubmodule
 from typing import Optional, List, Any
 
 class MySimplePredictor(SimplePredictor):
-    domain: str = "molecules"
+    domain: DomainSubmodule = DomainSubmodule("molecules")
     algorithm_name: str = "MyAlgorithm"
     algorithm_application: str = "mypredictor"
     algorithm_version: str = "v0"
@@ -75,7 +75,7 @@ from typing import Optional, List, Any
 from pydantic.v1 import Field
 
 class MyNestedPredictor(SimplePredictor):
-    domain: str = "molecules"
+    domain: DomainSubmodule = DomainSubmodule("molecules")
     algorithm_name: str = "MyAlgorithm"
     algorithm_application: str = "mynestedpredictor"
     algorithm_version: str = "v0"
