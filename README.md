@@ -9,14 +9,15 @@ _A library to onboard models to the [OpenAD toolkit]_
 ![macOS](https://img.shields.io/badge/mac%20os-000000?style=for-the-badge&logo=macos&logoColor=F0F0F0)
 ![Python](https://img.shields.io/badge/python-3670A0?style=for-the-badge&logo=python&logoColor=ffdd54)
 
-<br>
-
 ## About
 
-The OpenAD Model Wrapper lets you wrap any model into a standardized RESTful API so it can be used in the [OpenAD Toolkit]. This library provides the utilities to create and run OpenAD services, including:
+The OpenAD Model Wrapper is a Python library that simplifies the process of deploying machine learning models as production-ready services. It is specifically designed for scientific use cases, such as **molecular property prediction** (e.g., solubility, toxicity) and **de novo molecular generation**.
 
--   Wrapping your model(s) in a quick and easy [FastAPI](https://fastapi.tiangolo.com/) service.
--   Containerizing your model(s) for use in Kubernetes, Docker, Podman, etc.
+By wrapping your model with this library, you can:
+
+-   **Standardize Your Model's API:** Expose your model through a consistent RESTful API, making it easy to integrate with other tools and workflows.
+-   **Seamlessly Integrate with the OpenAD Toolkit:**  The wrapper is designed to work out-of-the-box with the [OpenAD Toolkit], a powerful platform for accelerated discovery.
+-   **Simplify Deployment:** The library provides a straightforward path to containerizing your model with Docker and deploying it to scalable platforms like Kubernetes.
 
 <br>
 
@@ -42,7 +43,7 @@ For a step-by-step guide, see the [Foundational Tutorial](./tutorials/tutorial-b
 
 ### 3. Running the Service
 
-Once you have wrapped your model, you can start the service by running your Python script.
+Once you have wrapped your model, you can start the service by running your Python script. I will be served by default on http://localhost:8080
 
 ### 4. Using with Openad Toolkit
 
