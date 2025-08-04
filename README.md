@@ -33,14 +33,14 @@ The OpenAD Model Wrapper lets you wrap any model into a standardized RESTful API
 
 2. Choose the appropriate wrapper scaffold file.
 
-    - Generation models: [mw-generation-scaffold.py](/src/openad_service_utils/implementation/generation/mw-generation-scaffold.py)
-    - Property prediction models: [mw-properties-scaffold.py](/src/openad_service_utils/implementation/properties/simple.py)
+    - Generation models: [mw-generation-scaffold.py](/src/openad_service_utils/examples/generation/mw-generation-scaffold.py)
+    - Property prediction models: [mw-properties-scaffold.py](/src/openad_service_utils/examples/properties/mw-properties-scaffold.py)
 
 3. Further instructions are included in the scaffold file. We also have simple examples to get you started:
 
-    - Generative model: [mw-generation-example.py](/src/openad_service_utils/implementation/generation/mw-generation-example.py)
-    - Property generation model, single model: [mw-property-example-single](/src/openad_service_utils/implementation/generation/mw-property-example-single)
-    - Property generation model, multi-model: [mw-property-example-multi](/src/openad_service_utils/implementation/generation/mw-property-example-multi)
+    - Generative model: [mw-generation-example.py](/src/openad_service_utils/examples/generation/mw-generation-example.py)
+    - Property generation model, single model: [mw-property-example-single](/src/openad_service_utils/examples/generation/mw-property-example-single)
+    - Property generation model, multi-model: [mw-property-example-multi](/src/openad_service_utils/examples/generation/mw-property-example-multi)
 
 <br>
 
