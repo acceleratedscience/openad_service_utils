@@ -249,7 +249,7 @@ def is_running_in_kubernetes():
     return "KUBERNETES_SERVICE_HOST" in os.environ
 
 
-def start_server(host="0.0.0.0", port=8081, log_level="info", max_workers=1, worker_gpu_min=2000):
+def start_server(host="0.0.0.0", port=8080, log_level="info", max_workers=1, worker_gpu_min=2000):
     logger.debug(f"Server Config: {settings.model_dump()}")
 
     # Assuming JobManager is in the same file or imported correctly
