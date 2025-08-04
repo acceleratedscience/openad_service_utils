@@ -55,7 +55,7 @@ class MySimpleGenerator(SimpleGenerator):
     algorithm_application: str = "MySimpleGenerator"  ### <-- Update
     algorithm_version: str = "v0"  ### <-- Update
 
-    # Model parameters to be exposed by the API
+    # User-provided parameters for API / model inference
     ### -----------------------------------------
     ### ZONE B: DEFINE MODEL PARAMETERS HERE
     ### - - - - - - - - - - - - - - - - - - - - -

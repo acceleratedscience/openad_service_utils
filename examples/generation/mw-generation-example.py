@@ -4,7 +4,12 @@ from pydantic.v1 import Field
 from openad_service_utils import SimpleGenerator, start_server
 
 # Model imports
+### -----------------------------------------
+### ZONE A - MODEL IMPORTS
+
 import random
+
+### -----------------------------------------
 
 # Set this to True when you're wrapping something that's not an actual model.
 # Eg. if you're simply returning a dataset for testing or otherwise
@@ -27,11 +32,19 @@ class ExampleGenerator(SimpleGenerator):
     algorithm_application: str = "ExampleGenerator"
     algorithm_version: str = "v0"
 
-    # Model parameters to be exposed by the API
+    # User-provided parameters for API / model inference
+    ### -----------------------------------------
+    ### ZONE B - MODEL PARAMETERS
+
     foo: int = Field(description="Example parameter A", default=100)
     bar: str = Field(description="Example parameter B", default="abc")
 
+    ### -----------------------------------------
+
     def setup(self):
+        ### -----------------------------------------
+        ### ZONE C - MODEL INSTANTIATION (empty)
+        ### -----------------------------------------
         print(">> Model filepath: ", self.get_model_location())
 
     # Override target description in this case we put we make the target a list
@@ -56,6 +69,8 @@ class ExampleGenerator(SimpleGenerator):
         """
 
         ### -----------------------------------------
+        ### ZONE D: INSERT MODEL EXECUTION HERE
+
         results = []
         for target in targets:
             for i in range(5):
@@ -68,10 +83,9 @@ class ExampleGenerator(SimpleGenerator):
                     }
                 )
         return results
+
         ### -----------------------------------------
 
-
-ExampleGenerator.register(NO_MODEL)
 
 # Start the server
 if __name__ == "__main__":
