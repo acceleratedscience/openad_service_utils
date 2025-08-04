@@ -11,11 +11,6 @@ import random
 
 ### -----------------------------------------
 
-# Set this to True when you're wrapping something that's not an actual model.
-# Eg. if you're simply returning a dataset for testing or otherwise
-# --> This skips the step where we ensure the model artifacts are available to run
-NO_MODEL = True
-
 
 # Register the algorithm with the config that returns your model implementation
 class ExampleGenerator(SimpleGenerator):
@@ -47,11 +42,12 @@ class ExampleGenerator(SimpleGenerator):
         ### -----------------------------------------
         print(">> Model filepath: ", self.get_model_location())
 
+    # NOTE: Explain better
     # Override target description in this case we put we make the target a list
     def get_target_description(self) -> Optional[Dict[str, str]]:
         """
         Get description of the target for generation.
-        If not included, this will default to a dictionary string.
+        If not included, this will use the default value defined in core.py.
         """
 
         return {
@@ -60,7 +56,7 @@ class ExampleGenerator(SimpleGenerator):
             "description": "DESCRIPTION GOES HERE",  ### <-- Update
         }
 
-    def predict(self, targets: List) -> List[Any]:
+    def predict(self, samples: List) -> List[Any]:
         """
         Generation logic for the model.
 
@@ -72,11 +68,11 @@ class ExampleGenerator(SimpleGenerator):
         ### ZONE D: INSERT MODEL EXECUTION HERE
 
         results = []
-        for target in targets:
+        for sample in samples:
             for i in range(5):
                 results.append(
                     {
-                        "target": target,
+                        "target": sample,
                         "index": i,
                         "random_int": random.randint(0, 100),
                         "random_fruit": random.choice(["apple", "banana", "cherry"]),
@@ -86,6 +82,13 @@ class ExampleGenerator(SimpleGenerator):
 
         ### -----------------------------------------
 
+
+# Model registration
+# - - -
+# Set no_model to True when you're wrapping something that's not an actual model.
+# Eg. if you're simply returning a dataset for testing or otherwise
+# --> This skips the step where we ensure the model artifacts are available to run
+ExampleGenerator.register(no_model=True)
 
 # Start the server
 if __name__ == "__main__":

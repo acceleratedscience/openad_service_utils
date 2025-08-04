@@ -76,44 +76,45 @@ class MySimplePredictor(SimplePredictor):
         ### ZONE C: INSERT MODEL INSTANTIATION HERE
         ### - - - - - - - - - - - - - - - - - - - - -
         ### Example:
-        ###   self.model_path = self.get_model_location()
+        ###   self.model_path = os.path.join(self.get_model_location(), "model.ckpt")
         ###   self.model = MyModel(self.model_path)
+        ###   self.tokenizer = []
         ### -----------------------------------------
 
         print(">> Model filepath: ", self.get_model_location())
 
-        # setup your model
-        self.model = None
-        self.tokenizer = []
-        print(">> model filepath: ", self.get_model_location())
-        # -----------------------User Code goes in here------------------------
-        self.model_path = os.path.join(
-            self.get_model_location(), "model.ckpt"
-        )  # load model
-
     def predict(self, sample: Any):
-        """run predictions on your model"""
-        # -----------------------User Code goes in here------------------------
-        if not self.model:
-            self.model = ClassificationModel(
-                model=self.algorithm_application,
-                model_path=self.model_path,
-                tokenizer=self.tokenizer,
-            )
-            self.model.to(self.device)
+        """Prediction logic for the model."""
 
-        result = self.model.eval()
-        print("sleeping------------------------------")
-        sleep(5)
-        print("returning result")
-        # --------------------------------------------------------------------------
-        return result
+        ### -----------------------------------------
+        ### ZONE D: INSERT MODEL EXECUTION HERE
+        ### - - - - - - - - - - - - - - - - - - - - -
+        ### Example:
+        ### if not self.model:
+        ###     self.model = ClassificationModel(
+        ###         model=self.algorithm_application,
+        ###         model_path=self.model_path,
+        ###         tokenizer=self.tokenizer,
+        ###     )
+        ###     self.model.to(self.device)
+        ###
+        ### result = self.model.eval()
+        ### return result
+        ### -----------------------------------------
+
+        print("\n-------------")
+        print("Sample:")
+        print(sample)
 
 
-# register the function in global scope
+# Model registration
+# - - -
+# Set no_model to True when you're wrapping something that's not an actual model.
+# Eg. if you're simply returning a dataset for testing or otherwise
+# --> This skips the step where we ensure the model artifacts are available to run
 MySimplePredictor.register(no_model=True)
-import asyncio
 
+
+# Start the server
 if __name__ == "__main__":
-    # start the server
     start_server(port=8080)

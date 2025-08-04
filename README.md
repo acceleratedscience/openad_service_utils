@@ -35,19 +35,18 @@ The OpenAD Model Wrapper lets you wrap any model into a standardized RESTful API
     pip install git+https://github.com/acceleratedscience/openad_service_utils.git@0.4.0
     -->
 
-2. Choose the appropriate wrapper:
+2. Choose the appropriate wrapper scaffold file.
 
-    - For generation models
-        1. [Classic implentation](src/openad_service_utils/implementation/generation/classic.py) (use when xxx)
-        2. [Simple implementation](src/openad_service_utils/implementation/generation/simple.py) (use when xxx)
-    - Property prediction models
-        1. [Simple implementation](src/openad_service_utils/implementation/properties/simple.py)
+    - Generation models: [mw-generation-scaffold.py](/src/openad_service_utils/implementation/generation/mw-generation-scaffold.py)
+    - Property prediction models: [mw-properties-scaffold.py](/src/openad_service_utils/implementation/properties/simple.py)
 
-3. Separate your model code into **imports** / **instantiation** / **execution** and insert each code into the appropriate tags:
+3. Further instructions are included in the scaffold file. We also have simple examples to get you started:
 
-    ```
+    - Generative model: [mw-generation-example.py](/src/openad_service_utils/implementation/generation/mw-generation-example.py)
+    - Property generation model, single model: [mw-property-example-single](/src/openad_service_utils/implementation/generation/mw-property-example-single)
+    - Property generation model, multi-model: [mw-property-example-multi](/src/openad_service_utils/implementation/generation/mw-property-example-multi)
 
-    ```
+<br>
 
 ## Installation
 

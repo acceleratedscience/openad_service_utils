@@ -34,11 +34,6 @@ from openad_service_utils import SimpleGenerator, start_server
 ###     from mammal.model import Mammal
 ### -----------------------------------------
 
-# Set this to True when you're wrapping something that's not an actual model.
-# Eg. if you're simply returning a dataset for testing or otherwise
-# --> This skips the step where we ensure the model artifacts are available to run
-NO_MODEL = False
-
 
 # Register the algorithm with the config that returns your model implementation
 class MySimpleGenerator(SimpleGenerator):
@@ -50,7 +45,9 @@ class MySimpleGenerator(SimpleGenerator):
     # - - -
     # S3 path: algorithm_type / algorithm_name / algorithm_application / algorithm_version
     # Run self.get_model_location() to see the compiled path
-    algorithm_type: str = "conditional_generation"  ### <-- Update
+    algorithm_type: str = (
+        "conditional_generation"  ### <-- Update (predictor, generation, etc.)
+    )
     algorithm_name: str = "MyGeneratorAlgorithm"  ### <-- Update
     algorithm_application: str = "MySimpleGenerator"  ### <-- Update
     algorithm_version: str = "v0"  ### <-- Update
@@ -94,7 +91,7 @@ class MySimpleGenerator(SimpleGenerator):
             "description": "DESCRIPTION GOES HERE",  ### <-- Update
         }
 
-    def predict(self, targets: List) -> List[Any]:
+    def predict(self, samples: List) -> List[Any]:
         """
         Generation logic for the model.
 
@@ -107,14 +104,14 @@ class MySimpleGenerator(SimpleGenerator):
         ### - - - - - - - - - - - - - - - - - - - - -
         ### Example:
         ###   results = []
-        ###   for target in targets:
+        ###   for sample in samples:
         ###       for lchain in self.lchain:
         ###           for hchain in self.hchain:
         ###               results.append(
         ###                   {
         ###                       "lchain": lchain,
         ###                       "hchain": hchain,
-        ###                       "antigen": target,
+        ###                       "antigen": sample,
         ###                       "score": random.uniform(0.01, 1),
         ###                   }
         ###               )
@@ -122,9 +119,16 @@ class MySimpleGenerator(SimpleGenerator):
         ### -----------------------------------------
 
         print("\n-------------")
-        print("Targets:")
-        print(targets)
+        print("Samples:")
+        print(samples)
 
+
+# Model registration
+# - - -
+# Set no_model to True when you're wrapping something that's not an actual model.
+# Eg. if you're simply returning a dataset for testing or otherwise
+# --> This skips the step where we ensure the model artifacts are available to run
+MySimpleGenerator.register(no_model=False)
 
 # Start the server
 if __name__ == "__main__":
