@@ -8,14 +8,28 @@ Packaging your service with Docker allows you to create a portable and reproduci
 
 ### 1. Create a `Dockerfile`
 
-Create a `Dockerfile` in the root of your project. This file will contain the instructions for building your Docker image. You can use the `Dockerfile` in this repository as a starting point.
+Create a `Dockerfile` in the root of your project. This file will contain the instructions for building your Docker image. Here is an example `Dockerfile` from this repository:
 
-A typical `Dockerfile` for a Python application will:
-1.  Start from a Python base image.
-2.  Set a working directory.
-3.  Copy your project's requirements file and install the dependencies.
-4.  Copy the rest of your project's code into the image.
-5.  Define the command to run your service when the container starts.
+```Dockerfile
+FROM python:3.9.19-slim-bullseye
+
+COPY . /app
+
+WORKDIR /app
+RUN apt-get update && apt-get install -y redis-server &&  apt-get clean
+RUN pip install -e . && mkdir -p /app/data
+ENV ASYNC_ALLOW=True
+CMD cd /app/data && redis-server  --daemonize yes  && python /app/examples/properties/simple_implementation/implementation.py
+```
+
+This `Dockerfile`:
+1.  Starts from a Python 3.9 base image.
+2.  Copies the project files into the `/app` directory in the image.
+3.  Sets the working directory to `/app`.
+4.  Installs Redis.
+5.  Installs the project dependencies.
+6.  Sets the `ASYNC_ALLOW` environment variable to `True`.
+7.  Defines the command to start the Redis server and the model wrapper service.
 
 ### 2. Build the Docker Image
 

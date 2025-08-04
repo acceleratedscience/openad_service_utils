@@ -28,3 +28,11 @@ If the service is stuck in a crash loop, check the following:
 *   **Logs:** Examine the service logs for any error messages or stack traces that can help you identify the cause of the crash.
 *   **Resources:** Ensure that the server has enough memory and CPU resources to run the model.
 *   **Configuration:** Review the service configuration to make sure that all the parameters are set correctly.
+
+## Redis Connection Issues
+
+If the service is having trouble connecting to Redis, check the following:
+
+*   **Redis Server:** Ensure that your Redis server is running and accessible from the machine where the service is running. You can test the connection using `redis-cli ping`.
+*   **Configuration:** Verify that the `REDIS_HOST`, `REDIS_PORT`, `REDIS_DB`, and `REDIS_PASSWORD` environment variables are set correctly. See the [Configuration](./configuration.md) documentation for more details.
+*   **Firewall:** Check for any firewalls that may be blocking the connection between the service and the Redis server.
