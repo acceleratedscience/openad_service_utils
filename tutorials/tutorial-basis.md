@@ -31,7 +31,7 @@ Define the metadata for your model. This includes the `domain`, `algorithm_name`
 
 ```python
 class MySimplePredictor(SimplePredictor):
-    domain: DomainSubmodule = DomainSubmodule.molecules
+    domain: DomainSubmodule = DomainSubmodule("molecules")
     algorithm_name: str = "MyAlgorithm"
     algorithm_application: str = "mypredictor"
     algorithm_version: str = "v0"

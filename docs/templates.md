@@ -82,7 +82,7 @@ from pydantic.v1 import Field
 
 class ToxicityModelParams(PropertyPredictorParameters):
     """Parameters for toxicity prediction models."""
-    domain: DomainSubmodule = DomainSubmodule.molecules
+    domain: DomainSubmodule = DomainSubmodule("molecules")
     algorithm_name: str = "ToxicityPredictor"
     algorithm_application: str = "general"
     algorithm_version: str = "v1"
