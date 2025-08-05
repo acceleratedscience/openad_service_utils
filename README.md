@@ -49,7 +49,7 @@ Once you have wrapped your model, you can start the service by running your Pyth
 
 The [Openad Toolkit](https://github.com/acceleratedscience/openad-toolkit) allows us to run inference through a TUI. See detailed docs [here](https://openad.accelerate.science/docs/model-service/using-models/)
 
-Install the toolkit and run your model inference.
+Install the toolkit.
 
 ```shell
 pip install openad
