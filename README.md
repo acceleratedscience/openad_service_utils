@@ -72,10 +72,13 @@ Now connect your model and run an inference.
 For more detailed documentation, please see the [docs](./docs) directory. The documentation includes information on:
 
 -   [Architecture Overview](./docs/architecture.md)
--   [Input/Output Schema Examples](./docs/input-output.md)
--   [Model Selection & Switching Logic](./docs/model-selection.md)
+-   [Sample Configuration Templates](./docs/templates.md)
 -   [Wrapper Configuration Parameters](./docs/configuration.md)
+-   [Model Selection & Switching Logic](./docs/model-selection.md)
 -   [Async Mode Configuration](./docs/async-mode.md)
+-   [API Reference](./docs/api-reference.md)
+-   [Input/Output Schema Examples](./docs/input-output.md)
+-   [Deployment Guide](./docs/deployment.md)
 -   [Troubleshooting Guide](./docs/troubleshooting.md)
 
 <!-- Links -->
