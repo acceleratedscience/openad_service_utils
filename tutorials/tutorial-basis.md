@@ -124,7 +124,7 @@ By default, the model wrapper assumes that your model is stored in an AWS S3 buc
 MySimplePredictor.register(no_model=True)
 ```
 
-When `no_model=True` is used, the wrapper will not attempt to download any model files from S3. You are then responsible for loading the model in the `setup` method. This is the case in our `protein_solubility_walkthrough.ipynb` tutorial, where the model is loaded directly from HuggingFace.
+When `no_model=True` is used, the wrapper will not attempt to download any model files from S3. You are then responsible for loading the model in the `setup` method. This is the case in our [protein_solubility_walkthrough.ipynb](protein_solubility_walkthrough.ipynb) tutorial, where the model is loaded directly from HuggingFace.
 
 ## 9. Start the Server
 
