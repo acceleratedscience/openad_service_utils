@@ -23,6 +23,10 @@ class MySimplePredictor(SimplePredictor):
 
     def setup(self) -> List[Any]:
         # Load your model here
+        # self.get_model_location() will return the path to the model's cached directory.
+        # You can use this to load your model files.
+        # For example:
+        # self.model = MyModel.load(self.get_model_location())
         pass
 
     def predict(self, sample: Any):
@@ -62,6 +66,10 @@ class MySimpleGenerator(SimpleGenerator):
 
     def setup(self) -> List[Any]:
         # Load your model here
+        # self.get_model_location() will return the path to the model's cached directory.
+        # You can use this to load your model files.
+        # For example:
+        # self.model = MyModel.load(self.get_model_location())
         pass
 
     def predict(self, samples: list) -> List[Any]:
