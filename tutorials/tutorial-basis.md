@@ -38,6 +38,10 @@ class MySimplePredictor(SimplePredictor):
     property_type: PredictorTypes = PredictorTypes.MOLECULE
 ```
 
+These metadata fields are used to construct the path where the model is stored in AWS S3 and cached locally. The path for this example is constructed as follows: `~/.openad_models/properties/<domain>/<algorithm_name>/<algorithm_application>/<algorithm_version>`.
+
+If your model is not stored in AWS S3, see the [Working with Models Not Stored in AWS S3](#working-with-models-not-stored-in-aws-s3) section.
+
 ## 5. Define Available Properties
 
 Define the properties that your model can predict.
