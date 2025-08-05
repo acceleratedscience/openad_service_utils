@@ -36,6 +36,16 @@ if __name__ == "__main__":
     start_server()
 ```
 
+### Working with Models Not Stored in AWS S3
+
+By default, the model wrapper assumes that your model is stored in an AWS S3 bucket and will attempt to download and cache it. If your model is loaded from a different source, such as HuggingFace Hub or a local file path, you can prevent this behavior by passing `no_model=True` to the `register` method.
+
+```python
+MySimplePredictor.register(no_model=True)
+```
+
+When `no_model=True` is used, the wrapper will not attempt to download any model files from S3. You are then responsible for loading the model in the `setup` method.
+
 ## Data Generation
 
 This template shows how to configure a simple data generator.
@@ -64,6 +74,17 @@ if __name__ == "__main__":
     from openad_service_utils import start_server
     start_server()
 ```
+
+### Working with Models Not Stored in AWS S3
+
+Similar to property predictors, if your generation model is loaded from a source other than AWS S3 (e.g., HuggingFace Hub or a local file path), you can prevent the wrapper from attempting to download and cache it by passing `no_model=True` to the `register` method.
+
+```python
+MySimpleGenerator.register(no_model=True)
+```
+
+When `no_model=True` is used, the wrapper will not attempt to download any model files from S3. You are then responsible for loading the model in the `setup` method.
+
 
 ## Nested Properties and Multiple Models
 
