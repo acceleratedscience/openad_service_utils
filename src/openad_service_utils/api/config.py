@@ -5,7 +5,7 @@ from typing import Any
 
 class ServerConfig(BaseSettings):
     AUTO_CLEAR_GPU_MEM: bool = True
-    AUTO_GARABAGE_COLLECT: bool = True
+    AUTO_GARBAGE_COLLECT: bool = True
     SERVE_MAX_WORKERS: int = -1
     ENABLE_CACHE_RESULTS: bool = False
     ASYNC_POOL_MAX: int = 1
