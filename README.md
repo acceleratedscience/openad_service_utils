@@ -32,7 +32,7 @@ Requirements:
 -   A local Redis server - see [Redis installation](https://redis.io/docs/latest/operate/oss_and_stack/install/install-redis/)
 
 ```shell
-pip install git+https://github.com/acceleratedscience/openad_service_utils.git@0.4.0
+pip install git+https://github.com/acceleratedscience/openad_service_utils.git@0.5.0
 ```
 
 ### 2. Wrapping Your Model
