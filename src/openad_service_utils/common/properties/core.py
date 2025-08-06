@@ -40,7 +40,11 @@ class DomainSubmodule(str, Enum):
 class PropertyPredictorParameters(BaseModel):
     """Abstract class for property computation."""
 
-    pass
+    def set_parameters(self, **kwargs):
+        """Overwrite default parameters"""
+        for key, value in kwargs.items():
+            if hasattr(self, key):
+                setattr(self, key, value)
 
 
 # Base class for property predictors that use S3 artifacts
