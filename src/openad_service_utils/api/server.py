@@ -12,6 +12,7 @@ from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi import Depends
 from pandas import DataFrame
+from openad_service_utils.api.models import ServiceRequest
 from openad_service_utils.api.job_manager import (
     JobManager,
     get_slaves,
@@ -49,8 +50,6 @@ from contextlib import asynccontextmanager
 # Set up logging configuration
 setup_logging()
 
-job_manager: JobManager = None
-
 # Get the server configuration environment variables
 settings = get_config_instance()
 
@@ -82,7 +81,7 @@ def run_cleanup():
             torch.cuda.empty_cache()
         except ImportError:
             pass  # do nothing
-    if settings.AUTO_GARABAGE_COLLECT:
+    if settings.AUTO_GARBAGE_COLLECT:
         logger.debug(f"manual garbage collection on process ID: {os.getpid()}")
         gc.collect()
 
@@ -98,14 +97,13 @@ async def health():
 
 
 @app.post("/service")
-async def service(restful_request: dict, job_manager: JobManager = Depends(get_job_manager)):
+async def service(restful_request: ServiceRequest, job_manager: JobManager = Depends(get_job_manager)):
     # logger.info(f"Processing request {restful_request}")
-    logger.info(f"User Request Received ")
-    original_request = copy.deepcopy(restful_request)
-
+    original_request = restful_request.model_dump(by_alias=True)
+    request_to_be_submitted = original_request
     if settings.ENABLE_CACHE_RESULTS:
         # convert input to string for caching
-        restful_request = dict_to_json_string(restful_request)
+        request_to_be_submitted = dict_to_json_string(original_request)
 
     try:
         # user request is for property prediction
@@ -115,15 +113,12 @@ async def service(restful_request: dict, job_manager: JobManager = Depends(get_j
                 return {"error": {"reason": "job does not exist"}}
         elif original_request.get("service_type") in PropertyFactory.AVAILABLE_PROPERTY_PREDICTOR_TYPES():
 
-            if settings.ASYNC_ALLOW and "async" in original_request and original_request["async"] == True:
+            if settings.ASYNC_ALLOW and original_request.get("async"):
                 return await job_manager.submit_job(
-                    property_request, "route_service_async", restful_request, async_submission=True
+                    property_request, "route_service_async", request_to_be_submitted, async_submission=True
                 )
             else:
-                logger.info(f"submitting job  ")
-                job_id = await job_manager.submit_job(property_request, "route_service", restful_request)
-
-                logger.warning("await result for " + str(job_id))
+                job_id = await job_manager.submit_job(property_request, "route_service", request_to_be_submitted)
 
                 all_req_result = await job_manager.get_result_by_id(job_id)
 
@@ -132,15 +127,13 @@ async def service(restful_request: dict, job_manager: JobManager = Depends(get_j
 
         # user request is for generation
         elif original_request.get("service_type") == "generate_data":
-            if settings.ASYNC_ALLOW and "async" in original_request and original_request["async"] == True:
+            if settings.ASYNC_ALLOW and original_request.get("async"):
                 return await job_manager.submit_job(
-                    generation_request, "route_service_async", restful_request, async_submission=True
+                    generation_request, "route_service_async", request_to_be_submitted, async_submission=True
                 )
             else:
-                logger.info(f"submitting job  ")
-                job_id = await job_manager.submit_job(generation_request, "route_service", restful_request)
+                job_id = await job_manager.submit_job(generation_request, "route_service", request_to_be_submitted)
                 all_req_result = await job_manager.get_result_by_id(job_id)
-                logger.warning("await result for " + str(job_id))
                 request_result = all_req_result["result"]
                 return request_result
 
@@ -177,7 +170,6 @@ async def service(restful_request: dict, job_manager: JobManager = Depends(get_j
 @app.get("/service")
 async def get_service_defs():
     """return service definitions"""
-    logger.info("Retrieving service definitions")
     all_services = []
     # get generation service list
     gen_services: list = get_generation_services()
@@ -194,13 +186,13 @@ async def get_service_defs():
             prop_services[i]["async_allow"] = settings.ASYNC_ALLOW
     if prop_services:
         all_services.extend(prop_services)
-        logger.debug(f"property models registered: {len(prop_services)}")
+        logger.info(f"Available Property Services: {len(prop_services)}")
     # check if services available
     if not all_services:
-        logger.error("No property or generation services registered!")
+        logger.warning("No property or generation services registered!")
     # log services
     try:
-        logger.debug(f"Available types: {list(chain.from_iterable([i['valid_types'] for i in all_services]))}")
+        logger.info(f"Available Property types: {list(chain.from_iterable([i['valid_types'] for i in all_services]))}")
     except Exception as e:
         logger.warning(f"could not print types: {str(e)}")
     return JSONResponse(all_services)
@@ -288,7 +280,7 @@ def start_server(host="0.0.0.0", port=8080, log_level="info", max_workers=1, wor
     else:
         logger.info("using public gt4sd s3 model repository")
 
-    config_settings = GT4SDConfiguration().model_dump(include=["OPENAD_S3_HOST", "OPENAD_S3_HOST_HUB"])
+    config_settings = GT4SDConfiguration().model_dump(include={"OPENAD_S3_HOST", "OPENAD_S3_HOST_HUB"})
     logger.info(f"S3 Config: {config_settings}")
 
     logger.debug(f"Total workers: {max_workers}")
