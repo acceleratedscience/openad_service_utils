@@ -34,6 +34,7 @@ from tenacity import retry, stop_after_attempt, wait_exponential
 
 from .exceptions import S3SyncError
 from openad_service_utils.utils.logging_config import setup_logging
+from tqdm import tqdm
 
 # Set up logging configuration
 setup_logging()
@@ -307,9 +308,10 @@ class GT4SDS3Client:
             os.makedirs(path)
 
         try:
-            s3_objects = self.client.list_objects(bucket_name=bucket, prefix=prefix, recursive=True)
-
-            for s3_object in s3_objects:
+            s3_objects = list(self.client.list_objects(bucket_name=bucket, prefix=prefix, recursive=True))
+            for s3_object in tqdm(s3_objects, desc="Downloading", unit="file"):
+            # for s3_object in tqdm(s3_objects, desc="Downloading", unit="file", bar_format="{l_bar}{bar} | {n_fmt}/{total_fmt} [{percentage:3.0f}%]"):
+            # for s3_object in s3_objects:
                 object_name = s3_object.object_name
                 is_directory = object_name.endswith("/")
 
@@ -323,7 +325,7 @@ class GT4SDS3Client:
                 if is_directory:
                     if not os.path.isdir(filepath):
                         os.makedirs(filepath)
-                        logger.debug(f"creating empty directory: '{filepath}'")
+                        # logger.debug(f"creating empty directory: '{filepath}'")
                     continue
 
                 # Create parent directories for file if they don't exist
@@ -333,7 +335,7 @@ class GT4SDS3Client:
 
                 # Check if download is needed
                 if not os.path.exists(filepath) or force:
-                    logger.debug(f"downloading file '{os.path.basename(object_name)}' to '{filepath}'")
+                    # logger.debug(f"downloading file '{os.path.basename(object_name)}' to '{filepath}'")
                     try:
                         self.client.fget_object(
                             bucket_name=bucket,

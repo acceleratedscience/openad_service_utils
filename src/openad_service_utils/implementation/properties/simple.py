@@ -1,7 +1,7 @@
 import logging
 import os
 from abc import ABC, abstractmethod
-from typing import ClassVar, List, Optional, TypedDict, Dict, Any
+from typing import ClassVar, List, Optional, TypedDict, Dict, Any, Union
 
 from pydantic.v1 import BaseModel, Field
 
@@ -181,7 +181,7 @@ class SimplePredictor(PredictorAlgorithm, BasePredictorParameters):
         """overwrite existing function to download model only once"""
         # download model
         if self.__no_model__:
-            print("no predictor")
+            logger.info("No model required, skipping S3 caching.")
             return
         self.__download_model()
         # get prediction function
@@ -202,8 +202,8 @@ class SimplePredictor(PredictorAlgorithm, BasePredictorParameters):
         raise NotImplementedError("Not implemented in baseclass.")
 
     @abstractmethod
-    def predict(self, sample: Any):
-        """Run predictions and return results."""
+    def predict(self, sample: Any) -> Union[Dict[str, Any], List[Any], str, int, float, bool, None]:
+        """Run predictions and return results in JSON serializable format."""
 
         raise NotImplementedError("Not implemented in baseclass.")
 
@@ -232,8 +232,6 @@ class SimplePredictor(PredictorAlgorithm, BasePredictorParameters):
         cls.__name__ = class_fields.get("algorithm_application")
         cls.__no_model__ = no_model
         # setup s3 class params
-        print(cls.__annotations__)
-        print(PredictorParameters)
         model_param_class: PredictorParameters = type(cls.__name__ + "Parameters", (PredictorParameters,), class_fields)
 
         if class_fields.get("available_properties"):
@@ -287,7 +285,7 @@ class SimplePredictorMultiAlgorithm(SimplePredictor):
         """overwrite existing function to download model only once"""
         # download model
         if self.__no_model__:
-            print("no predictor")
+            logger.info("No model required, skipping download.")
             return
         # .__download_model()
         # get prediction function

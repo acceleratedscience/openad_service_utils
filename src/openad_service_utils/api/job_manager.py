@@ -103,10 +103,10 @@ class JobManager:
         )
 
         await self.redis_client.expire(f"job:{job_id}", 345600)  # Expire all jobs in cache after 4 days
+        logger.debug(f"Job {job_id} submitted to redis {self.name} with async submission: {async_submission}")
         if not async_submission:
             await self.redis_client.rpush(SUBMISSION_QUEUE, job_id)
         else:
-            print("async job written to queue")
             await self.redis_client.rpush(ASYNC_SUBMISSION_QUEUE, job_id)
             await self.___write_job_header_file__(args, job_id)
 
@@ -126,7 +126,6 @@ class JobManager:
         return job_info if job_info else None
 
     async def get_result_by_id(self, job_id: str) -> Union[Any, Dict[str, Any]]:
-        i = 0
         try:
             job_info = await self._get_job_info_by_id(job_id)
 
@@ -137,9 +136,7 @@ class JobManager:
             else:
                 # Job is still running or not found, wait for a short period and try again
                 while job_info["status"] not in ["error", "completed", "failed"]:
-                    i += 1
-                    # logger.info(f"await result for {job_id}    " + str(i))
-                    await asyncio.sleep(1)
+                    await asyncio.sleep(0.5)
                     job_info = await self._get_job_info_by_id(job_id)
 
                 return job_info
@@ -151,7 +148,7 @@ class JobManager:
         """process active jobs as part of the Daemon process by pulling them off Submission QUEUES
 
         Not async jobs are a lower priority and only will be enabled for pooled async enabled workers"""
-        logger.info(f"                    Starting Process Daemon {self.name} Async Enabled {self.async_enabled}")
+        logger.debug(f"Starting Process Daemon {self.name} Async Enabled {self.async_enabled}")
         try:
             while True:
                 job_id = None
@@ -159,19 +156,19 @@ class JobManager:
                 task = await self.redis_client.lpop(SUBMISSION_QUEUE)
                 if task is not None:
                     job_id = task.decode()
-                    logger.warning(f" Job Allocated Process Daemon {self.name} Async Queue looking {job_id}")
+                    # logger.debug(f" Job Allocated Process Daemon {self.name} Async Queue looking {job_id}")
                 elif self.async_enabled:
                     await cleanup_old_files(localRepo=ASYNC_PATH, age=ASYNC_CLEANUP_AGE)
                     task = await self.redis_client.lpop(ASYNC_SUBMISSION_QUEUE)
                     if task is not None:
-                        logger.warning(f" Task Found Daemon {self.name} Async Queue looking {job_id}")
+                        # logger.debug(f" Task Found Daemon {self.name} Async Queue looking {job_id}")
                         job_id = task.decode()
                         async_job = True
 
                 if job_id is not None:
                     job_info = await self._get_job_info_by_id(job_id)
-                    logger.warning(
-                        f" Job {job_id}  job has been pulled off queue to be processed by Daemon {self.name}"
+                    logger.debug(
+                        f" Job {job_id} has been pulled off queue to be processed by Daemon {self.name}"
                     )
                     # logger.warning("job_info   " + str(job_info))
                     instance, methodname, result, error, job_id = (
@@ -184,7 +181,8 @@ class JobManager:
                     args = job_info["args"]
                     # if not isinstance(args, dict):
                     #     args = ast.literal_eval(str(args))
-                    if isinstance(args, str):
+                    if isinstance(args, str) and not settings.ENABLE_CACHE_RESULTS:
+                        # if args is a string, convert it to a dict only if caching is not enabled
                         logger.warning(f"args is not a dict. {type(args)=}")
                         args = json.loads(args)
 
@@ -198,38 +196,25 @@ class JobManager:
                             await fd.write("")
                     try:
 
-                        logger.info(f"                    Running {self.name} " + str(job_id))
-                        logger.info(f"                    Running step 1 {self.name} " + str(job_info))
+                        logger.info(f"Running Job {job_id}")
                         instance = instance()
-                        logger.info(f"                    Running step 2 {self.name} " + str(job_id))
-
                         # Call the method on the instance - this is the main function
                         if os.environ.get("DEBUG_ASYNC_THREAD", "False") == "True":
                             result = await asyncio.to_thread(instance.route_service, args)
                         else:
                             result = instance.route_service(args)
-
-                        logger.info(f"                    Running step 3 Result {self.name} " + str(result))
-                        logger.info(f"                    Running step 3 {self.name} " + str(job_id))
                         if async_job:
                             async with aiofiles.open(f"{ASYNC_PATH}/{job_id}.running", "w") as fd:
                                 await fd.write("run")
                         # Store the result within the returned tuple
                         job_info["result"] = result
-                        logger.info(f"                    Running step 4 {self.name} " + str(job_info))
                         job_info["status"] = "completed"
-                        logger.info(f"                    Running step 5 {self.name} " + str(job_info))
                         if async_job:
                             async with aiofiles.open(f"{ASYNC_PATH}/{job_id}.result", "w") as fd:
                                 if isinstance(result, pandas.DataFrame):
                                     result = result.to_json()
                                 await fd.write(json.dumps(result))
-                        logger.info(
-                            (f"---------------------------------Completed {self.name}---------------------------")
-                        )
-                        logger.info("result Returned for job_id" + str(job_id))
-
-                        # Put the completed job back into the queue to be retrieved by get_result_by_id()
+                        logger.info(f"Completed Job: {job_id}")
 
                     except Exception as e:
                         # Handle any exceptions that occur during function execution
@@ -253,8 +238,7 @@ class JobManager:
                         pickle.dumps(job_info),
                     )
                     run_cleanup()
-                # print(f"looping {self.name}")
-                await asyncio.sleep(random.randint(1, 6))
+                await asyncio.sleep(0.1)
         except Exception as e:
             logger.error("Exception     " + str(e), exc_info=True)
 
@@ -268,7 +252,7 @@ def run_cleanup():
             torch.cuda.empty_cache()
         except ImportError:
             pass  # do nothing
-    if settings.AUTO_GARABAGE_COLLECT:
+    if settings.AUTO_GARBAGE_COLLECT:
         logger.debug(f"manual garbage collection on process ID: {os.getpid()}")
         gc.collect()
 
