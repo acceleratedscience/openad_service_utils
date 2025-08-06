@@ -10,8 +10,22 @@ If the model is not loading, check the following:
 *   **On-Disk Location:** By default, models are cached in the `~/.openad_models` directory. The full path is constructed as follows:
     *   **Properties:** `~/.openad_models/properties/<domain>/<algorithm_name>/<algorithm_application>/<algorithm_version>`
     *   **Generation:** `~/.openad_models/algorithms/<algorithm_type>/<algorithm_name>/<algorithm_application>/<algorithm_version>`
+    
+    You can programmatically get the exact path to your model's cache directory by calling `self.get_model_location()` from within your predictor's `setup` method. This is the recommended way to get the path, as it will always be correct even if the default cache location is changed.
 *   **Model Files:** Verify that the model files exist at the specified path and that the user running the service has the necessary permissions to access them.
 *   **Dependencies:** Make sure that all the required dependencies for the model are installed in the correct environment.
+
+## Bypassing Model Loading
+
+In some cases, you may want to run the service without automatically loading a model from S3. This is useful when you are wrapping an API (e.g., RDKit) or creating a pipeline that calls other services.
+
+To achieve this, you can pass `no_model=True` to the `register` method in your implementation file.
+
+```python
+MySimplePredictor.register(no_model=True)
+```
+
+When `no_model=True` is used, the wrapper will not attempt to download any model files from S3. You are then responsible for loading the model in the `setup` method. This is the case in our `protein_solubility_walkthrough.ipynb` tutorial, where the model is loaded directly from HuggingFace.
 
 ## Bad Input
 

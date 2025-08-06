@@ -15,7 +15,7 @@ The OpenAD Model Wrapper is a Python library that simplifies the process of depl
 
 By wrapping your model with this library, you can:
 
--   **Standardize Your Model's API:** Expose your model through a consistent RESTful API, making it easy to integrate with other tools and workflows.
+-   **Standardize Your Model's API:** Expose your model through a standardized API, making it easy to integrate with other tools and workflows.
 -   **Seamlessly Integrate with the OpenAD Toolkit:**  The wrapper is designed to work out-of-the-box with the [OpenAD Toolkit], a powerful platform for accelerated discovery.
 -   **Simplify Deployment:** The library provides a straightforward path to containerizing your model with Docker and deploying it to scalable platforms like Kubernetes.
 

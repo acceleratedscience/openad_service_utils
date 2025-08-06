@@ -40,6 +40,35 @@ For data generation, the `service_type` should be `generate_data`. The `paramete
 }
 ```
 
+### Asynchronous Job Submission
+
+To submit a job for asynchronous processing, add the `"async": true` field to any Property Prediction or Data Generation request.
+
+**Example:**
+```json
+{
+  "service_type": "get_molecule_property",
+  "service_name": "MySimplePredictor",
+  "parameters": {
+    "property_type": ["LogP", "TPSA"],
+    "subjects": ["CCO", "CCC"]
+  },
+  "async": true
+}
+```
+
+### Asynchronous Job Retrieval
+
+To retrieve the results of an asynchronous job, use the `get_result` service type.
+
+**Example:**
+```json
+{
+  "service_type": "get_result",
+  "url": "f1b2c3d4-e5f6-7890-1234-567890abcdef"
+}
+```
+
 ## Output Schema
 
 The output schema depends on the `service_type` of the request.
@@ -86,3 +115,18 @@ The output is a list of generated items.
         "result": "CC(C)(C)C1=CC=C(C=C1)C(C)(C)C"
     }
 ]
+```
+
+### Asynchronous Job Submission Output
+
+When you submit an asynchronous job, the server will respond with a job ID.
+
+```json
+{
+  "job_id": "f1b2c3d4-e5f6-7890-1234-567890abcdef"
+}
+```
+
+### Asynchronous Job Retrieval Output
+
+When you retrieve the results of an asynchronous job, the server will respond with the results of the job, or a status indicating that the job is still pending. If the job is complete, the output will be the same as the corresponding synchronous request.

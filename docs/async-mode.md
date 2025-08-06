@@ -27,7 +27,7 @@ To submit an asynchronous job, add the `async` field to your request and set it 
 
 ```json
 {
-  "service_type": "molecule",
+  "service_type": "get_molecule_property",
   "service_name": "MySimplePredictor",
   "parameters": {
     "property_type": ["LogP", "TPSA"],

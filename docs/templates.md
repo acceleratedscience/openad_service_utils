@@ -72,6 +72,14 @@ class MySimpleGenerator(SimpleGenerator):
         # self.model = MyModel.load(self.get_model_location())
         pass
 
+    def get_target_description(self) -> dict | None:
+        """Get description of the target for generation."""
+        return {
+            "title": "Target",
+            "type": "string",
+            "description": "A string to use as a starting point for generation.",
+        }
+
     def predict(self, samples: list) -> List[Any]:
         # Your generation logic here
         pass
