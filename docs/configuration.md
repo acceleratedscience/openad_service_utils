@@ -8,6 +8,7 @@ The model wrapper can be configured using environment variables. The following t
 | `AUTO_GARBAGE_COLLECT` | boolean | `True` | Automatically run garbage collection after each request. |
 | `SERVE_MAX_WORKERS` | integer | `-1` | The maximum number of worker processes to use. If set to -1, the number of workers will be determined automatically based on the available resources. |
 | `ENABLE_CACHE_RESULTS` | boolean | `False` | Enable caching of results. |
+| `CACHE_TTL` | integer | `3600` | Time to live for cached results in seconds. |
 | `ASYNC_POOL_MAX` | integer | `1` | The maximum number of processes to use for asynchronous jobs. |
 | `ASYNC_ALLOW` | boolean | `False` | Enable asynchronous job submission. |
 | `ASYNC_CLEANUP_AGE` | integer | `3` | The number of days to keep asynchronous job results before deleting them. |

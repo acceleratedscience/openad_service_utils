@@ -1,7 +1,9 @@
 import logging
 import gc
 import asyncio
-import redis
+import redis.asyncio as redis
+import hashlib
+import json
 import multiprocessing
 import os
 import signal
@@ -12,7 +14,7 @@ from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi import Depends
 from pandas import DataFrame
-from openad_service_utils.api.models import ServiceRequest
+from openad_service_utils.api.models import ServiceRequest, ServiceType
 from openad_service_utils.api.job_manager import (
     JobManager,
     get_slaves,
@@ -61,8 +63,12 @@ SLAVES = None
 # create lifecycle event to initialize the job manager
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Init Redis connection pool
+    app.state.redis = redis.Redis(host=settings.REDIS_HOST, port=settings.REDIS_PORT, db=settings.REDIS_DB, password=settings.REDIS_PASSWORD, decode_responses=True)
     await delete_sync_submission_queue()
     yield
+    await app.state.redis.close()
+
     logger.debug("Shutting down server...")
     # Cleanup code here
 
@@ -96,75 +102,70 @@ async def health():
     return "UP"
 
 
+# Helper: generate a cache key
+def generate_cache_key(request_data: dict) -> str:
+    payload_str = json.dumps(request_data, sort_keys=True)
+    return f"service_cache:{hashlib.sha256(payload_str.encode()).hexdigest()}"
+
+
 @app.post("/service")
-async def service(restful_request: ServiceRequest, job_manager: JobManager = Depends(get_job_manager)):
-    # logger.info(f"Processing request {restful_request}")
+async def service(
+    restful_request: ServiceRequest,
+    job_manager: JobManager = Depends(get_job_manager)
+):
     original_request = restful_request.model_dump(by_alias=True)
-    request_to_be_submitted = original_request
-    if settings.ENABLE_CACHE_RESULTS:
-        # convert input to string for caching
-        request_to_be_submitted = dict_to_json_string(original_request)
+    service_type = original_request.get("service_type")
+    cache_key = generate_cache_key(original_request)
+
+    # Return cached result if available (except for GET_RESULT)
+    if settings.ENABLE_CACHE_RESULTS and service_type != ServiceType.GET_RESULT:
+        cached = await app.state.redis.get(cache_key)
+        if cached:
+            return json.loads(cached)
 
     try:
-        # user request is for property prediction
-        if original_request.get("service_type") == "get_result":
+        if service_type == ServiceType.GET_RESULT:
             result = await retrieve_async_job(original_request.get("url"))
             if result is None:
                 return {"error": {"reason": "job does not exist"}}
-        elif original_request.get("service_type") in PropertyFactory.AVAILABLE_PROPERTY_PREDICTOR_TYPES():
 
-            if settings.ASYNC_ALLOW and original_request.get("async"):
-                return await job_manager.submit_job(
-                    property_request, "route_service_async", request_to_be_submitted, async_submission=True
-                )
-            else:
-                job_id = await job_manager.submit_job(property_request, "route_service", request_to_be_submitted)
+        elif service_type in PropertyFactory.AVAILABLE_PROPERTY_PREDICTOR_TYPES():
+            result = await handle_job_submission(
+                job_manager, property_request, original_request
+            )
 
-                all_req_result = await job_manager.get_result_by_id(job_id)
-
-                request_result = all_req_result["result"]
-                return request_result
-
-        # user request is for generation
-        elif original_request.get("service_type") == "generate_data":
-            if settings.ASYNC_ALLOW and original_request.get("async"):
-                return await job_manager.submit_job(
-                    generation_request, "route_service_async", request_to_be_submitted, async_submission=True
-                )
-            else:
-                job_id = await job_manager.submit_job(generation_request, "route_service", request_to_be_submitted)
-                all_req_result = await job_manager.get_result_by_id(job_id)
-                request_result = all_req_result["result"]
-                return request_result
+        elif service_type == ServiceType.GENERATE_DATA:
+            result = await handle_job_submission(
+                job_manager, generation_request, original_request
+            )
 
         else:
-            logger.error(f"Error processing request: {original_request}")
-            raise HTTPException(
-                status_code=500,
-                detail={"error": "service mismatch", "input": original_request},
-            )
-        # cleanup resources before returning request
-        run_cleanup()
-        if result is None:
-            raise HTTPException(
-                status_code=500,
-                detail={"error": "service not found", "input": original_request},
-            )
-        if isinstance(result, DataFrame):
-            return result.to_dict(orient="records")
-        else:
-            return result
-    except HTTPException as e:
-        # reraise HTTPException to maintain the original status code and detail
-        raise e
+            raise HTTPException(status_code=500, detail={"error": "service mismatch", "input": original_request})
+
+        # Cache the result (except for GET_RESULT)
+        if settings.ENABLE_CACHE_RESULTS and service_type != ServiceType.GET_RESULT:
+            if isinstance(result, DataFrame):
+                result = result.to_dict(orient="records")
+            await app.state.redis.set(cache_key, json.dumps(result), ex=settings.CACHE_TTL)
+
+        return result
+
+    except HTTPException:
+        raise
     except Exception as e:
-        simple_error = f"{type(e).__name__}: {e}"
-        logger.error(f"Error processing request: {simple_error}")
-        traceback.print_exc()
-        raise HTTPException(
-            status_code=500,
-            detail={"error": str(simple_error), "input": original_request},
-        )
+        raise HTTPException(status_code=500, detail={"error": str(e), "input": original_request})
+
+
+async def handle_job_submission(job_manager, request_obj, original_request):
+    if settings.ASYNC_ALLOW and original_request.get("async"):
+        job_id = await job_manager.submit_job(request_obj, "route_service_async", original_request, async_submission=True)
+        cache_key = generate_cache_key(original_request)
+        await app.state.redis.set(cache_key, json.dumps(job_id), ex=settings.CACHE_TTL)
+        return job_id
+    else:
+        job_id = await job_manager.submit_job(request_obj, "route_service", original_request)
+        all_result = await job_manager.get_result_by_id(job_id)
+        return all_result["result"]
 
 
 @app.get("/service")

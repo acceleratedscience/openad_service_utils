@@ -2,19 +2,23 @@
 
 import copy
 import json
-import traceback
+# import traceback
 
 import pandas as pd
 from pydantic.v1 import BaseModel
 
 from openad_service_utils.api.generation.generate_service_defs import (
-    create_service_defs,
+    # create_service_defs,
     generate_service_defs,
 )
-from openad_service_utils.common.exceptions import InvalidItem
+# from openad_service_utils.common.exceptions import InvalidItem
 
-from .generation_applications import ApplicationsRegistry as GeneratorRegistry
-from .generation_applications import get_algorithm_applications
+# from .generation_applications import ApplicationsRegistry as GeneratorRegistry
+from openad_service_utils.api.generation.generation_applications import ApplicationsRegistry as GeneratorRegistry
+# from .generation_applications import get_algorithm_applications
+# from openad_service_utils.api.config import get_config_instance
+# from openad_service_utils.api.lru import conditional_lru_cache
+# from openad_service_utils.utils.convert import json_string_to_dict
 import logging
 from openad_service_utils.utils.logging_config import setup_logging
 
@@ -108,7 +112,10 @@ class service_requester:
         """fetch available services and cache results"""
         return get_services()
 
-    def route_service(self, request: dict):
+    # @conditional_lru_cache(maxsize=100)
+    def route_service(self, request):
+        # if get_config_instance().ENABLE_CACHE_RESULTS:
+        #     request = json_string_to_dict(request)
         result = None
         if not self.is_valid_service_request(request):
             return False

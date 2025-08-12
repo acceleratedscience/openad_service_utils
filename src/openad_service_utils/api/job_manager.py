@@ -199,10 +199,7 @@ class JobManager:
                         logger.info(f"Running Job {job_id}")
                         instance = instance()
                         # Call the method on the instance - this is the main function
-                        if os.environ.get("DEBUG_ASYNC_THREAD", "False") == "True":
-                            result = await asyncio.to_thread(instance.route_service, args)
-                        else:
-                            result = instance.route_service(args)
+                        result = await asyncio.to_thread(instance.route_service, args)  # run in async thread
                         if async_job:
                             async with aiofiles.open(f"{ASYNC_PATH}/{job_id}.running", "w") as fd:
                                 await fd.write("run")

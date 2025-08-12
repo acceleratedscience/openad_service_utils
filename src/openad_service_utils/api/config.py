@@ -8,6 +8,7 @@ class ServerConfig(BaseSettings):
     AUTO_GARBAGE_COLLECT: bool = True
     SERVE_MAX_WORKERS: int = -1
     ENABLE_CACHE_RESULTS: bool = False
+    CACHE_TTL: int = 3600  # seconds
     ASYNC_POOL_MAX: int = 1
 
     ASYNC_ALLOW: bool = False
