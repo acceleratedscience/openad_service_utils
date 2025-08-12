@@ -1,6 +1,6 @@
 [project]
 name = "openad_service_utils"
-version = "0.5.0"
+version = "0.5.1"
 description = "Utility library to extend an existing model to OpenAD Toolkit and give it an API interface."
 authors = [{name = "Brian Duenas", email = "brian.duenas@ibm.com"}]
 requires-python = ">= 3.9"
