@@ -20,6 +20,8 @@ def generate_property_service_defs(target_type: str, PropertyPredictorFactory: D
         input_type = "SMILES"
     elif target_type == "protein":
         input_type = "PROTEIN"
+    elif target_type == "mesh":
+        input_type = "MESH_OBJECT" # New input type for mesh
     else:
         input_type = "directory"
 
@@ -156,3 +158,4 @@ if __name__ == "__main__":
     services_path = "./"
     create_property_defs("molecule", PropertyFactory.molecule_predictors_registry, services_path)
     create_property_defs("protein", PropertyFactory.protein_predictors_registry, services_path)
+    create_property_defs("mesh", PropertyFactory.mesh_predictors_registry, services_path) # Add mesh property defs

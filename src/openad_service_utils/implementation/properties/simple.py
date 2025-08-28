@@ -1,7 +1,7 @@
 import logging
 import os
 from abc import ABC, abstractmethod
-from typing import ClassVar, List, Optional, TypedDict, Dict, Any, Union
+from typing import ClassVar, List, Optional, TypedDict, Dict, Any, Union, Type
 
 from pydantic.v1 import BaseModel, Field
 
@@ -12,7 +12,7 @@ from openad_service_utils.common.algorithms.core import (
     PredictorAlgorithm,
 )
 from openad_service_utils.common.configuration import get_cached_algorithm_path
-from openad_service_utils.common.properties.core import DomainSubmodule, S3Parameters
+from openad_service_utils.common.properties.core import DomainSubmodule, S3Parameters, Mesh
 from openad_service_utils.common.properties.property_factory import (
     PredictorTypes,
     PropertyFactory,
@@ -76,6 +76,9 @@ class PredictorParameters(BaseModel):
     # this is used to select a var::PropertyInfo.name available_properties. User selected property from api.
     # this is not harcoded in the class, but is added to the class when registering the predictor
     selected_property: str = ""
+    subjects: Optional[List[Union[str, Mesh, Dict[str, Any]]]] = Field(
+        None, description="List of subjects for prediction (e.g., SMILES strings, protein sequences, or Mesh objects)."
+    )
 
 
 class SimplePredictor(PredictorAlgorithm, BasePredictorParameters):
@@ -113,6 +116,7 @@ class SimplePredictor(PredictorAlgorithm, BasePredictorParameters):
     """
 
     # algorithm_type: ClassVar[str] = ""  # hardcoded because we dont care about it. does nothing.
+    selected_property: str = ""
     property_type: PredictorTypes
     available_properties: Optional[List[PropertyInfo]] = []
 

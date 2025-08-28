@@ -7,6 +7,7 @@ class ServiceType(str, Enum):
     GET_PROTEIN_PROPERTY = "get_protein_property"
     GET_MOLECULE_PROPERTY = "get_molecule_property"
     GET_CRYSTAL_PROPERTY = "get_crystal_property"
+    GET_MESH_PROPERTY = "get_mesh_property"
     GENERATE_DATA = "generate_data"
     GET_RESULT = "get_result"
 

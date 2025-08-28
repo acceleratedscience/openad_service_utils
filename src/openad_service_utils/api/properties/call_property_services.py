@@ -3,6 +3,7 @@ import copy
 import json
 # import os
 from pathlib import Path
+from typing import Any
 
 # from pandas import DataFrame
 from pydantic.v1 import BaseModel
@@ -71,6 +72,7 @@ def get_services() -> list:
     all_services.extend(generate_property_service_defs("molecule", PropertyFactory.molecule_predictors_registry))
     all_services.extend(generate_property_service_defs("protein", PropertyFactory.protein_predictors_registry))
     all_services.extend(generate_property_service_defs("crystal", PropertyFactory.crystal_predictors_registry))
+    all_services.extend(generate_property_service_defs("mesh", PropertyFactory.mesh_predictors_registry))
     return all_services
 
 
@@ -96,9 +98,8 @@ class service_requester:
             return False
         category = None
 
+        current_service = None # Initialize current_service here
         for service in get_services():
-            current_service = None
-
             if (
                 service["service_type"] == request["service_type"]
                 and service["service_name"] == request["service_name"]
@@ -109,7 +110,7 @@ class service_requester:
 
         if current_service is None:
             logger.debug("service mismatch")
-            return None
+            raise ValueError("Invalid service request. Service mismatch.")
         if category == "properties":
             if self.property_requestor is None:
                 self.property_requestor = request_properties()
@@ -121,7 +122,7 @@ class service_requester:
 
         return result
 
-    async def __call__(self, req: json):
+    async def __call__(self, req: Any): # Changed type hint from json to Any
         req = await req.json()
         return self.route_service(req)
 
@@ -209,8 +210,19 @@ class request_properties:
                             }
                         )
 
+                elif service_type == "get_mesh_property":
+                    # Handle Mesh property requests
+                    # Assuming 'subject' is already a Mesh object or can be converted
+                    # The predictor should be able to handle the Mesh object directly
+                    results.append(
+                        {
+                            "subject": subject, # subject is already a Mesh object or dict
+                            "property": property_type,
+                            "result": predictor(subject),
+                        }
+                    )
                 else:
-                    # All other propoerty Requests handled here.
+                    # All other property Requests handled here.
                     results.append(
                         {
                             "subject": subject,
@@ -223,12 +235,13 @@ class request_properties:
     def set_parms(self, property_type, parameters):
         request_params = {}
         schema = PropertyPredictorRegistry.get_property_predictor_parameters_schema(property_type)
-        schema = json.loads(schema)
-        if "required" in schema.keys():
-            for param in schema["required"]:
+        schema_dict = json.loads(schema) # Load the schema string into a dictionary
+        if "required" in schema_dict.keys():
+            for param in schema_dict["required"]: # Use schema_dict here
                 if param in ["property_type", "subjects", "subject_type"]:
                     continue
                 elif param in parameters.keys():
+                    request_params[param] = parameters[param] # Include the required parameter
                     continue
                 else:
                     logger.debug("no required " + param)

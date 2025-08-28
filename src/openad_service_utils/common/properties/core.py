@@ -22,7 +22,7 @@
 # SOFTWARE.
 #
 from enum import Enum
-from typing import Any, Callable, Union
+from typing import Any, Callable, Dict, List, Optional, Union
 
 from pydantic.v1 import BaseModel, Field
 
@@ -32,9 +32,18 @@ PropertyValue = Union[float, int]
 class DomainSubmodule(str, Enum):
     "property generated domains."
 
-    molecules: str = "molecules"
-    properties: str = "properties"
-    crystals: str = "crystals"
+    molecules = "molecules"
+    properties = "properties"
+    crystals = "crystals"
+    meshes = "meshes"
+
+
+class Mesh(BaseModel):
+    """Represents a surface mesh."""
+
+    vertices: List[List[float]] = Field(..., description="List of vertex coordinates (e.g., [[x1, y1, z1], [x2, y2, z2], ...])")
+    faces: List[List[int]] = Field(..., description="List of faces, where each face is a list of vertex indices (e.g., [,, ...])")
+    features: Optional[Dict[str, Any]] = Field(None, description="Optional dictionary of surface-related attributes or features.")
 
 
 class PropertyPredictorParameters(BaseModel):
