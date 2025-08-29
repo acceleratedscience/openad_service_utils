@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field, model_validator
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 from enum import Enum
 
 
@@ -30,6 +30,7 @@ class ServiceRequest(BaseModel):
     parameters: Optional[Parameters] = Field(None, description="An object containing the parameters for the model.")
     async_job: Optional[bool] = Field(False, description="Whether to run the job asynchronously.", alias="async")
     url: Optional[str] = Field(None, description="The job id to retrieve the results from.")
+    file_keys: Optional[List[str]] = Field(None, description="List of file paths for uploaded subjects.")
 
     @model_validator(mode='before')
     def check_service_type(cls, values):

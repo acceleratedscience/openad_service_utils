@@ -1,7 +1,7 @@
 import logging
 import os
 from abc import ABC, abstractmethod
-from typing import ClassVar, List, Optional, TypedDict, Dict, Any, Union, Type
+from typing import ClassVar, List, Optional, TypedDict, Dict, Any, Union, Type, cast
 
 from pydantic.v1 import BaseModel, Field
 
@@ -12,7 +12,7 @@ from openad_service_utils.common.algorithms.core import (
     PredictorAlgorithm,
 )
 from openad_service_utils.common.configuration import get_cached_algorithm_path
-from openad_service_utils.common.properties.core import DomainSubmodule, S3Parameters, Mesh
+from openad_service_utils.common.properties.core import DomainSubmodule, S3Parameters, Mesh, PropertyPredictorParameters
 from openad_service_utils.common.properties.property_factory import (
     PredictorTypes,
     PropertyFactory,
@@ -79,6 +79,7 @@ class PredictorParameters(BaseModel):
     subjects: Optional[List[Union[str, Mesh, Dict[str, Any]]]] = Field(
         None, description="List of subjects for prediction (e.g., SMILES strings, protein sequences, or Mesh objects)."
     )
+    file_keys: Optional[List[str]] = Field(None, description="List of file paths for uploaded subjects.")
 
 
 class SimplePredictor(PredictorAlgorithm, BasePredictorParameters):
@@ -116,16 +117,16 @@ class SimplePredictor(PredictorAlgorithm, BasePredictorParameters):
     """
 
     # algorithm_type: ClassVar[str] = ""  # hardcoded because we dont care about it. does nothing.
-    selected_property: str = ""
     property_type: PredictorTypes
     available_properties: Optional[List[PropertyInfo]] = []
+    selected_property: str = ""
+    configuration: Optional[ConfigurablePropertyAlgorithmConfiguration] = None
 
     __artifacts_downloaded__: bool = False
     __no_model__: bool = False
 
     def __init__(self, parameters: PredictorParameters):
         """Do not implement or instatiate"""
-        self.configuration = None
         # set up the configuration
         self._update_parameters(parameters)
         # run the user model setup
@@ -158,6 +159,8 @@ class SimplePredictor(PredictorAlgorithm, BasePredictorParameters):
 
     def get_model_location(self):
         """get path to model"""
+        if self.configuration is None:
+            raise ValueError("Model configuration is not set.")
         prefix = os.path.join(
             self.configuration.get_application_prefix(),
             self.configuration.algorithm_version,
@@ -169,6 +172,8 @@ class SimplePredictor(PredictorAlgorithm, BasePredictorParameters):
         if self.__no_model__:
             logger.info(f"No Model required ")
             return
+        if self.configuration is None:
+            raise ValueError("Model configuration is not set.")
         if not self.__artifacts_downloaded__:
             logger.info(
                 f"Downloading model: {self.configuration.algorithm_application}/{self.configuration.algorithm_version}"
@@ -181,16 +186,18 @@ class SimplePredictor(PredictorAlgorithm, BasePredictorParameters):
         else:
             logger.info(f"model already downloaded")
 
-    def get_predictor(self, configuration: AlgorithmConfiguration):
+    def get_predictor(self, configuration: AlgorithmConfiguration) -> Predictor:
         """overwrite existing function to download model only once"""
         # download model
         if self.__no_model__:
             logger.info("No model required, skipping S3 caching.")
-            return
+            # If no model is required, we still return the predict method,
+            # and the user's predict method should handle the no-model case.
+            return cast(Predictor, self.predict)
         self.__download_model()
         # get prediction function
         model = self.get_model(self.get_model_location())
-        return model
+        return cast(Predictor, model)
 
     def get_selected_property(self) -> str:
         return self.selected_property
@@ -206,7 +213,7 @@ class SimplePredictor(PredictorAlgorithm, BasePredictorParameters):
         raise NotImplementedError("Not implemented in baseclass.")
 
     @abstractmethod
-    def predict(self, sample: Any) -> Union[Dict[str, Any], List[Any], str, int, float, bool, None]:
+    def predict(self, input: Any) -> Union[Dict[str, Any], List[Any], str, int, float, bool, None]:
         """Run predictions and return results in JSON serializable format."""
 
         raise NotImplementedError("Not implemented in baseclass.")
@@ -233,35 +240,68 @@ class SimplePredictor(PredictorAlgorithm, BasePredictorParameters):
             if field not in class_fields:
                 raise TypeError(f"Can't instantiate class ({cls.__name__}) without '{field}' class variable")
         # update class name to be `algorithm_application`
-        cls.__name__ = class_fields.get("algorithm_application")
+        # cls.__name__ = class_fields.get("algorithm_application") # Removed: __name__ is read-only
         cls.__no_model__ = no_model
         # setup s3 class params
-        model_param_class: PredictorParameters = type(cls.__name__ + "Parameters", (PredictorParameters,), class_fields)
+        # Ensure algorithm_application is a string before using it in type name
+        app_name = class_fields.get("algorithm_application", cls.__name__)
+        if not isinstance(app_name, str):
+            app_name = str(app_name)
+
+        # Initialize variables with explicit types and handle potential None from .get()
+        domain_val: DomainSubmodule = cast(DomainSubmodule, class_fields.get("domain"))
+        if not isinstance(domain_val, DomainSubmodule):
+            raise TypeError(f"Domain must be a DomainSubmodule enum, got {type(domain_val)}")
+        
+        algo_name_val: str = cast(str, class_fields.get("algorithm_name"))
+        if not isinstance(algo_name_val, str):
+            raise TypeError(f"Algorithm name must be a string, got {type(algo_name_val)}")
+        
+        algo_version_val: str = cast(str, class_fields.get("algorithm_version"))
+        if not isinstance(algo_version_val, str):
+            raise TypeError(f"Algorithm version must be a string, got {type(algo_version_val)}")
+
+        model_param_class: Type[PredictorParameters] = type(f"{app_name}Parameters", (PredictorParameters,), class_fields)
 
         if class_fields.get("available_properties"):
-            if not isinstance(class_fields.get("available_properties"), list):
+            available_props = class_fields.get("available_properties")
+            if not isinstance(available_props, list):
                 raise ValueError("available_properties must be of List[PropertyInfo]")
             # set all property types in PropertyFactory. available_properties -> valid_types
-            for predictor_name in class_fields.get("available_properties"):
-                if isinstance(predictor_name, dict):
-                    predictor_name = predictor_name.get("name")
+            for predictor_info in available_props:
+                if isinstance(predictor_info, dict):
+                    predictor_name = predictor_info.get("name")
+                else:
+                    predictor_name = predictor_info # Assuming it's a string if not a dict
+                if not isinstance(predictor_name, str):
+                    raise TypeError(f"Predictor name must be a string, got {type(predictor_name)}")
+
+                property_type_val = cast(PredictorTypes, class_fields.get("property_type"))
+                if not isinstance(property_type_val, PredictorTypes):
+                    raise TypeError(f"Property type must be a PredictorTypes enum, got {type(property_type_val)}")
+
                 PropertyFactory.add_predictor(
                     name=predictor_name,
-                    property_type=class_fields.get("property_type"),
-                    predictor=(cls, model_param_class),
+                    property_type=property_type_val,
+                    predictor=(cls, cast(Type[PropertyPredictorParameters], model_param_class)),
                 )
         else:
             # set class name as property type in PropertyFactory
+            property_type_val = cast(PredictorTypes, class_fields.get("property_type"))
+            if not isinstance(property_type_val, PredictorTypes):
+                raise TypeError(f"Property type must be a PredictorTypes enum, got {type(property_type_val)}")
+
             PropertyFactory.add_predictor(
                 name=cls.__name__,
-                property_type=class_fields.get("property_type"),
-                predictor=(cls, model_param_class),
+                property_type=property_type_val,
+                predictor=(cls, cast(Type[PropertyPredictorParameters], model_param_class)),
             )
+
         model_location = get_properties_model_path(
-            class_fields.get("domain"),
-            class_fields.get("algorithm_name"),
-            cls.__name__,
-            class_fields.get("algorithm_version"),
+            domain_val,
+            algo_name_val,
+            app_name, # Use app_name here
+            algo_version_val,
         )
         try:
             os.makedirs(model_location, exist_ok=True)
@@ -285,18 +325,18 @@ class SimplePredictorMultiAlgorithm(SimplePredictor):
             parameters.algorithm_application = self.configuration.algorithm_application
         super()._update_parameters(parameters)
 
-    def get_predictor(self, configuration: AlgorithmConfiguration):
+    def get_predictor(self, configuration: AlgorithmConfiguration) -> Predictor:
         """overwrite existing function to download model only once"""
         # download model
         if self.__no_model__:
             logger.info("No model required, skipping download.")
-            return
+            return cast(Predictor, self.predict) # Return casted predict method
         # .__download_model()
         # get prediction function
         self.__download_model()
         model = self.get_model(self.get_model_location())
 
-        return model
+        return cast(Predictor, model) # Cast the model to Predictor
 
     def __init__(self, parameters):
         parameters.algorithm_application = parameters.selected_property
@@ -307,6 +347,8 @@ class SimplePredictorMultiAlgorithm(SimplePredictor):
         if self.__no_model__:
             logger.info(f"No Model required ")
             return
+        if self.configuration is None:
+            raise ValueError("Model configuration is not set.")
         if not self.__artifacts_downloaded__:
 
             logger.info(f"Downloading model: {self.get_selected_property()}/{self.configuration.algorithm_version}")

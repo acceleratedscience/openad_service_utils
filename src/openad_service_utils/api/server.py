@@ -9,10 +9,14 @@ import os
 import signal
 import sys
 from concurrent.futures import ProcessPoolExecutor
+from typing import List, Optional # Added List and Optional
 import uvicorn
-from fastapi import FastAPI, Request, HTTPException
+from fastapi import FastAPI, Request, HTTPException, UploadFile, File
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi import Depends
+import tempfile
+import shutil
+import uuid # Added uuid for unique file naming
 from pandas import DataFrame
 from openad_service_utils.api.models import ServiceRequest, ServiceType
 from openad_service_utils.api.job_manager import (
@@ -108,6 +112,40 @@ def generate_cache_key(request_data: dict) -> str:
     return f"service_cache:{hashlib.sha256(payload_str.encode()).hexdigest()}"
 
 
+UPLOAD_DIR = os.getenv("OPENAD_UPLOAD_TEMP_DIR", tempfile.gettempdir())
+os.makedirs(UPLOAD_DIR, exist_ok=True)
+
+@app.post("/service/upload")
+async def upload_file(
+    file: UploadFile = File(...),
+):
+    """
+    Uploads a file to a temporary location and returns a unique key.
+    """
+    try:
+        file_key = str(uuid.uuid4())  # unique ID
+        
+        # Handle potential None for file.filename
+        filename = file.filename if file.filename else "uploaded_file"
+        
+        # Create a directory for the uploaded file using the file_key as the directory name
+        file_upload_dir = os.path.join(UPLOAD_DIR, file_key)
+        os.makedirs(file_upload_dir, exist_ok=True)
+        
+        temp_file_path = os.path.join(file_upload_dir, filename)
+
+        with open(temp_file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+            logger.debug(f"File saved to {temp_file_path}")
+        
+        # Store the mapping in Redis
+        await app.state.redis.set(f"file_map:{file_key}", temp_file_path, ex=settings.UPLOAD_FILE_TTL)
+        
+        return JSONResponse({"file_key": file_key, "message": "File uploaded successfully."})
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error uploading file: {str(e)}")
+
+
 @app.post("/service")
 async def service(
     restful_request: ServiceRequest,
@@ -123,6 +161,15 @@ async def service(
         if cached:
             return json.loads(cached)
 
+    # Handle file_keys from the request
+    file_keys_for_job = restful_request.file_keys if restful_request.file_keys else []
+
+    # Validate file_keys
+    if file_keys_for_job:
+        for file_key in file_keys_for_job:
+            if not await app.state.redis.exists(f"file_map:{file_key}"):
+                raise HTTPException(status_code=404, detail=f"File with key {file_key} not found.")
+
     try:
         if service_type == ServiceType.GET_RESULT:
             result = await retrieve_async_job(original_request.get("url"))
@@ -131,12 +178,12 @@ async def service(
 
         elif service_type in PropertyFactory.AVAILABLE_PROPERTY_PREDICTOR_TYPES():
             result = await handle_job_submission(
-                job_manager, property_request, original_request
+                job_manager, property_request, original_request, file_keys=file_keys_for_job
             )
 
         elif service_type == ServiceType.GENERATE_DATA:
             result = await handle_job_submission(
-                job_manager, generation_request, original_request
+                job_manager, generation_request, original_request, file_keys=file_keys_for_job
             )
 
         else:
@@ -154,16 +201,17 @@ async def service(
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail={"error": str(e), "input": original_request})
+    # Cleanup of temporary files and Redis entries will be handled by the job_manager
 
 
-async def handle_job_submission(job_manager, request_obj, original_request):
+async def handle_job_submission(job_manager, request_obj, original_request, file_keys: Optional[List[str]] = None):
     if settings.ASYNC_ALLOW and original_request.get("async"):
-        job_id = await job_manager.submit_job(request_obj, "route_service_async", original_request, async_submission=True)
+        job_id = await job_manager.submit_job(request_obj, "route_service_async", original_request, async_submission=True, file_keys=file_keys)
         cache_key = generate_cache_key(original_request)
         await app.state.redis.set(cache_key, json.dumps(job_id), ex=settings.CACHE_TTL)
         return job_id
     else:
-        job_id = await job_manager.submit_job(request_obj, "route_service", original_request)
+        job_id = await job_manager.submit_job(request_obj, "route_service", original_request, file_keys=file_keys)
         all_result = await job_manager.get_result_by_id(job_id)
         return all_result["result"]
 

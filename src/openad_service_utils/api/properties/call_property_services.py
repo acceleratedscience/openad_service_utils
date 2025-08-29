@@ -1,3 +1,4 @@
+import os
 import copy
 # import glob
 import json
@@ -90,7 +91,7 @@ class service_requester:
         return get_services()
 
     # @conditional_lru_cache(maxsize=100)
-    def route_service(self, request):
+    def route_service(self, request, file_keys: list=None):
         # if get_config_instance().ENABLE_CACHE_RESULTS:
         #     request = json_string_to_dict(request)
         result = None
@@ -117,6 +118,7 @@ class service_requester:
             result = self.property_requestor.request(
                 request["service_type"],
                 request["parameters"],
+                file_keys,
                 request.get("api_key", ""),
             )
 
@@ -133,7 +135,7 @@ class request_properties:
     def __init__(self) -> None:
         pass
 
-    def request(self, service_type, parameters: dict, apikey: str):
+    def request(self, service_type, parameters: dict, file_keys: list, apikey: str):
         results = []
         if service_type not in PropertyFactory.AVAILABLE_PROPERTY_PREDICTOR_TYPES():
             return {f"No service of type {service_type} available "}
@@ -211,16 +213,29 @@ class request_properties:
                         )
 
                 elif service_type == "get_mesh_property":
+                    logger.debug(f"Handling mesh property request for subject: {subject} with file_keys: {file_keys}")
                     # Handle Mesh property requests
-                    # Assuming 'subject' is already a Mesh object or can be converted
-                    # The predictor should be able to handle the Mesh object directly
-                    results.append(
-                        {
-                            "subject": subject, # subject is already a Mesh object or dict
-                            "property": property_type,
-                            "result": predictor(subject),
-                        }
-                    )
+                    if file_keys:
+                        for file_path in file_keys:
+                            # get the uuid key from path
+                            uuid_key = os.path.basename(file_path)
+                            logger.debug(f"Loading mesh property from file: {file_path}")
+                            results.append(
+                                {
+                                    "file": uuid_key, # Pass the file path as the subject
+                                    "property": property_type,
+                                    "result": predictor(file_path), # Predictor will load from file
+                                }
+                            )
+                    else:
+                        # Fallback to string subject if no file_keys are provided
+                        results.append(
+                            {
+                                "subject": subject, # subject is a string representation of a Mesh object
+                                "property": property_type,
+                                "result": predictor(subject), # Predictor will deserialize the string
+                            }
+                        )
                 else:
                     # All other property Requests handled here.
                     results.append(

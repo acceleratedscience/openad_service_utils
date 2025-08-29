@@ -9,6 +9,7 @@ class ServerConfig(BaseSettings):
     SERVE_MAX_WORKERS: int = -1
     ENABLE_CACHE_RESULTS: bool = False
     CACHE_TTL: int = 3600  # seconds
+    UPLOAD_FILE_TTL: int = 3600 # seconds, Time to live for uploaded file keys in Redis
     ASYNC_POOL_MAX: int = 1
 
     ASYNC_ALLOW: bool = False

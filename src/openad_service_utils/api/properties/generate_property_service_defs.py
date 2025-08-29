@@ -21,7 +21,7 @@ def generate_property_service_defs(target_type: str, PropertyPredictorFactory: D
     elif target_type == "protein":
         input_type = "PROTEIN"
     elif target_type == "mesh":
-        input_type = "MESH_OBJECT" # New input type for mesh
+        input_type = "FILE_PATH" # Changed input type to FILE_PATH
     else:
         input_type = "directory"
 
@@ -112,6 +112,20 @@ def generate_property_service_defs(target_type: str, PropertyPredictorFactory: D
                 service_def["required_parameters"] = service_types[x]["required_parameters"]
             if "parameters" in service_types[x].keys():
                 service_def["parameters"] = service_types[x]["parameters"]
+            
+            # Add file_keys parameter for mesh services
+            if target_type == "mesh":
+                if "parameters" not in service_def:
+                    service_def["parameters"] = {}
+                service_def["parameters"]["file_keys"] = {
+                    "title": "File Paths",
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "description": "Unique key for the uploaded file."
+                    },
+                    "description": "List of unique keys for uploaded mesh files."
+                }
         service_def["sub_category"] = f"{target_type}s"
         exists = False
         for xx in prime_list:

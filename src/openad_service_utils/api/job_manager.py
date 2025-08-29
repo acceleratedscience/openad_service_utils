@@ -7,12 +7,12 @@ import gc
 import ast
 import os
 from typing import List, Dict
-import redis.asyncio as redis
 import asyncio
+from redis.asyncio import Redis
 import uuid
 from typing import List, Tuple, Dict
 from redis import RedisError
-from typing import Any, Callable, Dict, Tuple, Union
+from typing import Any, Callable, Dict, Tuple, Union, Optional
 import pickle
 import json, time
 import multiprocessing as mp
@@ -56,9 +56,9 @@ class JobManager:
           1> as a API for commuicating with Workers and Submitting and retrieving jobs from Redis Quesues
           2> as the process for independant workers that run as asynchronous processes under the server"""
 
-    def __init__(self, redis_client, Name, Async_enabled=False):
+    def __init__(self, redis_client: Redis, Name: str, Async_enabled=False):
         """Initialize the JobManager object with a redis client and a name"""
-        self.redis_client: redis.Redis = redis_client
+        self.redis_client = redis_client
         self.name = Name
         self.async_enabled = Async_enabled
 
@@ -73,7 +73,7 @@ class JobManager:
 
         return job_info_list
 
-    async def submit_job(self, instance: Any, methodname: str, args: Tuple[Any] = (), async_submission=False):
+    async def submit_job(self, instance: Any, methodname: str, args: Dict[str, Any] = {}, async_submission=False, file_keys: Optional[List[str]] = None): # Changed args type hint
         """Submit New Jobs to appropriate quueses
         ASYNC_SUBMISSION_QUEUE is the queue for asynchronous jobs
         SUBMISSION_QUEUE is for submitted jobs
@@ -98,6 +98,7 @@ class JobManager:
                     "status": "Submitted",
                     "job_id": job_id,
                     "async": async_submission,
+                    "file_keys": file_keys, # Store file_keys in job_info
                 }
             ),
         )
@@ -105,9 +106,9 @@ class JobManager:
         await self.redis_client.expire(f"job:{job_id}", 345600)  # Expire all jobs in cache after 4 days
         logger.debug(f"Job {job_id} submitted to redis {self.name} with async submission: {async_submission}")
         if not async_submission:
-            await self.redis_client.rpush(SUBMISSION_QUEUE, job_id)
+            await self.redis_client.rpush(SUBMISSION_QUEUE, job_id)  # type: ignore
         else:
-            await self.redis_client.rpush(ASYNC_SUBMISSION_QUEUE, job_id)
+            await self.redis_client.rpush(ASYNC_SUBMISSION_QUEUE, job_id)  # type: ignore
             await self.___write_job_header_file__(args, job_id)
 
         return job_id
@@ -116,33 +117,44 @@ class JobManager:
         """writes the job descriptor to file for asynchrounous jobs"""
         async with aiofiles.open(f"{ASYNC_PATH}/{job_id}.request", "w") as fd:
             await fd.write(json.dumps(restful_request))
+        return f"{ASYNC_PATH}/{job_id}.request" # Return the path
+        return f"{ASYNC_PATH}/{job_id}.request" # Return the path
 
-    async def _get_job_info_by_id(self, job_id):
+    async def _get_job_info_by_id(self, job_id) -> Optional[Dict[str, Any]]: # Added return type hint
         """looks for a synchronous job if it s compled by its job id"""
         try:
-            job_info = pickle.loads(await self.redis_client.get(f"job:{job_id}"))
-        except:
+            job_info_bytes = await self.redis_client.get(f"job:{job_id}")
+            if job_info_bytes:
+                job_info = pickle.loads(job_info_bytes)
+                return job_info
             return None
-        return job_info if job_info else None
+        except Exception as e:
+            logger.error(f"Error retrieving job info for {job_id}: {e}")
+            return None
 
-    async def get_result_by_id(self, job_id: str) -> Union[Any, Dict[str, Any]]:
+    async def get_result_by_id(self, job_id: str) -> Dict[str, Any]: # Changed return type to Dict[str, Any]
         try:
             job_info = await self._get_job_info_by_id(job_id)
+
+            if job_info is None:
+                return {"status": "failed", "error": f"Job {job_id} not found or expired."}
 
             if job_info["status"] == "completed":
                 return job_info["result"]
             elif job_info["status"] == "error":
-                raise Exception(f"Job {job_id} encountered an error: {job_info['exception']}")
+                return {"status": "error", "error": f"Job {job_id} encountered an error: {job_info.get('exception', 'Unknown error')}"}
             else:
                 # Job is still running or not found, wait for a short period and try again
                 while job_info["status"] not in ["error", "completed", "failed"]:
                     await asyncio.sleep(0.5)
                     job_info = await self._get_job_info_by_id(job_id)
+                    if job_info is None: # Check again if job_info became None during waiting
+                        return {"status": "failed", "error": f"Job {job_id} not found or expired during wait."}
 
                 return job_info
 
-        except (RedisError, asyncio.TimeoutError):
-            raise Exception(f"Failed to retrieve job result for ID {job_id}")
+        except (RedisError, asyncio.TimeoutError) as e:
+            return {"status": "error", "error": f"Failed to retrieve job result for ID {job_id}: {str(e)}"}
 
     async def process_jobs(self):
         """process active jobs as part of the Daemon process by pulling them off Submission QUEUES
@@ -153,57 +165,79 @@ class JobManager:
             while True:
                 job_id = None
                 async_job = False
-                task = await self.redis_client.lpop(SUBMISSION_QUEUE)
+                task: bytes = await self.redis_client.lpop(SUBMISSION_QUEUE)  # type: ignore
                 if task is not None:
                     job_id = task.decode()
                     # logger.debug(f" Job Allocated Process Daemon {self.name} Async Queue looking {job_id}")
                 elif self.async_enabled:
                     await cleanup_old_files(localRepo=ASYNC_PATH, age=ASYNC_CLEANUP_AGE)
-                    task = await self.redis_client.lpop(ASYNC_SUBMISSION_QUEUE)
-                    if task is not None:
-                        # logger.debug(f" Task Found Daemon {self.name} Async Queue looking {job_id}")
-                        job_id = task.decode()
+                    async_task: bytes = await self.redis_client.lpop(ASYNC_SUBMISSION_QUEUE)  # type: ignore
+                    if async_task is not None:
+                        job_id = async_task.decode()
                         async_job = True
+                else:
+                    await asyncio.sleep(0.1)
+                    continue
 
                 if job_id is not None:
                     job_info = await self._get_job_info_by_id(job_id)
-                    logger.debug(
-                        f" Job {job_id} has been pulled off queue to be processed by Daemon {self.name}"
-                    )
-                    # logger.warning("job_info   " + str(job_info))
-                    instance, methodname, result, error, job_id = (
-                        job_info["instance"],
-                        job_info["methodname"],
-                        job_info["result"],
-                        job_info["error"],
-                        job_info["job_id"],
-                    )
+                    if job_info is None:
+                        logger.warning(f"Job {job_id} not found in Redis, skipping processing.")
+                        await asyncio.sleep(0.1)
+                        continue
+
+                    logger.debug(f"Job {job_id} has been pulled off queue to be processed by Daemon {self.name}")
+                    
+                    instance = job_info["instance"]
+                    methodname = job_info["methodname"]
                     args = job_info["args"]
-                    # if not isinstance(args, dict):
-                    #     args = ast.literal_eval(str(args))
-                    if isinstance(args, str) and not settings.ENABLE_CACHE_RESULTS:
-                        # if args is a string, convert it to a dict only if caching is not enabled
+                    file_keys = job_info.get("file_keys", []) # Retrieve file_keys
+                    logger.debug(f"Job {job_id} file_keys: {file_keys}")
+
+                    # Ensure args is a dictionary
+                    if isinstance(args, bytes):
+                        args = json.loads(args.decode())
+                    elif isinstance(args, str) and not settings.ENABLE_CACHE_RESULTS:
                         logger.warning(f"args is not a dict. {type(args)=}")
                         args = json.loads(args)
+                    elif not isinstance(args, dict):
+                        logger.error(f"Job {job_id} args is not a dictionary or string, got {type(args)}. Attempting to convert.")
+                        try:
+                            args = json.loads(str(args))
+                        except (json.JSONDecodeError, ValueError):
+                            args = {} # Fallback to empty dict if conversion fails
 
                     job_info["status"] = "In Progress"
-                    await self.redis_client.set(
-                        f"job:{job_id}",
-                        pickle.dumps(job_info),
-                    )
+                    await self.redis_client.set(f"job:{job_id}", pickle.dumps(job_info))
+
                     if async_job:
                         async with aiofiles.open(f"{ASYNC_PATH}/{job_id}.running", "w") as fd:
                             await fd.write("")
+                    
                     try:
-
                         logger.info(f"Running Job {job_id}")
                         instance = instance()
-                        # Call the method on the instance - this is the main function
-                        result = await asyncio.to_thread(instance.route_service, args)  # run in async thread
+                        # Resolve file_keys to file_keys before passing to the predictor
+                        resolved_file_paths = []
+                        for key in file_keys:
+                            path = await self.redis_client.get(f"file_map:{key}")
+                            if path:
+                                path = path.decode()
+                                resolved_file_paths.append(path)
+                                logger.debug(f"Resolved file key {key} to path {path}")
+                            else:
+                                logger.warning(f"File key {key} not found in Redis during job processing.")
+                        
+                        # if resolved_file_paths:
+                        #     if "file_keys" not in args:
+                        #         args["file_keys"] = []
+                        #     args["file_keys"].extend(resolved_file_paths)
+
                         if async_job:
                             async with aiofiles.open(f"{ASYNC_PATH}/{job_id}.running", "w") as fd:
                                 await fd.write("run")
-                        # Store the result within the returned tuple
+                        result = await asyncio.to_thread(instance.route_service, args, resolved_file_paths)
+                        logger.debug(f"Job {job_id} result: {result}")
                         job_info["result"] = result
                         job_info["status"] = "completed"
                         if async_job:
@@ -214,28 +248,27 @@ class JobManager:
                         logger.info(f"Completed Job: {job_id}")
 
                     except Exception as e:
-                        # Handle any exceptions that occur during function execution
                         logger.error(f"Error processing job {job_id}: {str(e)}")
                         logger.error(traceback.format_exc())
                         if async_job:
                             result = {"error": str(e)}
                             async with aiofiles.open(f"{ASYNC_PATH}/{job_id}.result", "w") as fd:
                                 await fd.write(json.dumps(result))
-                        #
+                        
                         job_info["result"] = {"error": str(e)}
-                        # Store the exception within the returned tuple
-                        job_info["result"] = str(e)
                         job_info["error"] = True
                         job_info["status"] = "error"
-                        # Put the completed job back into the queue to be retrieved by get_result_by_id()
-                    job_id = job_info["job_id"]
-
-                    await self.redis_client.set(
-                        f"job:{job_id}",
-                        pickle.dumps(job_info),
-                    )
+                    finally:
+                        # Cleanup temporary files and Redis entries
+                        for key in file_keys:
+                            temp_file_path = await self.redis_client.get(f"file_map:{key}")
+                            if temp_file_path and os.path.exists(temp_file_path):
+                                logger.debug(f"Removing temporary file for upload: {temp_file_path}")
+                                os.remove(temp_file_path)
+                            await self.redis_client.delete(f"file_map:{key}")
+                        
+                    await self.redis_client.set(f"job:{job_id}", pickle.dumps(job_info))
                     run_cleanup()
-                await asyncio.sleep(0.1)
         except Exception as e:
             logger.error("Exception     " + str(e), exc_info=True)
 
@@ -256,7 +289,7 @@ def run_cleanup():
 
 def slave_thread(extra_q, async_allow=False):
     """create a slave thread and starte it for Daemon Workers"""
-    redis_client = redis.Redis(host=settings.REDIS_HOST, port=settings.REDIS_PORT, db=settings.REDIS_DB, password=settings.REDIS_PASSWORD)
+    redis_client = Redis(host=settings.REDIS_HOST, port=settings.REDIS_PORT, db=settings.REDIS_DB, password=settings.REDIS_PASSWORD)
     daemon = JobManager(redis_client, f"{extra_q}", async_allow)
     asyncio.run(daemon.process_jobs())
 
@@ -279,7 +312,7 @@ async def get_slaves() -> list:
 
 async def get_job_manager() -> JobManager:
     """creates a new job manager"""
-    redis_client = redis.Redis(host=settings.REDIS_HOST, port=settings.REDIS_PORT, db=settings.REDIS_DB, password=settings.REDIS_PASSWORD)
+    redis_client = Redis(host=settings.REDIS_HOST, port=settings.REDIS_PORT, db=settings.REDIS_DB, password=settings.REDIS_PASSWORD)
     job_manager = JobManager(redis_client, " Master Queue")
 
     return job_manager  # Return the global job_manager instance
@@ -287,7 +320,7 @@ async def get_job_manager() -> JobManager:
 
 async def delete_sync_submission_queue():
     """cleares out the Submission Queue"""
-    redis_client = redis.Redis(host=settings.REDIS_HOST, port=settings.REDIS_PORT, db=settings.REDIS_DB, password=settings.REDIS_PASSWORD)
+    redis_client = Redis(host=settings.REDIS_HOST, port=settings.REDIS_PORT, db=settings.REDIS_DB, password=settings.REDIS_PASSWORD)
     await redis_client.delete(SUBMISSION_QUEUE)
     logger.warning("Deleted Submission Queue")
 
