@@ -35,10 +35,11 @@ Used for submitting synchronous or asynchronous jobs for property prediction or 
 
 | Field | Type | Required | Description |
 | --- | --- | --- | --- |
-| `service_type` | string | Yes | One of `get_protein_property`, `get_molecule_property`, `get_crystal_property`, or `generate_data`. |
+| `service_type` | string | Yes | One of `get_protein_property`, `get_molecule_property`, `get_crystal_property`, `get_mesh_property`, or `generate_data`. |
 | `service_name` | string | Yes | The name of the model to be used. |
 | `parameters` | object | Yes | An object containing the parameters for the model. |
 | `async` | boolean | No | Set to `true` to submit the job for asynchronous processing. |
+| `file_keys` | array of strings | No | A list of file keys obtained from the `/service/upload` endpoint, referencing uploaded subject files. |
 
 **Response:**
 *   **Synchronous:** A JSON object containing the results of the request. See the [Input/Output Schema Examples](./input-output.md) for examples.
@@ -57,3 +58,26 @@ Used for retrieving the results of a previously submitted asynchronous job.
 
 **Response:**
 *   A JSON object containing the results of the job, or a status indicating that the job is still pending.
+
+---
+
+### `POST /service/upload`
+
+Uploads a file to a temporary location on the server and returns a unique `file_key` that can be used in subsequent `/service` requests. This endpoint is used for submitting large or complex input data, such as mesh files, that cannot be directly included in the `POST /service` request body.
+
+**Request:**
+*   **Method:** `POST`
+*   **Endpoint:** `/service/upload`
+*   **Content-Type:** `multipart/form-data`
+*   **Body:**
+    *   `file`: The file to be uploaded.
+
+**Response:**
+*   **Content-Type:** `application/json`
+*   **Body:** A JSON object containing the `file_key` and a success message.
+    ```json
+    {
+      "file_key": "unique-file-identifier",
+      "message": "File uploaded successfully."
+    }
+    ```
