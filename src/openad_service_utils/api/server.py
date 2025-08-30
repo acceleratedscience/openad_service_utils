@@ -197,7 +197,7 @@ async def service(
     # Cleanup of temporary files and Redis entries will be handled by the job_manager
 
 
-async def handle_job_submission(job_manager, request_obj, original_request, file_keys: Optional[List[str]] = None):
+async def handle_job_submission(job_manager: JobManager, request_obj, original_request, file_keys: Optional[List[str]] = None):
     if settings.ASYNC_ALLOW and original_request.get("async"):
         job_id = await job_manager.submit_job(request_obj, "route_service_async", original_request, async_submission=True, file_keys=file_keys)
         cache_key = generate_cache_key(original_request)

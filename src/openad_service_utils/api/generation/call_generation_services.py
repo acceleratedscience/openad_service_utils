@@ -113,7 +113,7 @@ class service_requester:
         return get_services()
 
     # @conditional_lru_cache(maxsize=100)
-    def route_service(self, request):
+    def route_service(self, request, **kwargs):
         # if get_config_instance().ENABLE_CACHE_RESULTS:
         #     request = json_string_to_dict(request)
         result = None

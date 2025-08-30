@@ -236,7 +236,7 @@ class JobManager:
                         if async_job:
                             async with aiofiles.open(f"{ASYNC_PATH}/{job_id}.running", "w") as fd:
                                 await fd.write("run")
-                        result = await asyncio.to_thread(instance.route_service, args, resolved_file_paths)
+                        result = await asyncio.to_thread(instance.route_service, args, file_keys=resolved_file_paths)
                         logger.debug(f"Job {job_id} result: {result}")
                         job_info["result"] = result
                         job_info["status"] = "completed"
