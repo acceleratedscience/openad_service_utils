@@ -4,7 +4,7 @@ import copy
 import json
 # import os
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional, List, Dict
 
 # from pandas import DataFrame
 from pydantic.v1 import BaseModel
@@ -91,7 +91,7 @@ class service_requester:
         return get_services()
 
     # @conditional_lru_cache(maxsize=100)
-    def route_service(self, request, file_keys: list=None):
+    def route_service(self, request: Dict[str, Any], file_keys: Optional[List[str]] = None):
         # if get_config_instance().ENABLE_CACHE_RESULTS:
         #     request = json_string_to_dict(request)
         result = None
@@ -135,25 +135,40 @@ class request_properties:
     def __init__(self) -> None:
         pass
 
-    def request(self, service_type, parameters: dict, file_keys: list, apikey: str):
+    def request(self, service_type, parameters: dict, file_keys: Optional[List[str]], apikey: str):
         results = []
         if service_type not in PropertyFactory.AVAILABLE_PROPERTY_PREDICTOR_TYPES():
             return {f"No service of type {service_type} available "}
 
         for property_type in parameters["property_type"]:
             predictor = None
-            for subject in parameters["subjects"]:
+            subjects_to_process: List[Any] = []
+            if service_type == "get_mesh_property" and file_keys:
+                subjects_to_process = file_keys
+            elif "subjects" in parameters and parameters["subjects"] is not None:
+                subjects_to_process = parameters["subjects"]
+            else:
+                # If no subjects and no file_keys, raise an error or skip
+                results.append(
+                    {
+                        "property": property_type,
+                        "result": "Error: No subjects or file_keys provided for prediction.",
+                    }
+                )
+                continue
+
+            for current_subject in subjects_to_process:
                 parms = self.set_parms(property_type, parameters)
-                parms["selected_property"] = property_type
                 if parms is None:
                     results.append(
                         {
-                            "subject": subject,
+                            "subject": current_subject,
                             "property": property_type,
                             "result": "check Parameters",
                         }
                     )
                     continue
+                parms["selected_property"] = property_type
                 # take parms and concatenate key and value to create a unique model id
                 using_model = property_type + "".join(
                     [
@@ -182,30 +197,30 @@ class request_properties:
                         self.models_cache.append({using_model: predictor})
                 else:
                     # update model params
-                    # logger.debug(f"loading model from cache key: {using_model}")
-                    pydantic_params = PropertyPredictorRegistry.get_property_predictor_meta_params(name=property_type)
-                    predictor._update_parameters(pydantic_params(**parms))
+                    logger.debug(f"loading model from cache key: {using_model}")
+                    pydantic_params = PropertyPredictorRegistry.get_property_predictor_meta_params(name=property_type) # type: ignore
+                    predictor._update_parameters(pydantic_params(**parms)) # type: ignore # Commented out due to Pylance error
 
                 # Crystaline structure models take data as file sets, the following manages this for the Crystaline property requests
                 if service_type == "get_crystal_property":
                     tmpdir_cif = subject_files_repository("cif", parameters["subjects"])
                     tmpdir_csv = subject_files_repository("csv", parameters["subjects"])
 
-                    if property_type == "metal_nonmetal_classifier" and subject[0].endswith("csv"):
+                    if property_type == "metal_nonmetal_classifier" and current_subject[0].endswith("csv"):
                         data_module = Path(tmpdir_csv.name + "/crf_data.csv")
                         logger.debug(tmpdir_csv.name + "/crf_data.csv")
                         result_fields = ["formulas", "predictions"]
-                    elif not property_type == "metal_nonmetal_classifier" and subject[0].endswith("cif"):
+                    elif not property_type == "metal_nonmetal_classifier" and current_subject[0].endswith("cif"):
                         data_module = Path(tmpdir_cif.name + "/")
                         result_fields = ["cif_ids", "predictions"]
                     else:
                         continue
                     out = predictor(data_module)
-                    pred_dict = dict(zip(out[result_fields[0]], out[result_fields[1]]))
+                    pred_dict = dict(zip(out[result_fields[0]], out[result_fields[1]])) # type: ignore
                     for key in pred_dict:
                         results.append(
                             {
-                                "subject": subject[0],
+                                "subject": current_subject[0],
                                 "property": property_type,
                                 "key": key,
                                 "result": str(pred_dict[key]),
@@ -213,36 +228,23 @@ class request_properties:
                         )
 
                 elif service_type == "get_mesh_property":
-                    logger.debug(f"Handling mesh property request for subject: {subject} with file_keys: {file_keys}")
+                    logger.debug(f"Handling mesh property request for subject: {current_subject} with file_keys: {file_keys}")
                     # Handle Mesh property requests
-                    if file_keys:
-                        for file_path in file_keys:
-                            # get the uuid key from path
-                            uuid_key = os.path.basename(file_path)
-                            logger.debug(f"Loading mesh property from file: {file_path}")
-                            results.append(
-                                {
-                                    "file": uuid_key, # Pass the file path as the subject
-                                    "property": property_type,
-                                    "result": predictor(file_path), # Predictor will load from file
-                                }
-                            )
-                    else:
-                        # Fallback to string subject if no file_keys are provided
-                        results.append(
-                            {
-                                "subject": subject, # subject is a string representation of a Mesh object
-                                "property": property_type,
-                                "result": predictor(subject), # Predictor will deserialize the string
-                            }
-                        )
+                    # The current_subject is already the file_path if file_keys were used
+                    results.append(
+                        {
+                            "file": os.path.basename(current_subject), # Pass the file name as the subject
+                            "property": property_type,
+                            "result": predictor(current_subject), # Predictor will load from file
+                        }
+                    )
                 else:
                     # All other property Requests handled here.
                     results.append(
                         {
-                            "subject": subject,
+                            "subject": current_subject,
                             "property": property_type,
-                            "result": predictor(subject),
+                            "result": predictor(current_subject),
                         }
                     )
         return results
@@ -250,7 +252,7 @@ class request_properties:
     def set_parms(self, property_type, parameters):
         request_params = {}
         schema = PropertyPredictorRegistry.get_property_predictor_parameters_schema(property_type)
-        schema_dict = json.loads(schema) # Load the schema string into a dictionary
+        schema_dict = json.loads(schema) # type: ignore
         if "required" in schema_dict.keys():
             for param in schema_dict["required"]: # Use schema_dict here
                 if param in ["property_type", "subjects", "subject_type"]:
@@ -271,40 +273,3 @@ class request_properties:
 
     def algorithm_is_valid(self, algorithm, algorithm_version):
         return True
-
-
-# app = service_requester.options(route_prefix="/route_service").bind()
-
-if __name__ == "__main__":
-    from datetime import datetime
-
-    dt = datetime.now()
-    ts = datetime.timestamp(dt)
-    logger.debug("Starting", datetime.fromtimestamp(ts))
-    import pandas as pd
-    import test_request
-
-    requestor = service_requester()
-    dt = datetime.now()
-    ts = datetime.timestamp(dt)
-
-    logger.debug("Service Requestor Loaded ", datetime.fromtimestamp(ts))
-    logger.debug("----------RUN SERVICES----------------------------------------")
-
-    for request in test_request.tests:
-        dt = datetime.now()
-        ts = datetime.timestamp(dt)
-        if request["service_type"] != "get_crystal_property":
-            logger.debug(
-                "\n\n Properties for subject:  " + ", ".join(request["parameters"]["subjects"]) + "   ",
-                datetime.fromtimestamp(ts),
-            )
-            result = requestor.route_service(request)
-            if result is None:
-                logger.debug("Not Supported")
-            else:
-                logger.debug(pd.DataFrame(result))
-        else:
-            logger.debug("\n\n Properties for crystals")
-            logger.debug()
-            logger.debug(pd.DataFrame(requestor.route_service(request)))

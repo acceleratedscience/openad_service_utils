@@ -123,8 +123,8 @@ async def upload_file(
     Uploads a file to a temporary location and returns a unique key.
     """
     try:
-        file_key = str(uuid.uuid4())  # unique ID
-        
+        # Generate a unique file key
+        file_key = str(uuid.uuid4())
         # Handle potential None for file.filename
         filename = file.filename if file.filename else "uploaded_file"
         
