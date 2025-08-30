@@ -1,57 +1,50 @@
-import logging
-import gc
 import asyncio
-import redis.asyncio as redis
+import gc
 import hashlib
 import json
+import logging
 import multiprocessing
 import os
+import shutil
 import signal
 import sys
-from concurrent.futures import ProcessPoolExecutor
-from typing import List, Optional # Added List and Optional
-import uvicorn
-from fastapi import FastAPI, Request, HTTPException, UploadFile, File
-from fastapi.responses import HTMLResponse, JSONResponse
-from fastapi import Depends
 import tempfile
-import shutil
-import uuid # Added uuid for unique file naming
-from pandas import DataFrame
-from openad_service_utils.api.models import ServiceRequest, ServiceType
-from openad_service_utils.api.job_manager import (
-    JobManager,
-    get_slaves,
-    get_job_manager,
-    delete_sync_submission_queue,
-    retrieve_async_job,
-)
-from starlette.responses import JSONResponse
-import copy
+import uuid
+from concurrent.futures import ProcessPoolExecutor
+from contextlib import asynccontextmanager
+from itertools import chain
+from typing import List, Optional
 
+import redis.asyncio as redis
+import uvicorn
+from fastapi import Depends, FastAPI, File, HTTPException, Request, UploadFile
+from fastapi.responses import HTMLResponse, JSONResponse
+from pandas import DataFrame
+
+from openad_service_utils.api.config import get_config_instance
 from openad_service_utils.api.generation.call_generation_services import (
     get_services as get_generation_services,
-)  # noqa: E402
+)
 from openad_service_utils.api.generation.call_generation_services import (
     service_requester as generation_request,
-)  # noqa: E402
+)
+from openad_service_utils.api.job_manager import (
+    JobManager,
+    delete_sync_submission_queue,
+    get_job_manager,
+    get_slaves,
+    retrieve_async_job,
+)
+from openad_service_utils.api.models import ServiceRequest, ServiceType
 from openad_service_utils.api.properties.call_property_services import (
     get_services as get_property_services,
 )
 from openad_service_utils.api.properties.call_property_services import (
     service_requester as property_request,
 )
+from openad_service_utils.common.configuration import GT4SDConfiguration
 from openad_service_utils.common.properties.property_factory import PropertyFactory
 from openad_service_utils.utils.logging_config import setup_logging
-from openad_service_utils.api.config import get_config_instance
-import traceback
-from itertools import chain
-from openad_service_utils.utils.convert import dict_to_json_string
-
-from openad_service_utils.common.configuration import GT4SDConfiguration
-import pandas as pd
-from contextlib import asynccontextmanager
-
 
 # Set up logging configuration
 setup_logging()
@@ -85,7 +78,7 @@ kube_probe = FastAPI()
 def run_cleanup():
     if settings.AUTO_CLEAR_GPU_MEM:
         try:
-            import torch
+            import torch # type: ignore # noqa: F401, I001
 
             logger.debug(f"cleaning gpu memory for process ID: {os.getpid()}")
             torch.cuda.empty_cache()
@@ -299,7 +292,7 @@ def start_server(host="0.0.0.0", port=8080, log_level="info", max_workers=1, wor
         # overwite max workers with env var
         max_workers = settings.SERVE_MAX_WORKERS
     try:
-        import torch
+        import torch # type: ignore # noqa: F401, I001
 
         if torch.cuda.is_available():
             logger.debug(f"cuda is available: {torch.cuda.is_available()}")
