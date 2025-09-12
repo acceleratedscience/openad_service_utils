@@ -22,7 +22,9 @@ import pandas
 from pathlib import Path
 from multiprocessing import Pool
 import aiofiles
+import shutil
 from openad_service_utils.api.config import get_config_instance
+from openad_service_utils.common.models import FileResponse
 
 # Create a logger
 logger = logging.getLogger(__name__)
@@ -238,9 +240,22 @@ class JobManager:
                                 await fd.write("run")
                         result = await asyncio.to_thread(instance.route_service, args, file_keys=resolved_file_paths)
                         logger.debug(f"Job {job_id} result: {result}")
-                        job_info["result"] = result
+
+                        if async_job and isinstance(result, FileResponse):
+                            persistent_path = os.path.join(ASYNC_PATH, f"{job_id}.result")
+                            shutil.move(result.file_path, persistent_path)
+                            shutil.rmtree(os.path.dirname(result.file_path), ignore_errors=True)
+                            job_info["result"] = {
+                                "file_path": persistent_path,
+                                "filename": os.path.basename(result.file_path),
+                            }
+                        else:
+                            job_info["result"] = result
+
                         job_info["status"] = "completed"
-                        if async_job:
+
+                        if async_job and not isinstance(result, FileResponse):
+                            # For JSON results, write the data to the .result file
                             async with aiofiles.open(f"{ASYNC_PATH}/{job_id}.result", "w") as fd:
                                 if isinstance(result, pandas.DataFrame):
                                     result = result.to_json()
@@ -276,7 +291,7 @@ class JobManager:
 def run_cleanup():
     if settings.AUTO_CLEAR_GPU_MEM:
         try:
-            import torch
+            import torch  # type: ignore
 
             logger.debug(f"cleaning gpu memory for process ID: {os.getpid()}")
             torch.cuda.empty_cache()
@@ -342,7 +357,7 @@ async def cleanup_old_files(localRepo=ASYNC_PATH, age=3):
                 os.rmdir(item)
 
 
-async def retrieve_async_job(url) -> dict:
+async def retrieve_async_job(url) -> Optional[dict]:
     """retrieves Async Jobs from Disk"""
     await cleanup_old_files(localRepo=ASYNC_PATH, age=3)
     requested = os.path.exists(f"{ASYNC_PATH}/{url}.request")
@@ -350,13 +365,26 @@ async def retrieve_async_job(url) -> dict:
     finished = os.path.exists(f"{ASYNC_PATH}/{url}.result")
     if finished:
         try:
+            # Check for a file-based result first
+            job_manager = await get_job_manager()
+            job_info = await job_manager._get_job_info_by_id(url)
+            if job_info and isinstance(job_info.get("result"), dict) and "file_path" in job_info["result"]:
+                return {
+                    "status": "completed",
+                    "result_type": "file",
+                    "download_url": f"/service/download/{url}",
+                }
+
+            # Otherwise, assume a JSON result and read the file
             async with aiofiles.open(f"{ASYNC_PATH}/{url}.result", "r") as fd:
                 content = await fd.read()
+                if not content:  # Handle empty result file for file-based jobs
+                    return {"status": "error", "reason": "Result file is empty, which may indicate a file-based job that failed to store its path correctly."}
                 result = json.loads(content)
                 logger.info("Successfully retrieved job: " + url)
                 return result
         except Exception as e:
-            logger.warning("User attempted to retrieve non existing job: " + url)
+            logger.warning(f"Error retrieving job {url}: {e}")
             return None
     elif running:
         return {"warning": {"reason": "job is still running"}}
