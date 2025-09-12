@@ -18,8 +18,11 @@ from typing import List, Optional
 import redis.asyncio as redis
 import uvicorn
 from fastapi import Depends, FastAPI, File, HTTPException, Request, UploadFile
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from pandas import DataFrame
+from starlette.background import BackgroundTask
+
+from openad_service_utils.common.models import FileResponse as CustomFileResponse
 
 from openad_service_utils.api.config import get_config_instance
 from openad_service_utils.api.generation.call_generation_services import (
@@ -181,6 +184,24 @@ async def service(
 
         else:
             raise HTTPException(status_code=500, detail={"error": "service mismatch", "input": original_request})
+
+        if isinstance(result, CustomFileResponse):
+            file_path = result.file_path
+            sandbox_dir = os.path.dirname(file_path)
+
+            def cleanup():
+                shutil.rmtree(sandbox_dir, ignore_errors=True)
+
+            if os.path.exists(file_path):
+                return FileResponse(
+                    path=file_path,
+                    media_type="application/octet-stream",
+                    filename=os.path.basename(file_path),
+                    background=BackgroundTask(cleanup),
+                )
+            else:
+                cleanup()  # Clean up even if the file doesn't exist
+                raise HTTPException(status_code=404, detail="File not found.")
 
         # Cache the result (except for GET_RESULT)
         if settings.ENABLE_CACHE_RESULTS and service_type != ServiceType.GET_RESULT:

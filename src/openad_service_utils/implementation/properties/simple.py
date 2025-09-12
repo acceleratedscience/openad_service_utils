@@ -12,6 +12,7 @@ from openad_service_utils.common.algorithms.core import (
     PredictorAlgorithm,
 )
 from openad_service_utils.common.configuration import get_cached_algorithm_path
+from openad_service_utils.common.models import FileResponse
 from openad_service_utils.common.properties.core import DomainSubmodule, S3Parameters, Mesh, PropertyPredictorParameters
 from openad_service_utils.common.properties.property_factory import (
     PredictorTypes,
@@ -213,9 +214,21 @@ class SimplePredictor(PredictorAlgorithm, BasePredictorParameters):
         raise NotImplementedError("Not implemented in baseclass.")
 
     @abstractmethod
-    def predict(self, input: Any) -> Union[Dict[str, Any], List[Any], str, int, float, bool, None]:
-        """Run predictions and return results in JSON serializable format."""
+    def predict(  # type: ignore
+        self, input: Any, output_dir: Optional[str] = None, **kwargs: Any
+    ) -> Union[FileResponse, Dict[str, Any], List[Any], str, int, float, bool, None]:
+        """
+        Run predictions and return results in JSON serializable format.
 
+        Args:
+            input: The input data for the prediction.
+            output_dir: A secure, temporary directory provided by the service
+                        where any output files should be written.
+
+        Returns:
+            A JSON-serializable result or a FileResponse object pointing to a
+            relative path within the output_dir.
+        """
         raise NotImplementedError("Not implemented in baseclass.")
 
     @classmethod

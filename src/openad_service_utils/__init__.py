@@ -13,6 +13,7 @@ from openad_service_utils.implementation.properties.simple import (
     SimplePredictorMultiAlgorithm,
     PropertyInfo,
 )
+from openad_service_utils.common.models import FileResponse
 
 # make low level modules available for import more easily
 __all__ = [
@@ -27,4 +28,5 @@ __all__ = [
     "BaseAlgorithm",
     "BaseConfiguration",
     "start_server",
+    "FileResponse",
 ]

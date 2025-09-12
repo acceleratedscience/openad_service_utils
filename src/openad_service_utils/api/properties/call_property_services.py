@@ -1,5 +1,9 @@
 import os
 import copy
+import tempfile
+import uuid
+import shutil
+import inspect
 # import glob
 import json
 # import os
@@ -22,6 +26,7 @@ from openad_service_utils.common.properties.property_factory import PropertyFact
 
 # from .utils import subject_files_repository
 from openad_service_utils.api.properties.utils import subject_files_repository
+from openad_service_utils.common.models import FileResponse
 import logging
 from openad_service_utils.utils.logging_config import setup_logging
 
@@ -227,26 +232,42 @@ class request_properties:
                             }
                         )
 
-                elif service_type == "get_mesh_property":
-                    logger.debug(f"Handling mesh property request for subject: {current_subject} with file_keys: {file_keys}")
-                    # Handle Mesh property requests
-                    # The current_subject is already the file_path if file_keys were used
-                    results.append(
-                        {
-                            "file": os.path.basename(current_subject), # Pass the file name as the subject
-                            "property": property_type,
-                            "result": predictor(current_subject), # Predictor will load from file
-                        }
-                    )
                 else:
                     # All other property Requests handled here.
-                    results.append(
-                        {
-                            "subject": current_subject,
-                            "property": property_type,
-                            "result": predictor(current_subject),
-                        }
-                    )
+                    sandbox_dir = os.path.join(tempfile.gettempdir(), "openad_results", str(uuid.uuid4()))
+                    os.makedirs(sandbox_dir, exist_ok=True)
+                    try:
+                        # Inspect the predictor's signature to decide whether to pass output_dir
+                        sig = inspect.signature(predictor.predict)  # type: ignore
+                        if "output_dir" in sig.parameters:
+                            prediction_result = predictor(current_subject, output_dir=sandbox_dir)  # type: ignore
+                        else:
+                            prediction_result = predictor(current_subject)
+
+                        if isinstance(prediction_result, FileResponse):
+                            relative_path = prediction_result.file_path
+                            if ".." in relative_path or os.path.isabs(relative_path):
+                                raise ValueError("Invalid file path returned from predictor.")
+                            full_path = os.path.join(sandbox_dir, relative_path)
+                            if not os.path.exists(full_path):
+                                raise FileNotFoundError("Predictor did not create the specified file.")
+                            prediction_result.file_path = full_path
+                            # Do not clean up the sandbox dir, the server will do it.
+                            return prediction_result
+                        else:
+                            # If not a file response, we can clean up the sandbox immediately.
+                            shutil.rmtree(sandbox_dir, ignore_errors=True)
+                            results.append(
+                                {
+                                    "subject": current_subject,
+                                    "property": property_type,
+                                    "result": prediction_result,
+                                }
+                            )
+                    except Exception as e:
+                        # Ensure cleanup happens on error as well
+                        shutil.rmtree(sandbox_dir, ignore_errors=True)
+                        raise e
         return results
 
     def set_parms(self, property_type, parameters):

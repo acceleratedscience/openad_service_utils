@@ -64,12 +64,12 @@ from openad_service_utils.common.exceptions import (
     SamplingError,
 )
 
-try:
-    from gt4sd_inference_regression.training_pipelines.core import (
-        TrainingPipelineArguments,
-    )
-except:  # noqa: E722
-    pass
+# try:
+#     from gt4sd_inference_regression.training_pipelines.core import (
+#         TrainingPipelineArguments,
+#     )
+# except:  # noqa: E722
+#     pass
 
 # Set up logging configuration
 setup_logging()
@@ -89,7 +89,7 @@ Targeted = Callable[[T], Iterable[Any]]
 # callable not taking any target
 Untargeted = Callable[[], Iterable[Any]]
 # predictive model
-Predictor = Callable[[Any], Any]
+Predictor = Callable[..., Any]
 
 
 class GeneratorAlgorithm(ABC, Generic[S, T]):
@@ -356,10 +356,11 @@ class PredictorAlgorithm(ABC, Generic[S, T]):
         """
         raise NotImplementedError("Not implemented in baseclass.")
 
-    def predict(self, input: Any) -> Any:
+    def predict(self, input: Any, **kwargs: Any) -> Any:
         """Perform a prediction for an input.
         Args:
             input: the input for the predictive model
+            **kwargs: additional keyword arguments for the predictor.
 
         Raises:
             TimeoutError: when the walltime limit is hit.
@@ -367,9 +368,9 @@ class PredictorAlgorithm(ABC, Generic[S, T]):
         Returns:
             the prediction.
         """
-
+        predicted = None
         try:
-            predicted = self.predictor(input)
+            predicted = self.predictor(input, **kwargs)
         except TimeoutError:
             detail = f"Predicting took longer than maximum ({self.max_runtime} seconds)."
             logger.warning(detail + " Exiting now!")
@@ -378,9 +379,9 @@ class PredictorAlgorithm(ABC, Generic[S, T]):
             raise Exception(f"{self.__class__.__name__} failed with {input}")
         return predicted
 
-    def __call__(self, input: Any) -> Any:
+    def __call__(self, input: Any, **kwargs: Any) -> Any:
         """Alias for `self.predict`."""
-        return self.predict(input)
+        return self.predict(input, **kwargs)
 
 
 @dataclass
@@ -575,7 +576,7 @@ class AlgorithmConfiguration(Generic[S, T]):
 
     @classmethod
     def get_filepath_mappings_for_training_pipeline_arguments(
-        cls, training_pipeline_arguments: TrainingPipelineArguments
+        cls, training_pipeline_arguments: Any
     ) -> Dict[str, str]:
         """Ger filepath mappings for the given training pipeline arguments.
 
@@ -593,7 +594,7 @@ class AlgorithmConfiguration(Generic[S, T]):
     @classmethod
     def save_version_from_training_pipeline_arguments_postprocess(
         cls,
-        training_pipeline_arguments: TrainingPipelineArguments,
+        training_pipeline_arguments: Any,
     ):
         """Postprocess after saving.
 
@@ -605,7 +606,7 @@ class AlgorithmConfiguration(Generic[S, T]):
     @classmethod
     def save_version_from_training_pipeline_arguments(
         cls,
-        training_pipeline_arguments: TrainingPipelineArguments,
+        training_pipeline_arguments: Any,
         target_version: str,
         source_version: Optional[str] = None,
     ) -> None:
@@ -657,7 +658,7 @@ class AlgorithmConfiguration(Generic[S, T]):
     @classmethod
     def upload_version_from_training_pipeline_arguments_postprocess(
         cls,
-        training_pipeline_arguments: TrainingPipelineArguments,
+        training_pipeline_arguments: Any,
     ):
         """Postprocess after uploading. Not implemented yet.
 
@@ -669,7 +670,7 @@ class AlgorithmConfiguration(Generic[S, T]):
     @classmethod
     def upload_version_from_training_pipeline_arguments(
         cls,
-        training_pipeline_arguments: TrainingPipelineArguments,
+        training_pipeline_arguments: Any,
         target_version: str,
         source_version: Optional[str] = None,
     ) -> None:
