@@ -47,10 +47,13 @@ The server will respond with a job ID that you can use to retrieve the results l
 
 ## 4. Retrieve the Results
 
-To retrieve the results of an asynchronous job, send a request with the `service_type` set to `get_result` and the `url` field set to the job ID.
+To retrieve the results of an asynchronous job, send a request with the `service_type` set to `get_result` and the `url` field set to the job ID. The server will respond with the status of the job.
+
+### JSON-Based Results
+
+If the predictor returns a JSON-serializable result, the response will be the result itself once the job is complete.
 
 **Example:**
-
 ```json
 {
   "service_type": "get_result",
@@ -58,4 +61,85 @@ To retrieve the results of an asynchronous job, send a request with the `service
 }
 ```
 
-The server will respond with the results of the job, or a status indicating that the job is still pending.
+### File-Based Results
+
+If the predictor returns a `FileResponse` object, the response will contain a `download_url` once the job is complete.
+
+**Example:**
+```json
+{
+    "status": "completed",
+    "result_type": "file",
+    "download_url": "/service/download/f1b2c3d4-e5f6-7890-1234-567890abcdef"
+}
+```
+
+## 5. Asynchronous File Download Workflow Example
+
+This example demonstrates the full lifecycle of an asynchronous, file-based prediction using `curl` and `jq`.
+
+### Step 1: Upload the Input File
+
+First, upload your input file (e.g., `my_mesh.vtk`) to the `/service/upload` endpoint.
+
+```bash
+FILE_KEY=$(curl -X POST "http://localhost:8080/service/upload" \
+  -H "Content-Type: multipart/form-data" \
+  -F "file=@my_mesh.vtk" | jq -r .file_key)
+
+echo "File key: $FILE_KEY"
+```
+
+### Step 2: Submit the Asynchronous Job
+
+Next, submit the prediction job to the `/service` endpoint with `"async": true`, using the `file_key` obtained in the previous step.
+
+```bash
+JOB_ID=$(curl -X POST "http://localhost:8080/service" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "service_type": "get_mesh_property",
+    "service_name": "surface_property_prediction",
+    "parameters": {
+      "property_type": ["SurfaceArea"]
+    },
+    "file_keys": ["'$FILE_KEY'"],
+    "async": true
+  }' | jq -r .job_id)
+
+echo "Job ID: $JOB_ID"
+```
+
+### Step 3: Poll for Job Completion
+
+Poll the `get_result` endpoint until the status is "completed".
+
+```bash
+DOWNLOAD_URL=""
+while [ -z "$DOWNLOAD_URL" ]; do
+  echo "Checking job status..."
+  RESPONSE=$(curl -s -X POST "http://localhost:8080/service" \
+    -H "Content-Type: application/json" \
+    -d '{"service_type": "get_result", "url": "'$JOB_ID'"}')
+  
+  STATUS=$(echo $RESPONSE | jq -r .status)
+  
+  if [ "$STATUS" == "completed" ]; then
+    DOWNLOAD_URL=$(echo $RESPONSE | jq -r .download_url)
+    echo "Job complete. Download URL: $DOWNLOAD_URL"
+  else
+    echo "Job is still pending. Waiting 5 seconds..."
+    sleep 5
+  fi
+done
+```
+
+### Step 4: Download the Result File
+
+Finally, use the `download_url` to download the result file.
+
+```bash
+curl -o "prediction_result.json" "http://localhost:8080$DOWNLOAD_URL"
+
+echo "Result downloaded to prediction_result.json"
+```

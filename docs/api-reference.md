@@ -57,7 +57,7 @@ Used for retrieving the results of a previously submitted asynchronous job.
 | `url` | string | Yes | The `job_id` of the asynchronous job to retrieve. |
 
 **Response:**
-*   A JSON object containing the results of the job, or a status indicating that the job is still pending.
+*   A JSON object containing the status of the job. If the job is complete and the result is a file, the response will include a `download_url`. Otherwise, for JSON-based results, it will contain the result data directly.
 
 ---
 
@@ -81,3 +81,18 @@ Uploads a file to a temporary location on the server and returns a unique `file_
       "message": "File uploaded successfully."
     }
     ```
+
+---
+
+### `GET /service/download/{job_id}`
+
+Downloads the file result of a completed asynchronous job.
+
+**Request:**
+*   **Method:** `GET`
+*   **Endpoint:** `/service/download/{job_id}`
+*   **Path Parameters:**
+    *   `job_id` (string, required): The ID of the completed asynchronous job.
+
+**Response:**
+*   The binary content of the result file.
