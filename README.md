@@ -69,17 +69,21 @@ Now connect your model and run an inference.
 
 ## Documentation
 
-For more detailed documentation, please see the [docs](./docs) directory. The documentation includes information on:
+This project is documented in the `docs/` directory. Below is an overview of the available documents.
 
--   [Architecture Overview](./docs/architecture.md)
--   [Sample Configuration Templates](./docs/templates.md)
--   [Wrapper Configuration Parameters](./docs/configuration.md)
--   [Model Selection & Switching Logic](./docs/model-selection.md)
--   [Async Mode Configuration](./docs/async-mode.md)
--   [API Reference](./docs/api-reference.md)
--   [Input/Output Schema Examples](./docs/input-output.md)
--   [Deployment Guide](./docs/deployment.md)
--   [Troubleshooting Guide](./docs/troubleshooting.md)
+-   **Core Concepts**
+    -   [`architecture.md`](./docs/architecture.md): Provides a high-level overview of the service's components and request lifecycle, including an explanation of the different [Execution Workflows](./docs/architecture.md#execution-workflows).
+    -   [`model-selection.md`](./docs/model-selection.md): Explains how the service uses a combination of `service_type` and `service_name` to route requests to the correct model.
+-   **Implementation Guides**
+    -   [`templates.md`](./docs/templates.md): Contains sample code and templates for wrapping different types of models, including those that handle file-based I/O.
+    -   [`async-mode.md`](./docs/async-mode.md): Details how to configure and use the asynchronous, polling-based workflow for long-running jobs.
+    -   [`deployment.md`](./docs/deployment.md): Provides instructions on how to package your model service into a Docker container for deployment.
+-   **API and Configuration**
+    -   [`api-reference.md`](./docs/api-reference.md): Offers a detailed reference for all API endpoints, including the new `/service/download/{job_id}` route.
+    -   [`input-output.md`](./docs/input-output.md): Shows examples of the JSON schemas used for API requests and responses.
+    -   [`configuration.md`](./docs/configuration.md): Lists all the environment variables that can be used to configure the service's behavior.
+-   **Support**
+    -   [`troubleshooting.md`](./docs/troubleshooting.md): Provides solutions and guidance for common issues and errors.
 
 <!-- Links -->
 

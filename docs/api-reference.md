@@ -38,7 +38,7 @@ Used for submitting synchronous or asynchronous jobs for property prediction or 
 | `service_type` | string | Yes | One of `get_protein_property`, `get_molecule_property`, `get_crystal_property`, `get_mesh_property`, or `generate_data`. |
 | `service_name` | string | Yes | The name of the model to be used. |
 | `parameters` | object | Yes | An object containing the parameters for the model. |
-| `async` | boolean | No | Set to `true` to submit the job for asynchronous processing. |
+| `async` | boolean | No | Set to `true` to submit the job for asynchronous processing. See [Execution Workflows](./architecture.md#execution-workflows) for more details. |
 | `file_keys` | array of strings | No | A list of file keys obtained from the `/service/upload` endpoint, referencing uploaded subject files. |
 
 **Response:**

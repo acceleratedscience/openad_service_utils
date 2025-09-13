@@ -52,3 +52,28 @@ The model wrapper consists of the following key components:
 *   **Model Loading:** The component responsible for loading models into memory and preparing them for inference.
 *   **Generation Modes:** The different modes in which the model can be run, such as prediction, generation, and nested properties.
 *   **Inference Pipeline:** The sequence of steps that are executed to perform inference on a given input.
+
+## Execution Workflows
+
+The API supports two primary execution workflows: synchronous and asynchronous. Understanding the difference is crucial for building robust and scalable services.
+
+### Synchronous Workflow (Default)
+
+By default, all requests are handled synchronously. This means the client sends a request and waits for the entire process to complete before receiving a response.
+
+*   **How it Works:** The API holds the client's connection open while it processes the request, runs the model's `predict` method, and generates the result.
+*   **Result Handling:**
+    *   **JSON:** If the result is JSON data, it is returned directly in the response body.
+    *   **File:** If the result is a file (returned as a `FileResponse`), the file is streamed back directly as a download.
+*   **Use Case:** Ideal for quick predictions that take less than 30-60 seconds.
+*   **Limitation:** For long-running tasks (e.g., complex simulations, large file generation), the client's connection can time out. This can lead to a `503 Service Unavailable` error, even if the process eventually completes on the server. The client is left unaware of the final status.
+
+### Asynchronous Workflow
+
+The asynchronous workflow is designed specifically to handle long-running tasks reliably. It decouples the initial request from the final result.
+
+*   **How it Works:** The client sends a request with `"async": true`. The server immediately accepts the request, creates a job, and returns a `job_id`. The client's connection is then closed. The job continues to run in the background.
+*   **Result Handling:** The client must use the `job_id` to poll the `get_result` endpoint to check the job's status. Once the job is complete:
+    *   **JSON:** The status response will contain the final JSON result.
+    *   **File:** The status response will contain a `download_url` pointing to a new `/service/download/{job_id}` endpoint, which can then be used to download the file.
+*   **Use Case:** Essential for any task that may exceed the standard HTTP timeout, ensuring that the client can reliably retrieve the result, no matter how long it takes to generate.

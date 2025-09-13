@@ -2,6 +2,8 @@
 
 This guide provides a step-by-step setup for using the asynchronous endpoints of the model wrapper.
 
+> **Note:** For a detailed explanation of the differences between synchronous and asynchronous execution and why the async workflow is critical for long-running tasks, please see the [Execution Workflows](./architecture.md#execution-workflows) section in the architecture guide.
+
 ## 1. Enable Asynchronous Mode
 
 To enable asynchronous mode, set the `ASYNC_ALLOW` environment variable to `True`.
