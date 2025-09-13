@@ -8,7 +8,7 @@ The API expects a JSON object with a `service_type` and `service_name` field tha
 
 ### Property Prediction
 
-For property prediction, the `service_type` should be one of the values from the `PredictorTypes` enum: `get_protein_property`, `get_molecule_property`, or `get_crystal_property`. The `parameters` object must contain `property_type` (a list of properties to predict) and `subjects` (a list of inputs to predict on). Additional parameters may be required depending on the specific model.
+For property prediction, the `service_type` should be one of the values from the `PredictorTypes` enum: `get_protein_property`, `get_molecule_property`, `get_crystal_property`, or `get_mesh_property`. The `parameters` object must contain `property_type` (a list of properties to predict). For models that accept file-based input, such as meshes, the `subjects` field is replaced by the `file_keys` field at the root of the request.
 
 **Example:**
 
@@ -20,6 +20,19 @@ For property prediction, the `service_type` should be one of the values from the
     "property_type": ["LogP", "TPSA"],
     "subjects": ["CCO", "CCC"]
   }
+}
+```
+
+**Example (Mesh Property Prediction):**
+
+```json
+{
+  "service_type": "get_mesh_property",
+  "service_name": "surface_property_prediction",
+  "parameters": {
+    "property_type": ["SurfaceArea"]
+  },
+  "file_keys": ["e490e8e4-58c7-425b-9251-563aa880a0ce"]
 }
 ```
 
