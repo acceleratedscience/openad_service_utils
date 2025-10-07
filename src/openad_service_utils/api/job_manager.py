@@ -372,7 +372,7 @@ async def retrieve_async_job(url) -> Optional[dict]:
                 return {
                     "status": "completed",
                     "result_type": "file",
-                    "download_url": f"/service/download/{url}",
+                    "download_url": f"/service/download/{url}/{job_info['result']['filename']}",
                 }
 
             # Otherwise, assume a JSON result and read the file

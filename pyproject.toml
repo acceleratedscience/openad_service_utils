@@ -7,7 +7,7 @@ requires-python = ">= 3.9"
 dependencies = [
  "pydantic-settings",
  "minio",
- "pydantic",
+ "pydantic==2.11.9",
  "pandas",
  "fastapi",
  "uvicorn",
