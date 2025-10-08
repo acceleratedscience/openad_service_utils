@@ -266,7 +266,7 @@ class request_properties:
                             )
                     except Exception as e:
                         # Ensure cleanup happens on error as well
-                        shutil.rmtree(sandbox_dir, ignore_errors=True)
+                        # shutil.rmtree(sandbox_dir, ignore_errors=True)
                         raise e
         return results
 

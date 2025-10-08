@@ -5,10 +5,10 @@ import json
 import logging
 import multiprocessing
 import os
+import re
 import shutil
 import signal
 import sys
-import tempfile
 import uuid
 from concurrent.futures import ProcessPoolExecutor
 from contextlib import asynccontextmanager
@@ -67,7 +67,13 @@ async def lifespan(app: FastAPI):
     # Init Redis connection pool
     app.state.redis = redis.Redis(host=settings.REDIS_HOST, port=settings.REDIS_PORT, db=settings.REDIS_DB, password=settings.REDIS_PASSWORD, decode_responses=True)
     await delete_sync_submission_queue()
+    
+    # Start the file sync background task
+    task = asyncio.create_task(sync_files_periodically(app.state.redis))
+    
     yield
+    
+    task.cancel()
     await app.state.redis.close()
 
     logger.debug("Shutting down server...")
@@ -118,38 +124,167 @@ def generate_cache_key(request_data: dict) -> str:
     return f"service_cache:{hashlib.sha256(payload_str.encode()).hexdigest()}"
 
 
-UPLOAD_DIR = os.getenv("OPENAD_UPLOAD_TEMP_DIR", tempfile.gettempdir())
-os.makedirs(UPLOAD_DIR, exist_ok=True)
+# Ensure the upload temp directory exists
+os.makedirs(settings.UPLOAD_TEMP_DIR, exist_ok=True)
 
-@app.post("/service/upload")
-async def upload_file(
-    file: UploadFile = File(...),
-):
-    """
-    Uploads a file to a temporary location and returns a unique key.
-    """
+
+def validate_collection_name(collection_name: str):
+    """Validates the collection name to be alphanumeric with underscores and hyphens."""
+    if not re.match(r"^[a-zA-Z0-9_-]+$", collection_name):
+        raise HTTPException(status_code=400, detail="Invalid collection name. Only alphanumeric characters, underscores, and hyphens are allowed.")
+
+
+def validate_filename(filename: str):
+    """Validates the filename to prevent directory traversal."""
+    if not filename or "/" in filename or "\\" in filename or ".." in filename:
+        raise HTTPException(status_code=400, detail="Invalid filename.")
+
+
+async def sync_files_to_redis(redis_client: redis.Redis):
+    """Scans the upload directory and syncs the file index with Redis."""
+    logger.debug("Starting file sync to Redis.")
+    
+    # Get all file keys from Redis
+    redis_keys = await redis_client.keys("file_map:*")
+    redis_file_keys = {key.split(":", 1)[1] for key in redis_keys}
+
+    # Get all files from the filesystem, assuming subdirectories are collections
+    disk_files = set()
+    for collection_name in os.listdir(settings.UPLOAD_TEMP_DIR):
+        collection_path = os.path.join(settings.UPLOAD_TEMP_DIR, collection_name)
+        if os.path.isdir(collection_path):
+            try:
+                validate_collection_name(collection_name)
+                for filename in os.listdir(collection_path):
+                    full_path = os.path.join(collection_path, filename)
+                    if os.path.isfile(full_path):
+                        try:
+                            validate_filename(filename)
+                            file_key = os.path.join(collection_name, filename)
+                            disk_files.add(file_key)
+                        except HTTPException:
+                            logger.warning(f"Skipping invalid filename during sync: {filename}")
+            except HTTPException:
+                logger.warning(f"Skipping invalid collection name during sync: {collection_name}")
+
+    # Add new files to Redis
+    for file_key in disk_files - redis_file_keys:
+        full_path = os.path.join(settings.UPLOAD_TEMP_DIR, file_key)
+        await redis_client.set(f"file_map:{file_key}", full_path)
+        logger.debug(f"Added new file to Redis: {file_key}")
+
+    # Remove deleted files from Redis
+    for file_key in redis_file_keys - disk_files:
+        await redis_client.delete(f"file_map:{file_key}")
+        logger.debug(f"Removed deleted file from Redis: {file_key}")
+
+    logger.debug("File sync to Redis complete.")
+
+
+async def sync_files_periodically(redis_client: redis.Redis):
+    """Runs the file sync process at a regular interval."""
+    while True:
+        await sync_files_to_redis(redis_client)
+        await asyncio.sleep(60)  # Sync every 60 seconds
+
+
+@app.post("/service/collections/{collection_name}")
+async def upload_file_to_collection(collection_name: str, file: UploadFile = File(...)):
+    """Uploads a file to a specific collection."""
+    validate_collection_name(collection_name)
     try:
-        # Generate a unique file key
-        file_key = str(uuid.uuid4())
-        # Handle potential None for file.filename
         filename = file.filename if file.filename else "uploaded_file"
+        validate_filename(filename)
+        collection_dir = os.path.join(settings.UPLOAD_TEMP_DIR, collection_name)
+        os.makedirs(collection_dir, exist_ok=True)
         
-        # Create a directory for the uploaded file using the file_key as the directory name
-        file_upload_dir = os.path.join(UPLOAD_DIR, file_key)
-        os.makedirs(file_upload_dir, exist_ok=True)
-        
-        temp_file_path = os.path.join(file_upload_dir, filename)
-
-        with open(temp_file_path, "wb") as buffer:
+        file_path = os.path.join(collection_dir, filename)
+        with open(file_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
-            logger.debug(f"File saved to {temp_file_path}")
         
-        # Store the mapping in Redis
-        await app.state.redis.set(f"file_map:{file_key}", temp_file_path, ex=settings.UPLOAD_FILE_TTL)
+        file_key = os.path.join(collection_name, filename)
+        await app.state.redis.set(f"file_map:{file_key}", file_path)
         
         return JSONResponse({"file_key": file_key, "message": "File uploaded successfully."})
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error uploading file: {str(e)}")
+
+
+@app.get("/service/collections")
+async def get_collections():
+    """Returns a list of all available collections."""
+    try:
+        file_keys = await app.state.redis.keys("file_map:*")
+        collections = sorted(list(set([key.split(":")[1].split("/")[0] for key in file_keys])))
+        return JSONResponse({"collections": collections})
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error retrieving collections: {str(e)}")
+
+
+@app.delete("/service/collections/{collection_name}")
+async def delete_collection(collection_name: str):
+    """Deletes an entire collection and all of its files."""
+    validate_collection_name(collection_name)
+    try:
+        collection_dir = os.path.join(settings.UPLOAD_TEMP_DIR, collection_name)
+        if not os.path.isdir(collection_dir):
+            raise HTTPException(status_code=404, detail="Collection not found.")
+
+        # Remove all files in the collection from Redis
+        file_keys = await app.state.redis.keys(f"file_map:{collection_name}/*")
+        if file_keys:
+            await app.state.redis.delete(*file_keys)
+
+        # Remove the collection directory from the filesystem
+        shutil.rmtree(collection_dir)
+
+        return JSONResponse({"message": f"Collection '{collection_name}' deleted successfully."})
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error deleting collection: {str(e)}")
+
+
+@app.get("/service/collections/{collection_name}")
+async def get_files_in_collection(collection_name: str):
+    """Returns a list of all files in a specific collection."""
+    validate_collection_name(collection_name)
+    try:
+        files_info = []
+        file_keys = await app.state.redis.keys(f"file_map:{collection_name}/*")
+        if not file_keys:
+            raise HTTPException(status_code=404, detail="Collection not found or is empty.")
+        for key in file_keys:
+            file_key = key.split(":")[1]
+            filename = os.path.basename(file_key)
+            files_info.append({"file_key": file_key, "filename": filename})
+        return JSONResponse({"files": files_info})
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error retrieving files: {str(e)}")
+
+
+@app.delete("/service/collections/{collection_name}/{filename}")
+async def delete_file_from_collection(collection_name: str, filename: str):
+    """Deletes a file from a specific collection."""
+    validate_collection_name(collection_name)
+    validate_filename(filename)
+    try:
+        file_key = os.path.join(collection_name, filename)
+        file_path = await app.state.redis.get(f"file_map:{file_key}")
+        
+        if not file_path or not os.path.exists(file_path):
+            raise HTTPException(status_code=404, detail="File not found.")
+            
+        os.remove(file_path)
+        await app.state.redis.delete(f"file_map:{file_key}")
+        
+        return JSONResponse({"message": "File deleted successfully."})
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error deleting file: {str(e)}")
 
 
 @app.post("/service")

@@ -82,10 +82,11 @@ This example demonstrates the full lifecycle of an asynchronous, file-based pred
 
 ### Step 1: Upload the Input File
 
-First, upload your input file (e.g., `my_mesh.vtk`) to the `/service/upload` endpoint.
+First, upload your input file (e.g., `my_mesh.vtk`) to a collection (e.g., `my_collection`) using the `/service/collections/{collection_name}` endpoint.
 
 ```bash
-FILE_KEY=$(curl -X POST "http://localhost:8080/service/upload" \
+COLLECTION_NAME="my_collection"
+FILE_KEY=$(curl -X POST "http://localhost:8080/service/collections/$COLLECTION_NAME" \
   -H "Content-Type: multipart/form-data" \
   -F "file=@my_mesh.vtk" | jq -r .file_key)
 

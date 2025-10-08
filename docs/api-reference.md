@@ -39,7 +39,7 @@ Used for submitting synchronous or asynchronous jobs for property prediction or 
 | `service_name` | string | Yes | The name of the model to be used. |
 | `parameters` | object | Yes | An object containing the parameters for the model. |
 | `async` | boolean | No | Set to `true` to submit the job for asynchronous processing. See [Execution Workflows](./architecture.md#execution-workflows) for more details. |
-| `file_keys` | array of strings | No | A list of file keys obtained from the `/service/upload` endpoint, referencing uploaded subject files. |
+| `file_keys` | array of strings | No | A list of file keys in the format `collection_name/filename.ext`, referencing uploaded subject files. |
 
 **Response:**
 *   **Synchronous:** A JSON object containing the results of the request. See the [Input/Output Schema Examples](./input-output.md) for examples.
@@ -61,13 +61,35 @@ Used for retrieving the results of a previously submitted asynchronous job.
 
 ---
 
-### `POST /service/upload`
+### `GET /service/collections`
 
-Uploads a file to a temporary location on the server and returns a unique `file_key` that can be used in subsequent `/service` requests. This endpoint is used for submitting large or complex input data, such as mesh files, that cannot be directly included in the `POST /service` request body.
+Retrieves a list of all available collections.
+
+**Request:**
+*   **Method:** `GET`
+*   **Endpoint:** `/service/collections`
+*   **Body:** None
+
+**Response:**
+*   **Content-Type:** `application/json`
+*   **Body:** A JSON object containing a list of collection names.
+    ```json
+    {
+      "collections": ["collection1", "collection2"]
+    }
+    ```
+
+---
+
+### `POST /service/collections/{collection_name}`
+
+Uploads a file to a specific collection.
 
 **Request:**
 *   **Method:** `POST`
-*   **Endpoint:** `/service/upload`
+*   **Endpoint:** `/service/collections/{collection_name}`
+*   **Path Parameters:**
+    *   `collection_name` (string, required): The name of the collection.
 *   **Content-Type:** `multipart/form-data`
 *   **Body:**
     *   `file`: The file to be uploaded.
@@ -77,22 +99,90 @@ Uploads a file to a temporary location on the server and returns a unique `file_
 *   **Body:** A JSON object containing the `file_key` and a success message.
     ```json
     {
-      "file_key": "unique-file-identifier",
+      "file_key": "collection_name/filename.ext",
       "message": "File uploaded successfully."
     }
     ```
 
 ---
 
-### `GET /service/download/{job_id}`
+### `GET /service/collections/{collection_name}`
+
+Retrieves a list of all files within a specific collection.
+
+**Request:**
+*   **Method:** `GET`
+*   **Endpoint:** `/service/collections/{collection_name}`
+*   **Path Parameters:**
+    *   `collection_name` (string, required): The name of the collection.
+
+**Response:**
+*   **Content-Type:** `application/json`
+*   **Body:** A JSON object containing a list of file objects, each with a `file_key` and `filename`.
+    ```json
+    {
+      "files": [
+        {"file_key": "collection_name/file1.txt", "filename": "file1.txt"},
+        {"file_key": "collection_name/file2.txt", "filename": "file2.txt"}
+      ]
+    }
+    ```
+
+---
+
+### `DELETE /service/collections/{collection_name}`
+
+Deletes an entire collection and all of its files.
+
+**Request:**
+*   **Method:** `DELETE`
+*   **Endpoint:** `/service/collections/{collection_name}`
+*   **Path Parameters:**
+    *   `collection_name` (string, required): The name of the collection to be deleted.
+
+**Response:**
+*   **Content-Type:** `application/json`
+*   **Body:** A JSON object with a success message.
+    ```json
+    {
+      "message": "Collection 'collection_name' deleted successfully."
+    }
+    ```
+
+---
+
+### `DELETE /service/collections/{collection_name}/{filename}`
+
+Deletes a specific file from a collection.
+
+**Request:**
+*   **Method:** `DELETE`
+*   **Endpoint:** `/service/collections/{collection_name}/{filename}`
+*   **Path Parameters:**
+    *   `collection_name` (string, required): The name of the collection.
+    *   `filename` (string, required): The name of the file to be deleted.
+
+**Response:**
+*   **Content-Type:** `application/json`
+*   **Body:** A JSON object with a success message.
+    ```json
+    {
+      "message": "File deleted successfully."
+    }
+    ```
+
+---
+
+### `GET /service/download/{job_id}/{filename}`
 
 Downloads the file result of a completed asynchronous job.
 
 **Request:**
 *   **Method:** `GET`
-*   **Endpoint:** `/service/download/{job_id}`
+*   **Endpoint:** `/service/download/{job_id}/{filename}`
 *   **Path Parameters:**
     *   `job_id` (string, required): The ID of the completed asynchronous job.
+    *   `filename` (string, required): The name of the file to download.
 
 **Response:**
 *   The binary content of the result file.

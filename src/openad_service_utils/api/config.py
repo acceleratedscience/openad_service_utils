@@ -1,7 +1,8 @@
 from pydantic_settings import BaseSettings
 from functools import lru_cache
 from typing import Any
-
+import tempfile
+import os
 
 class ServerConfig(BaseSettings):
     AUTO_CLEAR_GPU_MEM: bool = True
@@ -23,6 +24,7 @@ class ServerConfig(BaseSettings):
     REDIS_DB: int = 0
     REDIS_PASSWORD: Any | None = None
 
+    UPLOAD_TEMP_DIR: str = os.path.join(tempfile.gettempdir(), "openad_uploads")
 
 @lru_cache(maxsize=None)
 def get_config_instance() -> ServerConfig:

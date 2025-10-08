@@ -273,14 +273,6 @@ class JobManager:
                         job_info["result"] = {"error": str(e)}
                         job_info["error"] = True
                         job_info["status"] = "error"
-                    finally:
-                        # Cleanup temporary files and Redis entries
-                        for key in file_keys:
-                            temp_file_path = await self.redis_client.get(f"file_map:{key}")
-                            if temp_file_path and os.path.exists(temp_file_path):
-                                logger.debug(f"Removing temporary file for upload: {temp_file_path}")
-                                os.remove(temp_file_path)
-                            await self.redis_client.delete(f"file_map:{key}")
                         
                     await self.redis_client.set(f"job:{job_id}", pickle.dumps(job_info))
                     run_cleanup()
