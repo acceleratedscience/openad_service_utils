@@ -191,7 +191,7 @@ class SimplePredictor(PredictorAlgorithm, BasePredictorParameters):
         """overwrite existing function to download model only once"""
         # download model
         if self.__no_model__:
-            logger.info("No model required, skipping S3 caching.")
+            # logger.info("No model required, skipping S3 caching.")
             # If no model is required, we still return the predict method,
             # and the user's predict method should handle the no-model case.
             return cast(Predictor, self.predict)
@@ -320,7 +320,8 @@ class SimplePredictor(PredictorAlgorithm, BasePredictorParameters):
             os.makedirs(model_location, exist_ok=True)
         except Exception:
             logger.error(f"could not create model cache location: {model_location}")
-        logger.info(f"registering predictor model: {model_location}")
+        if "OPENAD_MAIN_PROCESS" not in os.environ: # only log in main process
+            logger.info(f"registering predictor model: {model_location}")
         # logger.debug(cls(model_param_class(**model_param_class().dict())).get_model_location())
 
 

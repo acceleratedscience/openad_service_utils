@@ -126,7 +126,7 @@ def validate_filename(filename: str):
 
 async def sync_files_to_redis(redis_client: redis.Redis):
     """Scans the upload directory and syncs the file index with Redis."""
-    logger.debug("Starting file sync to Redis.")
+    # logger.debug("Starting file sync to Redis.")
     
     # Get all file keys from Redis
     redis_keys = await redis_client.keys("file_map:*")
@@ -162,11 +162,12 @@ async def sync_files_to_redis(redis_client: redis.Redis):
         await redis_client.delete(f"file_map:{file_key}")
         logger.debug(f"Removed deleted file from Redis: {file_key}")
 
-    logger.debug("File sync to Redis complete.")
+    # logger.debug("File sync to Redis complete.")
 
 
 async def sync_files_periodically(redis_client: redis.Redis):
     """Runs the file sync process at a regular interval."""
+    logger.info("Starting background file sync task...")
     while True:
         await sync_files_to_redis(redis_client)
         await asyncio.sleep(settings.UPLOAD_STORAGE_SYNC_INTERVAL)  # Sync every 60 seconds
@@ -490,6 +491,8 @@ def start_server(
         worker_gpu_min (int): The minimum GPU memory required per worker.
     """
     logger.debug(f"Server Config: {settings.model_dump()}")
+    # Track main process
+    os.environ["OPENAD_MAIN_PROCESS"] = "1"
 
     try:
         import torch
@@ -517,7 +520,7 @@ def start_server(
 
     config_settings = GT4SDConfiguration().model_dump(include={"OPENAD_S3_HOST", "OPENAD_S3_HOST_HUB"})
     logger.info(f"S3 Config: {config_settings}")
-    logger.info(f"Total workers: {max_workers}")
+    # logger.info(f"Total workers: {max_workers}")
 
     multiprocessing.set_start_method("spawn", force=True)
 
@@ -530,7 +533,7 @@ def start_server(
             worker_process = multiprocessing.Process(target=slave_thread, args=(i + 1, async_allow))
             processes.append(worker_process)
             worker_process.start()
-        logger.info(f"Started {total_jobs} job worker processes.")
+            logger.info(f"Started worker process {i+1} with PID: {worker_process.pid}")
 
         # Start Uvicorn main service
         main_service_process = multiprocessing.Process(
@@ -566,6 +569,8 @@ def start_server(
             if p.is_alive():
                 p.terminate()
                 p.join()
+        if "OPENAD_MAIN_PROCESS" in os.environ:
+            del os.environ["OPENAD_MAIN_PROCESS"]
         
 
 
