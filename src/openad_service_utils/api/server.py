@@ -9,8 +9,6 @@ import re
 import shutil
 import signal
 import sys
-import uuid
-from concurrent.futures import ProcessPoolExecutor
 from contextlib import asynccontextmanager
 from itertools import chain
 from typing import List, Optional
@@ -22,6 +20,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from pandas import DataFrame
 from starlette.background import BackgroundTask
+from starlette.concurrency import run_in_threadpool
 
 from openad_service_utils.common.models import FileResponse as CustomFileResponse
 
@@ -36,8 +35,8 @@ from openad_service_utils.api.job_manager import (
     JobManager,
     delete_sync_submission_queue,
     get_job_manager,
-    get_slaves,
     retrieve_async_job,
+    slave_thread,
 )
 from openad_service_utils.api.models import ServiceRequest, ServiceType
 from openad_service_utils.api.properties.call_property_services import (
@@ -58,7 +57,6 @@ settings = get_config_instance()
 
 # Create a logger
 logger = logging.getLogger(__name__)
-SLAVES = None
 
 
 # create lifecycle event to initialize the job manager
@@ -94,20 +92,6 @@ app.add_middleware(
 )
 
 
-def run_cleanup():
-    if settings.AUTO_CLEAR_GPU_MEM:
-        try:
-            import torch # type: ignore # noqa: F401, I001
-
-            logger.debug(f"cleaning gpu memory for process ID: {os.getpid()}")
-            torch.cuda.empty_cache()
-        except ImportError:
-            pass  # do nothing
-    if settings.AUTO_GARBAGE_COLLECT:
-        logger.debug(f"manual garbage collection on process ID: {os.getpid()}")
-        gc.collect()
-
-
 @kube_probe.get("/health", response_class=HTMLResponse)
 async def healthz(request: Request):
     return "UP"
@@ -125,7 +109,7 @@ def generate_cache_key(request_data: dict) -> str:
 
 
 # Ensure the upload temp directory exists
-os.makedirs(settings.UPLOAD_TEMP_DIR, exist_ok=True)
+os.makedirs(settings.UPLOAD_STORAGE_DIR, exist_ok=True)
 
 
 def validate_collection_name(collection_name: str):
@@ -150,8 +134,8 @@ async def sync_files_to_redis(redis_client: redis.Redis):
 
     # Get all files from the filesystem, assuming subdirectories are collections
     disk_files = set()
-    for collection_name in os.listdir(settings.UPLOAD_TEMP_DIR):
-        collection_path = os.path.join(settings.UPLOAD_TEMP_DIR, collection_name)
+    for collection_name in os.listdir(settings.UPLOAD_STORAGE_DIR):
+        collection_path = os.path.join(settings.UPLOAD_STORAGE_DIR, collection_name)
         if os.path.isdir(collection_path):
             try:
                 validate_collection_name(collection_name)
@@ -169,7 +153,7 @@ async def sync_files_to_redis(redis_client: redis.Redis):
 
     # Add new files to Redis
     for file_key in disk_files - redis_file_keys:
-        full_path = os.path.join(settings.UPLOAD_TEMP_DIR, file_key)
+        full_path = os.path.join(settings.UPLOAD_STORAGE_DIR, file_key)
         await redis_client.set(f"file_map:{file_key}", full_path)
         logger.debug(f"Added new file to Redis: {file_key}")
 
@@ -185,7 +169,7 @@ async def sync_files_periodically(redis_client: redis.Redis):
     """Runs the file sync process at a regular interval."""
     while True:
         await sync_files_to_redis(redis_client)
-        await asyncio.sleep(60)  # Sync every 60 seconds
+        await asyncio.sleep(settings.UPLOAD_STORAGE_SYNC_INTERVAL)  # Sync every 60 seconds
 
 
 @app.post("/service/collections/{collection_name}")
@@ -195,12 +179,12 @@ async def upload_file_to_collection(collection_name: str, file: UploadFile = Fil
     try:
         filename = file.filename if file.filename else "uploaded_file"
         validate_filename(filename)
-        collection_dir = os.path.join(settings.UPLOAD_TEMP_DIR, collection_name)
+        collection_dir = os.path.join(settings.UPLOAD_STORAGE_DIR, collection_name)
         os.makedirs(collection_dir, exist_ok=True)
         
         file_path = os.path.join(collection_dir, filename)
-        with open(file_path, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
+        # Offload blocking file write to a thread pool
+        await run_in_threadpool(shutil.copyfileobj, file.file, open(file_path, "wb"))
         
         file_key = os.path.join(collection_name, filename)
         await app.state.redis.set(f"file_map:{file_key}", file_path)
@@ -226,7 +210,7 @@ async def delete_collection(collection_name: str):
     """Deletes an entire collection and all of its files."""
     validate_collection_name(collection_name)
     try:
-        collection_dir = os.path.join(settings.UPLOAD_TEMP_DIR, collection_name)
+        collection_dir = os.path.join(settings.UPLOAD_STORAGE_DIR, collection_name)
         if not os.path.isdir(collection_dir):
             raise HTTPException(status_code=404, detail="Collection not found.")
 
@@ -450,29 +434,32 @@ async def download_file(job_id: str, filename: str):
 
 
 # Function to run the main service
-def run_main_service(host, port, log_level, max_workers):
+def run_main_service(host, port, log_level, workers):
     uvicorn.run(
         "openad_service_utils.api.server:app",
         host=host,
         port=port,
         log_level=log_level,
-        workers=max_workers,
+        workers=workers,
     )
 
 
-def run_health_service(host, port, log_level, max_workers):
+def run_health_service(host, port, log_level, workers):
     uvicorn.run(
         "openad_service_utils.api.server:kube_probe",
         host=host,
         port=port,
         log_level=log_level,
-        workers=max_workers,
+        workers=workers,
     )
 
 
-def signal_handler(signum, frame, executor):
+def signal_handler(signum, frame, processes):
     logger.debug(f"Received signal {signum}, shutting down...")
-    executor.shutdown(wait=True)
+    for p in processes:
+        p.terminate()
+        p.join()
+    logger.debug("All processes terminated.")
     sys.exit(0)
 
 
@@ -486,11 +473,11 @@ def is_running_in_kubernetes():
 
 
 def start_server(
-    host="0.0.0.0",
-    port=8080,
-    log_level="info",
-    max_workers=1,
-    worker_gpu_min=2000,
+    host=settings.HOST,
+    port=settings.PORT,
+    log_level=settings.UVICORN_LOG_LEVEL,
+    max_workers=settings.SERVE_MAX_WORKERS,
+    worker_gpu_min=settings.SERVE_WORKER_GPU_MIN,
 ):
     """
     Starts the FastAPI server with configurable options.
@@ -504,63 +491,82 @@ def start_server(
     """
     logger.debug(f"Server Config: {settings.model_dump()}")
 
-    # Assuming JobManager is in the same file or imported correctly
-
-    if settings.SERVE_MAX_WORKERS > 0:
-        # overwite max workers with env var
-        max_workers = settings.SERVE_MAX_WORKERS
     try:
-        import torch # type: ignore # noqa: F401, I001
+        import torch
 
         if torch.cuda.is_available():
-            logger.debug(f"cuda is available: {torch.cuda.is_available()}")
-            logger.debug(f"cuda version: {torch.version.cuda}")
-            logger.debug(f"device name: {torch.cuda.get_device_name(0)}")
-            logger.debug(f"torch version: {torch.__version__}")
-            # Get the current GPU device index
+            logger.debug(f"CUDA is available: {torch.cuda.is_available()}")
+            logger.debug(f"CUDA version: {torch.version.cuda}") # type: ignore # noqa: F821
+            logger.debug(f"Device name: {torch.cuda.get_device_name(0)}")
+            logger.debug(f"Torch version: {torch.__version__}")
             gpu_id = torch.cuda.current_device()
-            # Get the GPU properties
             gpu_properties = torch.cuda.get_device_properties(gpu_id)
-            # Get the total GPU memory size in bytes
             total_memory = int(gpu_properties.total_memory / (1024**2))
-            # Calculate the max amount of workers for gpu size
             available_workers = total_memory // worker_gpu_min
-            # TODO: increase min workers
             if available_workers < max_workers:
-                # downsize the amount of workers if the gpu size is less than expected
                 max_workers = available_workers
-                logger.warning("lowering amount of workers due to resource constraint")
+                logger.warning("Lowering amount of workers due to resource constraint.")
             logger.debug(f"Total GPU memory: {total_memory:.2f} MB")
     except ImportError:
-        logger.debug("cuda not available. Running on cpu.")
-        pass
+        logger.debug("CUDA not available. Running on CPU.")
 
     if os.environ.get("GT4SD_S3_ACCESS_KEY", ""):
-        logger.info(f"using private s3 model repository | Host: {os.environ.get('GT4SD_S3_HOST', '')}======")
+        logger.info(f"Using private S3 model repository | Host: {os.environ.get('GT4SD_S3_HOST', '')}")
     else:
-        logger.info("using public gt4sd s3 model repository")
+        logger.info("Using public GT4SD S3 model repository.")
 
     config_settings = GT4SDConfiguration().model_dump(include={"OPENAD_S3_HOST", "OPENAD_S3_HOST_HUB"})
     logger.info(f"S3 Config: {config_settings}")
+    logger.info(f"Total workers: {max_workers}")
 
-    logger.debug(f"Total workers: {max_workers}")
-    # process is run on linux. spawn.
     multiprocessing.set_start_method("spawn", force=True)
-    global SLAVES
 
-    with ProcessPoolExecutor() as executor:
-        executor.submit(run_main_service, host, port, log_level, max_workers)
+    processes = []
+    try:
+        # Start job worker pool
+        total_jobs = settings.ASYNC_QUEUE_ALLOCATION + settings.REDIS_JOB_QUEUES
+        for i in range(total_jobs):
+            async_allow = (i < settings.ASYNC_QUEUE_ALLOCATION) and settings.ASYNC_ALLOW
+            worker_process = multiprocessing.Process(target=slave_thread, args=(i + 1, async_allow))
+            processes.append(worker_process)
+            worker_process.start()
+        logger.info(f"Started {total_jobs} job worker processes.")
+
+        # Start Uvicorn main service
+        main_service_process = multiprocessing.Process(
+            target=run_main_service, args=(host, port, log_level, 1)
+        )
+        processes.append(main_service_process)
+        main_service_process.start()
+        logger.info(f"Uvicorn main service started on {host}:{port} with PID: {main_service_process.pid}")
+
+        # Start Kubernetes health probe if in Kubernetes
         if is_running_in_kubernetes():
-            logger.debug("Running in Kubernetes, starting health probe")
-            executor.submit(run_health_service, host, port + 1, log_level, 1)
-        if SLAVES is None:
-            SLAVES = asyncio.run(get_slaves())
+            health_service_process = multiprocessing.Process(
+                target=run_health_service, args=(host, settings.PROBE_PORT, log_level, 1)
+            )
+            processes.append(health_service_process)
+            health_service_process.start()
+            logger.info(f"Kubernetes health probe started on {host}:{settings.PROBE_PORT}.")
 
-        signal.signal(signal.SIGINT, lambda s, f: signal_handler(s, f, executor))
-        signal.signal(signal.SIGTERM, lambda s, f: signal_handler(s, f, executor))
+        # Set up signal handling
+        signal.signal(signal.SIGINT, lambda s, f: signal_handler(s, f, processes))
+        signal.signal(signal.SIGTERM, lambda s, f: signal_handler(s, f, processes))
         signal.signal(signal.SIGWINCH, ignore_winch_signal)
-        # Keep the main process running to handle signals and wait for child processes
-        executor.shutdown(wait=True)
+
+        # Wait for all processes to complete
+        for p in processes:
+            p.join()
+
+    except Exception as e:
+        logger.error(f"An error occurred: {e}", exc_info=True)
+    finally:
+        logger.info("Shutting down server.")
+        for p in processes:
+            if p.is_alive():
+                p.terminate()
+                p.join()
+        
 
 
 if __name__ == "__main__":

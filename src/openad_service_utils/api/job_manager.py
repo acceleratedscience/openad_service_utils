@@ -106,7 +106,6 @@ class JobManager:
         )
 
         await self.redis_client.expire(f"job:{job_id}", 345600)  # Expire all jobs in cache after 4 days
-        logger.debug(f"Job {job_id} submitted to redis {self.name} with async submission: {async_submission}")
         if not async_submission:
             await self.redis_client.rpush(SUBMISSION_QUEUE, job_id)  # type: ignore
         else:
@@ -119,7 +118,6 @@ class JobManager:
         """writes the job descriptor to file for asynchrounous jobs"""
         async with aiofiles.open(f"{ASYNC_PATH}/{job_id}.request", "w") as fd:
             await fd.write(json.dumps(restful_request))
-        return f"{ASYNC_PATH}/{job_id}.request" # Return the path
         return f"{ASYNC_PATH}/{job_id}.request" # Return the path
 
     async def _get_job_info_by_id(self, job_id) -> Optional[Dict[str, Any]]: # Added return type hint
@@ -188,13 +186,13 @@ class JobManager:
                         await asyncio.sleep(0.1)
                         continue
 
-                    logger.debug(f"Job {job_id} has been pulled off queue to be processed by Daemon {self.name}")
+                    logger.debug(f"[{self.name}] Processing Job {job_id}")
+                    # logger.debug(f"Job {job_id} has been pulled off queue to be processed by {self.name}")
                     
                     instance = job_info["instance"]
                     methodname = job_info["methodname"]
                     args = job_info["args"]
                     file_keys = job_info.get("file_keys", []) # Retrieve file_keys
-                    logger.debug(f"Job {job_id} file_keys: {file_keys}")
 
                     # Ensure args is a dictionary
                     if isinstance(args, bytes):
@@ -217,7 +215,7 @@ class JobManager:
                             await fd.write("")
                     
                     try:
-                        logger.info(f"Running Job {job_id}")
+                        # logger.info(f"Running Job {job_id}")
                         instance = instance()
                         # Resolve file_keys to file_keys before passing to the predictor
                         resolved_file_paths = []
@@ -226,7 +224,7 @@ class JobManager:
                             if path:
                                 path = path.decode()
                                 resolved_file_paths.append(path)
-                                logger.debug(f"Resolved file key {key} to path {path}")
+                                # logger.debug(f"Resolved file key {key} to path {path}")
                             else:
                                 logger.warning(f"File key {key} not found in Redis during job processing.")
                         
@@ -239,7 +237,7 @@ class JobManager:
                             async with aiofiles.open(f"{ASYNC_PATH}/{job_id}.running", "w") as fd:
                                 await fd.write("run")
                         result = await asyncio.to_thread(instance.route_service, args, file_keys=resolved_file_paths)
-                        logger.debug(f"Job {job_id} result: {result}")
+                        # logger.debug(f"Job {job_id} result: {result}")
 
                         if async_job and isinstance(result, FileResponse):
                             persistent_path = os.path.join(ASYNC_PATH, f"{job_id}.result")
@@ -294,27 +292,12 @@ def run_cleanup():
         gc.collect()
 
 
-def slave_thread(extra_q, async_allow=False):
+def slave_thread(worker_id, async_allow=False):
     """create a slave thread and starte it for Daemon Workers"""
+    logger.info(f"Started job worker {worker_id} with process with PID: {os.getpid()}")
     redis_client = Redis(host=settings.REDIS_HOST, port=settings.REDIS_PORT, db=settings.REDIS_DB, password=settings.REDIS_PASSWORD)
-    daemon = JobManager(redis_client, f"{extra_q}", async_allow)
+    daemon = JobManager(redis_client, f"worker-{worker_id}", async_allow)
     asyncio.run(daemon.process_jobs())
-
-
-async def get_slaves() -> list:
-    """Loops through the number of slaves to create"""
-    extra_queues = QUEUES
-    daemons = []
-    slave_pool = Pool(processes=extra_queues)
-
-    while extra_queues > 0:
-        if extra_queues <= ASYNC_QUEUE_ALLOCATION and ASYNC_ALLOW:
-            daemons.append(slave_pool.apply_async(slave_thread, [extra_queues, ASYNC_ALLOW]))
-        else:
-            daemons.append(slave_pool.apply_async(slave_thread, [extra_queues]))
-        extra_queues = extra_queues - 1
-
-    return daemons
 
 
 async def get_job_manager() -> JobManager:
