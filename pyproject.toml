@@ -9,7 +9,7 @@ dependencies = [
  "minio",
  "pydantic==2.11.9",
  "pandas",
- "fastapi",
+ "fastapi[standard]",
  "uvicorn",
  "colorlog",
  "tenacity",
