@@ -33,7 +33,7 @@ from openad_service_utils.api.generation.call_generation_services import (
 )
 from openad_service_utils.api.job_manager import (
     JobManager,
-    delete_sync_submission_queue,
+    clear_job_queues,
     get_job_manager,
     retrieve_async_job,
     slave_thread,
@@ -64,7 +64,7 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     # Init Redis connection pool
     app.state.redis = redis.Redis(host=settings.REDIS_HOST, port=settings.REDIS_PORT, db=settings.REDIS_DB, password=settings.REDIS_PASSWORD, decode_responses=True)
-    await delete_sync_submission_queue()
+    await clear_job_queues()
     
     # Start the file sync background task
     task = asyncio.create_task(sync_files_periodically(app.state.redis))
@@ -130,7 +130,7 @@ async def sync_files_to_redis(redis_client: redis.Redis):
     
     # Get all file keys from Redis
     redis_keys = await redis_client.keys("file_map:*")
-    redis_file_keys = {key.split(":", 1)[1] for key in redis_keys}
+    redis_file_keys = {key.split(":")[1] for key in redis_keys}
 
     # Get all files from the filesystem, assuming subdirectories are collections
     disk_files = set()
@@ -152,17 +152,17 @@ async def sync_files_to_redis(redis_client: redis.Redis):
                 logger.warning(f"Skipping invalid collection name during sync: {collection_name}")
 
     # Add new files to Redis
-    for file_key in disk_files - redis_file_keys:
+    new_files = disk_files - redis_file_keys
+    for file_key in new_files:
         full_path = os.path.join(settings.UPLOAD_STORAGE_DIR, file_key)
         await redis_client.set(f"file_map:{file_key}", full_path)
         logger.debug(f"Added new file to Redis: {file_key}")
 
     # Remove deleted files from Redis
-    for file_key in redis_file_keys - disk_files:
-        await redis_client.delete(f"file_map:{file_key}")
-        logger.debug(f"Removed deleted file from Redis: {file_key}")
-
-    # logger.debug("File sync to Redis complete.")
+    deleted_files = redis_file_keys - disk_files
+    if deleted_files:
+        await redis_client.delete(*[f"file_map:{key}" for key in deleted_files])
+        logger.debug(f"Removed deleted files from Redis: {deleted_files}")
 
 
 async def sync_files_periodically(redis_client: redis.Redis):
@@ -350,14 +350,21 @@ async def service(
 
 async def handle_job_submission(job_manager: JobManager, request_obj, original_request, file_keys: Optional[List[str]] = None):
     if settings.ASYNC_ALLOW and original_request.get("async"):
-        job_id = await job_manager.submit_job(request_obj, "route_service_async", original_request, async_submission=True, file_keys=file_keys)
+        job_id = await job_manager.submit_job(request_obj, "route_service", original_request, async_submission=True, file_keys=file_keys)
         cache_key = generate_cache_key(original_request)
         await app.state.redis.set(cache_key, json.dumps(job_id), ex=settings.CACHE_TTL)
         return job_id
+        # await app.state.redis.set(cache_key, json.dumps({"job_id": job_id}), ex=settings.CACHE_TTL)
+        # return {"job_id": job_id}
     else:
         job_id = await job_manager.submit_job(request_obj, "route_service", original_request, file_keys=file_keys)
-        all_result = await job_manager.get_result_by_id(job_id)
-        return all_result["result"]
+        job_info = await job_manager.get_result_by_id(job_id)
+        
+        if job_info["status"] == "completed":
+            return job_info["result"]
+        else:
+            error_detail = job_info.get("result", {}).get("error", "Job failed without a specific error message.")
+            raise HTTPException(status_code=500, detail={"error": error_detail, "job_id": job_id})
 
 
 @app.get("/service")
@@ -527,10 +534,8 @@ def start_server(
     processes = []
     try:
         # Start job worker pool
-        total_jobs = settings.ASYNC_QUEUE_ALLOCATION + settings.REDIS_JOB_QUEUES
-        for i in range(total_jobs):
-            async_allow = (i < settings.ASYNC_QUEUE_ALLOCATION) and settings.ASYNC_ALLOW
-            worker_process = multiprocessing.Process(target=slave_thread, args=(i + 1, async_allow))
+        for i in range(settings.WORKER_COUNT):
+            worker_process = multiprocessing.Process(target=slave_thread, args=(i + 1,))
             processes.append(worker_process)
             worker_process.start()
             logger.info(f"Started worker process {i+1} with PID: {worker_process.pid}")
