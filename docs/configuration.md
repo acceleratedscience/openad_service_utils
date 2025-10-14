@@ -4,21 +4,31 @@ The model wrapper can be configured using environment variables. The following t
 
 | Environment Variable | Type | Default | Description |
 | --- | --- | --- | --- |
-| `AUTO_CLEAR_GPU_MEM` | boolean | `True` | Automatically clear GPU memory after each request. |
-| `AUTO_GARBAGE_COLLECT` | boolean | `True` | Automatically run garbage collection after each request. |
-| `SERVE_MAX_WORKERS` | integer | `-1` | The maximum number of worker processes to use. If set to -1, the number of workers will be determined automatically based on the available resources. |
+| `AUTO_CLEAR_GPU_MEM` | boolean | `False` | Automatically clear GPU memory after each request. |
+| `AUTO_GARBAGE_COLLECT` | boolean | `False` | Automatically run garbage collection after each request. |
 | `ENABLE_CACHE_RESULTS` | boolean | `False` | Enable caching of results. |
 | `CACHE_TTL` | integer | `3600` | Time to live for cached results in seconds. |
-| `ASYNC_POOL_MAX` | integer | `1` | The maximum number of processes to use for asynchronous jobs. |
+| `UPLOAD_FILE_TTL` | integer | `3600` | Time to live for uploaded file keys in Redis. |
 | `ASYNC_ALLOW` | boolean | `False` | Enable asynchronous job submission. |
 | `ASYNC_CLEANUP_AGE` | integer | `3` | The number of days to keep asynchronous job results before deleting them. |
-| `ASYNC_QUEUE_ALLOCATION` | integer | `1` | The number of queues to use for asynchronous jobs. |
 | `ASYNC_JOB_PATH` | string | `/tmp/openad_async_archive` | The path to store asynchronous job results. |
-| `REDIS_JOB_QUEUES` | integer | `1` | The number of Redis queues to use for jobs. |
 | `REDIS_HOST` | string | `localhost` | The hostname of the Redis server. |
 | `REDIS_PORT` | integer | `6379` | The port of the Redis server. |
 | `REDIS_DB` | integer | `0` | The Redis database to use. |
 | `REDIS_PASSWORD` | string | `None` | The password for the Redis server. |
+| `REDIS_HIGH_PRIORITY_QUEUE` | string | `high_priority_jobs` | The name of the high priority Redis queue. |
+| `REDIS_LOW_PRIORITY_QUEUE` | string | `low_priority_jobs` | The name of the low priority Redis queue. |
+| `WORKER_COUNT` | integer | `1` | Number of worker processes to spawn. |
+| `JOB_MAX_RETRIES` | integer | `3` | Maximum number of retries for a failed job. |
+| `JOB_RETRY_DELAY` | integer | `5` | Seconds to wait before retrying a failed job. |
+| `UPLOAD_STORAGE_DIR` | string | `/tmp/openad_uploads` | Directory to store uploaded files/collections. |
+| `UPLOAD_STORAGE_SYNC_INTERVAL` | integer | `60` | Interval in seconds to sync uploaded files. |
+| `HOST` | string | `0.0.0.0` | The host to bind the server to. |
+| `PORT` | integer | `8080` | The port to bind the server to. |
+| `PROBE_PORT` | integer | `8081` | The port to bind the health probe server to. |
+| `UVICORN_LOG_LEVEL` | string | `info` | The log level for uvicorn. |
+| `SERVE_MAX_WORKERS` | integer | `1` | The maximum number of worker processes to use. |
+| `SERVE_WORKER_GPU_MIN` | integer | `2000` | The minimum GPU memory in MB required for a worker. |
 
 ### AWS S3 Configuration
 
