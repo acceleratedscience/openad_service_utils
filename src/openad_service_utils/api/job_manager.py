@@ -50,7 +50,15 @@ class JobManager:
                 job_info_list.append(job_info)
         return job_info_list
 
-    async def submit_job(self, instance: Any, methodname: str, args: Dict[str, Any] = {}, async_submission=False, file_keys: Optional[List[str]] = None):
+    async def submit_job(
+        self,
+        instance: Any,
+        methodname: str,
+        args: Dict[str, Any] = {},
+        async_submission=False,
+        file_keys: Optional[List[str]] = None,
+        submission_time: Optional[float] = None,
+    ):
         """
         Submit a new job to the appropriate priority queue.
         Synchronous jobs go to the high-priority queue, asynchronous jobs to the low-priority queue.
@@ -60,6 +68,9 @@ class JobManager:
         job_info = {
             "instance": instance,
             "methodname": methodname,
+            "submission_time": submission_time,
+            "completion_time": None,
+            "inference_time": None,
             "args": args,
             "result": None,
             "error": False,
@@ -153,6 +164,7 @@ class JobManager:
                         await fd.write("")
                 
                 try:
+                    start_time = time.time()
                     instance = instance()
                     resolved_file_paths = []
                     for key in file_keys:
@@ -163,6 +175,9 @@ class JobManager:
                             logger.warning(f"[{self.name}] File key {key} not found in Redis during job processing.")
                     
                     result = await asyncio.to_thread(instance.route_service, args, file_keys=resolved_file_paths)
+                    end_time = time.time()
+                    job_info["inference_time"] = round(end_time - start_time, 2)
+                    job_info["completion_time"] = end_time
 
                     if async_job and isinstance(result, FileResponse):
                         persistent_path = os.path.join(settings.ASYNC_JOB_PATH, f"{job_id}.result")
@@ -280,6 +295,9 @@ async def retrieve_async_job(url) -> Optional[dict]:
             if job_info and isinstance(job_info.get("result"), dict) and "file_path" in job_info["result"]:
                 return {
                     "status": "completed",
+                    "submission_time": job_info["submission_time"],
+                    "completion_time": job_info["completion_time"],
+                    "inference_time": job_info["inference_time"],
                     "result_type": "file",
                     "download_url": f"/service/download/{url}/{job_info['result']['filename']}",
                 }

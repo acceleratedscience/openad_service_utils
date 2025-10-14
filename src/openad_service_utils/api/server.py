@@ -8,6 +8,7 @@ import os
 import re
 import shutil
 import signal
+import time
 import sys
 from contextlib import asynccontextmanager
 from itertools import chain
@@ -348,16 +349,28 @@ async def service(
     # Cleanup of temporary files and Redis entries will be handled by the job_manager
 
 
-async def handle_job_submission(job_manager: JobManager, request_obj, original_request, file_keys: Optional[List[str]] = None):
+async def handle_job_submission(
+    job_manager: JobManager, request_obj, original_request, file_keys: Optional[List[str]] = None
+):
+    submission_time = time.time()
     if settings.ASYNC_ALLOW and original_request.get("async"):
-        job_id = await job_manager.submit_job(request_obj, "route_service", original_request, async_submission=True, file_keys=file_keys)
+        job_id = await job_manager.submit_job(
+            request_obj,
+            "route_service",
+            original_request,
+            async_submission=True,
+            file_keys=file_keys,
+            submission_time=submission_time,
+        )
         cache_key = generate_cache_key(original_request)
         await app.state.redis.set(cache_key, json.dumps(job_id), ex=settings.CACHE_TTL)
         return job_id
         # await app.state.redis.set(cache_key, json.dumps({"job_id": job_id}), ex=settings.CACHE_TTL)
         # return {"job_id": job_id}
     else:
-        job_id = await job_manager.submit_job(request_obj, "route_service", original_request, file_keys=file_keys)
+        job_id = await job_manager.submit_job(
+            request_obj, "route_service", original_request, file_keys=file_keys, submission_time=submission_time
+        )
         job_info = await job_manager.get_result_by_id(job_id)
         
         if job_info["status"] == "completed":
