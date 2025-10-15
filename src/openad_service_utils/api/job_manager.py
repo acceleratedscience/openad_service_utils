@@ -85,9 +85,11 @@ class JobManager:
         await self.redis_client.expire(f"job:{job_id}", 345600)  # Expire all jobs in cache after 4 days
 
         if async_submission:
+            logger.info(f"Submitted async job: {job_id}")
             await self.redis_client.rpush(settings.REDIS_LOW_PRIORITY_QUEUE, job_id)
             await self.___write_job_header_file__(args, job_id)
         else:
+            logger.info(f"Submitted synchronous job: {job_id}")
             await self.redis_client.rpush(settings.REDIS_HIGH_PRIORITY_QUEUE, job_id)
 
         return job_id
