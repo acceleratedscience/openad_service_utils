@@ -38,6 +38,10 @@ class ServerConfig(BaseSettings):
     # uvicorn settings
     HOST: str = "0.0.0.0"
     PORT: int = 8080
+    ENABLE_MODEL_CACHING: bool = Field(
+        default=False,
+        description="Enable in-memory caching of models within a worker. Set to False to reduce memory usage at the cost of reloading models for each job.",
+    )
     PROBE_PORT: int = 8081
     UVICORN_LOG_LEVEL: str = "info"
     SERVE_MAX_WORKERS: int = Field(default=1, ge=1) # number fastapi of worker processes

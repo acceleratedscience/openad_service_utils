@@ -13,7 +13,9 @@ from typing import Any, Optional, List, Dict
 # from pandas import DataFrame
 from pydantic.v1 import BaseModel
 # from openad_service_utils.utils.convert import json_string_to_dict
-# from openad_service_utils.api.config import get_config_instance
+from openad_service_utils.api.config import get_config_instance
+
+settings = get_config_instance()
 # from openad_service_utils.api.lru import conditional_lru_cache
 
 from openad_service_utils.api.properties.generate_property_service_defs import (
@@ -189,43 +191,45 @@ class request_properties:
                         ]
                     ]
                 )
-                # look through model cache in memory
-                for model in self.models_cache:
-                    if using_model in model:
-                        # get model from cache
-                        predictor = model[using_model]
+                if settings.ENABLE_MODEL_CACHING:
+                    # look through model cache in memory
+                    for model in self.models_cache:
+                        if using_model in model:
+                            # get model from cache
+                            predictor = model[using_model]
+
                 if predictor is None:
                     predictor = PropertyPredictorRegistry.get_property_predictor(name=property_type, parameters=parms)
-                    if predictor:
+                    if predictor and settings.ENABLE_MODEL_CACHING:
                         # add model to cache in memory
                         logger.debug(f"adding model to cache as key: {using_model}")
                         self.models_cache.append({using_model: predictor})
-                else:
-                    # update model params
+                elif predictor is not None and settings.ENABLE_MODEL_CACHING:
+                    # update model params if it came from cache
                     logger.debug(f"loading model from cache key: {using_model}")
                     pydantic_params = PropertyPredictorRegistry.get_property_predictor_meta_params(name=property_type) # type: ignore
-                    predictor._update_parameters(pydantic_params(**parms)) # type: ignore # Commented out due to Pylance error
+                    predictor._update_parameters(pydantic_params(**parms)) # type: ignore
 
                 # Crystaline structure models take data as file sets, the following manages this for the Crystaline property requests
                 if service_type == "get_crystal_property":
                     tmpdir_cif = subject_files_repository("cif", parameters["subjects"])
                     tmpdir_csv = subject_files_repository("csv", parameters["subjects"])
 
-                    if property_type == "metal_nonmetal_classifier" and current_subject[0].endswith("csv"):
+                    if property_type == "metal_nonmetal_classifier" and current_subject.endswith("csv"):
                         data_module = Path(tmpdir_csv.name + "/crf_data.csv")
                         logger.debug(tmpdir_csv.name + "/crf_data.csv")
                         result_fields = ["formulas", "predictions"]
-                    elif not property_type == "metal_nonmetal_classifier" and current_subject[0].endswith("cif"):
+                    elif not property_type == "metal_nonmetal_classifier" and current_subject.endswith("cif"):
                         data_module = Path(tmpdir_cif.name + "/")
                         result_fields = ["cif_ids", "predictions"]
                     else:
                         continue
                     out = predictor(data_module)
-                    pred_dict = dict(zip(out[result_fields[0]], out[result_fields[1]])) # type: ignore
+                    pred_dict = dict(zip(out[result_fields], out[result_fields])) # type: ignore
                     for key in pred_dict:
                         results.append(
                             {
-                                "subject": current_subject[0],
+                                "subject": current_subject,
                                 "property": property_type,
                                 "key": key,
                                 "result": str(pred_dict[key]),
