@@ -225,11 +225,12 @@ class JobManager:
                 if job_info["status"] not in ["Requeued"]:
                     await self.redis_client.set(f"job:{job_id}", pickle.dumps(job_info))
                 
-                run_cleanup()
-
             except Exception as e:
                 logger.error(f"[{self.name}] An error occurred in the main worker loop: {e}", exc_info=True)
                 await asyncio.sleep(1) # Avoid rapid-fire errors
+            
+            finally:
+                run_cleanup()
 
 def run_cleanup():
     if settings.AUTO_CLEAR_GPU_MEM:

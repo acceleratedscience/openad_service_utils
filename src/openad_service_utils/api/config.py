@@ -7,8 +7,8 @@ import os
 
 class ServerConfig(BaseSettings):
     # General performance and caching
-    AUTO_CLEAR_GPU_MEM: bool = False
-    AUTO_GARBAGE_COLLECT: bool = False
+    AUTO_CLEAR_GPU_MEM: bool = True # !important release gpu memory from async workers
+    AUTO_GARBAGE_COLLECT: bool = True
     ENABLE_CACHE_RESULTS: bool = False
     CACHE_TTL: int = 3600  # seconds
     UPLOAD_FILE_TTL: int = 3600 # seconds, Time to live for uploaded file keys in Redis

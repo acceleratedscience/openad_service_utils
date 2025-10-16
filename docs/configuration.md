@@ -4,8 +4,8 @@ The model wrapper can be configured using environment variables. The following t
 
 | Environment Variable | Type | Default | Description |
 | --- | --- | --- | --- |
-| `AUTO_CLEAR_GPU_MEM` | boolean | `False` | Automatically clear GPU memory after each request. |
-| `AUTO_GARBAGE_COLLECT` | boolean | `False` | Automatically run garbage collection after each request. |
+| `AUTO_CLEAR_GPU_MEM` | boolean | `True` | Automatically clear GPU memory after each request. |
+| `AUTO_GARBAGE_COLLECT` | boolean | `True` | Automatically run garbage collection after each request. |
 | `ENABLE_CACHE_RESULTS` | boolean | `False` | Enable caching of results. |
 | `CACHE_TTL` | integer | `3600` | Time to live for cached results in seconds. |
 | `UPLOAD_FILE_TTL` | integer | `3600` | Time to live for uploaded file keys in Redis. |
