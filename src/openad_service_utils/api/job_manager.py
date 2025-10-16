@@ -296,6 +296,10 @@ async def retrieve_async_job(url) -> Optional[dict]:
             job_manager = await get_job_manager()
             job_info = await job_manager._get_job_info_by_id(url)
             if job_info and isinstance(job_info.get("result"), dict) and "file_path" in job_info["result"]:
+                file_path = job_info["result"]["file_path"]
+                size_bytes = 0
+                if await asyncio.to_thread(os.path.exists, file_path):
+                    size_bytes = await asyncio.to_thread(os.path.getsize, file_path)
                 return {
                     "status": "completed",
                     "submission_time": job_info["submission_time"],
@@ -303,6 +307,7 @@ async def retrieve_async_job(url) -> Optional[dict]:
                     "inference_time": job_info["inference_time"],
                     "result_type": "file",
                     "download_url": f"/service/download/{url}/{job_info['result']['filename']}",
+                    "size_bytes": size_bytes,
                 }
 
             async with aiofiles.open(f"{settings.ASYNC_JOB_PATH}/{url}.result", "r") as fd:

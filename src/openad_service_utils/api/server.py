@@ -238,17 +238,56 @@ async def get_files_in_collection(collection_name: str):
     try:
         files_info = []
         file_keys = await app.state.redis.keys(f"file_map:{collection_name}/*")
+
+        # Handle case where collection directory might exist but be empty
         if not file_keys:
-            raise HTTPException(status_code=404, detail="Collection not found or is empty.")
-        for key in file_keys:
+            collection_dir = os.path.join(settings.UPLOAD_STORAGE_DIR, collection_name)
+            # Use threadpool for blocking I/O
+            if not await run_in_threadpool(os.path.isdir, collection_dir):
+                raise HTTPException(status_code=404, detail="Collection not found.")
+            # If the directory exists but is empty, return an empty list
+            return JSONResponse({"files": []})
+
+        for key in sorted(file_keys):
             file_key = key.split(":")[1]
             filename = os.path.basename(file_key)
-            files_info.append({"file_key": file_key, "filename": filename})
+            file_path = await app.state.redis.get(key)
+            file_size = 0
+            if file_path and await run_in_threadpool(os.path.exists, file_path):
+                file_size = await run_in_threadpool(os.path.getsize, file_path)
+            files_info.append({"file_key": file_key, "filename": filename, "size_bytes": file_size})
         return JSONResponse({"files": files_info})
     except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error retrieving files: {str(e)}")
+
+
+@app.get("/service/collections/{collection_name}/{filename}")
+async def download_file_from_collection(collection_name: str, filename: str):
+    """Downloads a file from a specific collection."""
+    validate_collection_name(collection_name)
+    validate_filename(filename)
+    try:
+        file_key = os.path.join(collection_name, filename)
+        file_path = await app.state.redis.get(f"file_map:{file_key}")
+
+        if not file_path or not await run_in_threadpool(os.path.exists, file_path):
+            raise HTTPException(status_code=404, detail="File not found.")
+
+        # Security check: ensure the file is within the upload storage directory
+        if not os.path.abspath(file_path).startswith(os.path.abspath(settings.UPLOAD_STORAGE_DIR)):
+            raise HTTPException(status_code=403, detail="Access to this file is forbidden.")
+
+        return FileResponse(
+            path=file_path,
+            media_type="application/octet-stream",
+            filename=filename,
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error downloading file: {str(e)}")
 
 
 @app.delete("/service/collections/{collection_name}/{filename}")
@@ -259,7 +298,7 @@ async def delete_file_from_collection(collection_name: str, filename: str):
     try:
         file_key = os.path.join(collection_name, filename)
         file_path = await app.state.redis.get(f"file_map:{file_key}")
-        
+
         if not file_path or not os.path.exists(file_path):
             raise HTTPException(status_code=404, detail="File not found.")
             
