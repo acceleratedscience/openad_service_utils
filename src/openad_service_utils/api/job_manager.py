@@ -29,7 +29,6 @@ logger = logging.getLogger(__name__)
 settings = get_config_instance()
 
 
-
 class JobManager:
     """The Job manager class is designed to manage jobs running in OpenAD Daemons or workers
     it has 2 roles:
@@ -249,6 +248,7 @@ class JobManager:
             finally:
                 run_cleanup()
 
+
 def run_cleanup():
     if settings.AUTO_CLEAR_GPU_MEM:
         try:
@@ -261,6 +261,7 @@ def run_cleanup():
         logger.debug(f"manual garbage collection on process ID: {os.getpid()}")
         gc.collect()
 
+
 def slave_thread(worker_id):
     """create a slave thread and starte it for Daemon Workers"""
     logger.info(f"Started job worker {worker_id} with process with PID: {os.getpid()}")
@@ -268,17 +269,13 @@ def slave_thread(worker_id):
     daemon = JobManager(redis_client, f"worker-{worker_id}")
     asyncio.run(daemon.process_jobs())
 
-async def get_job_manager() -> JobManager:
-    """creates a new job manager"""
-    redis_client = Redis(host=settings.REDIS_HOST, port=settings.REDIS_PORT, db=settings.REDIS_DB, password=settings.REDIS_PASSWORD)
-    return JobManager(redis_client, "Master Queue")
 
-async def clear_job_queues():
+async def clear_job_queues(redis_client: Redis):
     """cleares out the Submission Queue"""
-    redis_client = Redis(host=settings.REDIS_HOST, port=settings.REDIS_PORT, db=settings.REDIS_DB, password=settings.REDIS_PASSWORD)
     await redis_client.delete(settings.REDIS_HIGH_PRIORITY_QUEUE)
     await redis_client.delete(settings.REDIS_LOW_PRIORITY_QUEUE)
     logger.debug("Cleared Job Queues")
+
 
 async def cleanup_old_files(localRepo=settings.ASYNC_JOB_PATH, age=3):
     """Cleans up old archive files"""
@@ -302,7 +299,8 @@ async def cleanup_old_files(localRepo=settings.ASYNC_JOB_PATH, age=3):
             except FileNotFoundError:
                 continue # Directory might have been deleted by another process
 
-async def retrieve_async_job(url) -> Optional[dict]:
+
+async def retrieve_async_job(url: str, redis_client: Redis) -> Optional[dict]:
     """retrieves Async Jobs from Disk"""
     await cleanup_old_files(localRepo=settings.ASYNC_JOB_PATH, age=3)
     requested = os.path.exists(f"{settings.ASYNC_JOB_PATH}/{url}.request")
@@ -310,7 +308,7 @@ async def retrieve_async_job(url) -> Optional[dict]:
     finished = os.path.exists(f"{settings.ASYNC_JOB_PATH}/{url}.result")
     if finished:
         try:
-            job_manager = await get_job_manager()
+            job_manager = JobManager(redis_client, "async_retriever")
             job_info = await job_manager._get_job_info_by_id(url)
             if job_info and isinstance(job_info.get("result"), dict) and "file_path" in job_info["result"]:
                 file_path = job_info["result"]["file_path"]

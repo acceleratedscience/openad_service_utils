@@ -1,5 +1,4 @@
 import asyncio
-import gc
 import hashlib
 import json
 import logging
@@ -35,7 +34,6 @@ from openad_service_utils.api.generation.call_generation_services import (
 from openad_service_utils.api.job_manager import (
     JobManager,
     clear_job_queues,
-    get_job_manager,
     retrieve_async_job,
     slave_thread,
 )
@@ -60,12 +58,20 @@ settings = get_config_instance()
 logger = logging.getLogger(__name__)
 
 
+async def get_redis(request: Request) -> redis.Redis:
+    return request.app.state.redis
+
+
 # create lifecycle event to initialize the job manager
+async def get_job_manager(redis_client: redis.Redis = Depends(get_redis)) -> JobManager:
+    return JobManager(redis_client, "Master Queue")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Init Redis connection pool
     app.state.redis = redis.Redis(host=settings.REDIS_HOST, port=settings.REDIS_PORT, db=settings.REDIS_DB, password=settings.REDIS_PASSWORD, decode_responses=True)
-    await clear_job_queues()
+    await clear_job_queues(app.state.redis)
     
     # Start the file sync background task
     task = asyncio.create_task(sync_files_periodically(app.state.redis))
@@ -338,7 +344,7 @@ async def service(
 
     try:
         if service_type == ServiceType.GET_RESULT:
-            result = await retrieve_async_job(original_request.get("url"))
+            result = await retrieve_async_job(str(original_request.get("url")), app.state.redis)
             if result is None:
                 return {"error": {"reason": "job does not exist"}}
 
@@ -464,11 +470,10 @@ def server_details():
 
 
 @app.get("/service/download/{job_id}/{filename}")
-async def download_file(job_id: str, filename: str):
+async def download_file(job_id: str, filename: str, job_manager: JobManager = Depends(get_job_manager)):
     """
     Downloads the file result of a completed asynchronous job.
     """
-    job_manager = await get_job_manager()
     job_info = await job_manager._get_job_info_by_id(job_id)
 
     if not job_info:
