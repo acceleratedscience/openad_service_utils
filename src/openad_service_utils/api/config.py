@@ -1,9 +1,10 @@
-from pydantic_settings import BaseSettings
-from pydantic import Field
+import os
 from functools import lru_cache
 from typing import Any
-import tempfile
-import os
+
+from pydantic import Field
+from pydantic_settings import BaseSettings
+
 
 class ServerConfig(BaseSettings):
     # General performance and caching
@@ -32,7 +33,7 @@ class ServerConfig(BaseSettings):
     JOB_RETRY_DELAY: int = Field(default=5, ge=0) # Seconds to wait before retrying a failed job
 
     # Directory to store uploaded files / collections
-    UPLOAD_STORAGE_DIR: str = os.path.join(tempfile.gettempdir(), "openad_uploads")
+    UPLOAD_STORAGE_DIR: str = os.path.join(os.path.expanduser("~"), ".openad_models", "collection_uploads")
     UPLOAD_STORAGE_SYNC_INTERVAL: int = Field(default=60, ge=0) # seconds
 
     # uvicorn settings

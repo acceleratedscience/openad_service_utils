@@ -1,22 +1,24 @@
 """ " This module enables running of jobs by the wrapper
 as parallel processes supporting asychrnous and synchronous user interaction"""
 
-import uuid
-import traceback
-import gc
-import os
-from typing import List, Dict
 import asyncio
-from redis.asyncio import Redis
-from typing import Any, Dict, Optional
-import pickle
-import json, time
+import gc
+import importlib
+import json
 import logging
-import pandas
-from pathlib import Path
-from redis import RedisError
-import aiofiles
+import os
 import shutil
+import time
+import traceback
+import uuid
+from pathlib import Path
+from typing import Any, Dict, List, Optional
+
+import aiofiles
+import pandas
+from redis import RedisError
+from redis.asyncio import Redis
+
 from openad_service_utils.api.config import get_config_instance
 from openad_service_utils.common.models import FileResponse
 
@@ -39,12 +41,21 @@ class JobManager:
         self.redis_client = redis_client
         self.name = name
 
+    def _get_instance_from_path(self, class_path: str) -> Any:
+        """Dynamically imports a class from a string path."""
+        try:
+            module_path, class_name = class_path.rsplit(".", 1)
+            module = importlib.import_module(module_path)
+            return getattr(module, class_name)
+        except (ImportError, AttributeError) as e:
+            logger.error(f"Failed to import instance from path: {class_path}")
+            raise e
+
     async def get_all_jobs(self):
         """Retrieve all jobs' information from Redis."""
         job_info_list = []
-        keys = await self.redis_client.keys("job:*")
-        for key in keys:
-            job_id = key.split(":")[1]  # Extract the job ID from the key
+        async for key in self.redis_client.scan_iter("job:*"):
+            job_id = key.split(":")[1]
             job_info = await self._get_job_info_by_id(job_id)
             if job_info:
                 job_info_list.append(job_info)
@@ -66,7 +77,7 @@ class JobManager:
         job_id = str(uuid.uuid4())
 
         job_info = {
-            "instance": instance,
+            "instance_class_path": f"{instance.__module__}.{instance.__name__}",
             "methodname": methodname,
             "submission_time": submission_time,
             "completion_time": None,
@@ -81,16 +92,16 @@ class JobManager:
             "retries": 0,
         }
 
-        await self.redis_client.set(f"job:{job_id}", pickle.dumps(job_info))
+        await self.redis_client.set(f"job:{job_id}", json.dumps(job_info))
         await self.redis_client.expire(f"job:{job_id}", 345600)  # Expire all jobs in cache after 4 days
 
         if async_submission:
             logger.info(f"Submitted async job: {job_id}")
-            await self.redis_client.rpush(settings.REDIS_LOW_PRIORITY_QUEUE, job_id)
+            _ = await self.redis_client.rpush(settings.REDIS_LOW_PRIORITY_QUEUE, job_id)
             await self.___write_job_header_file__(args, job_id)
         else:
             logger.info(f"Submitted synchronous job: {job_id}")
-            await self.redis_client.rpush(settings.REDIS_HIGH_PRIORITY_QUEUE, job_id)
+            _ = await self.redis_client.rpush(settings.REDIS_HIGH_PRIORITY_QUEUE, job_id)
 
         return job_id
 
@@ -105,7 +116,7 @@ class JobManager:
         try:
             job_info_bytes = await self.redis_client.get(f"job:{job_id}")
             if job_info_bytes:
-                return pickle.loads(job_info_bytes)
+                return json.loads(job_info_bytes)
             return None
         except Exception as e:
             logger.error(f"Error retrieving job info for {job_id}: {e}")
@@ -149,7 +160,7 @@ class JobManager:
                     logger.warning(f"Job {job_id} not found in Redis, skipping processing.")
                     continue
 
-                instance = job_info["instance"]
+                instance_class = self._get_instance_from_path(job_info["instance_class_path"])
                 args = job_info["args"]
                 file_keys = job_info.get("file_keys", [])
                 async_job = job_info.get("async", False)
@@ -158,7 +169,7 @@ class JobManager:
                 logger.info(f"[{self.name}] Processing {priority} Priority Job {job_id} from queue")
 
                 job_info["status"] = "In Progress"
-                await self.redis_client.set(f"job:{job_id}", pickle.dumps(job_info))
+                await self.redis_client.set(f"job:{job_id}", json.dumps(job_info))
 
                 if async_job:
                     await cleanup_old_files(localRepo=settings.ASYNC_JOB_PATH, age=settings.ASYNC_CLEANUP_AGE)
@@ -167,7 +178,7 @@ class JobManager:
                 
                 try:
                     start_time = time.time()
-                    instance = instance()
+                    instance = instance_class()
                     resolved_file_paths = []
                     for key in file_keys:
                         path = await self.redis_client.get(f"file_map:{key}")
@@ -209,10 +220,10 @@ class JobManager:
                     if job_info["retries"] <= settings.JOB_MAX_RETRIES:
                         logger.info(f"[{self.name}] Requeuing job {job_id} (attempt {job_info['retries']})")
                         job_info["status"] = "Requeued"
-                        await self.redis_client.set(f"job:{job_id}", pickle.dumps(job_info))
+                        await self.redis_client.set(f"job:{job_id}", json.dumps(job_info))
                         await asyncio.sleep(settings.JOB_RETRY_DELAY)
                         queue = settings.REDIS_LOW_PRIORITY_QUEUE if async_job else settings.REDIS_HIGH_PRIORITY_QUEUE
-                        await self.redis_client.rpush(queue, job_id)
+                        _ = await self.redis_client.rpush(queue, job_id)
                     else:
                         logger.error(f"Job {job_id} failed after {settings.JOB_MAX_RETRIES} retries.")
                         job_info["result"] = {"error": error_message}
@@ -223,7 +234,7 @@ class JobManager:
                                 await fd.write(json.dumps(job_info["result"]))
                 
                 if job_info["status"] not in ["Requeued"]:
-                    await self.redis_client.set(f"job:{job_id}", pickle.dumps(job_info))
+                    await self.redis_client.set(f"job:{job_id}", json.dumps(job_info))
                 
             except Exception as e:
                 logger.error(f"[{self.name}] An error occurred in the main worker loop: {e}", exc_info=True)

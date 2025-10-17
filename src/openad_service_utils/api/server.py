@@ -130,7 +130,7 @@ async def sync_files_to_redis(redis_client: redis.Redis):
     # logger.debug("Starting file sync to Redis.")
     
     # Get all file keys from Redis
-    redis_keys = await redis_client.keys("file_map:*")
+    redis_keys = [key async for key in redis_client.scan_iter("file_map:*")]
     redis_file_keys = {key.split(":")[1] for key in redis_keys}
 
     # Get all files from the filesystem, assuming subdirectories are collections
@@ -200,7 +200,7 @@ async def upload_file_to_collection(collection_name: str, file: UploadFile = Fil
 async def get_collections():
     """Returns a list of all available collections."""
     try:
-        file_keys = await app.state.redis.keys("file_map:*")
+        file_keys = [key async for key in app.state.redis.scan_iter("file_map:*")]
         collections = sorted(list(set([key.split(":")[1].split("/")[0] for key in file_keys])))
         return JSONResponse({"collections": collections})
     except Exception as e:
@@ -217,7 +217,7 @@ async def delete_collection(collection_name: str):
             raise HTTPException(status_code=404, detail="Collection not found.")
 
         # Remove all files in the collection from Redis
-        file_keys = await app.state.redis.keys(f"file_map:{collection_name}/*")
+        file_keys = [key async for key in app.state.redis.scan_iter(f"file_map:{collection_name}/*")]
         if file_keys:
             await app.state.redis.delete(*file_keys)
 
@@ -237,7 +237,7 @@ async def get_files_in_collection(collection_name: str):
     validate_collection_name(collection_name)
     try:
         files_info = []
-        file_keys = await app.state.redis.keys(f"file_map:{collection_name}/*")
+        file_keys = [key async for key in app.state.redis.scan_iter(f"file_map:{collection_name}/*")]
 
         # Handle case where collection directory might exist but be empty
         if not file_keys:
