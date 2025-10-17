@@ -11,8 +11,6 @@ class ServerConfig(BaseSettings):
     AUTO_CLEAR_GPU_MEM: bool = True # !important release gpu memory from async workers
     AUTO_GARBAGE_COLLECT: bool = True
     ENABLE_CACHE_RESULTS: bool = False
-    CACHE_TTL: int = 3600  # seconds
-    UPLOAD_FILE_TTL: int = 3600 # seconds, Time to live for uploaded file keys in Redis
 
     # Asynchronous job settings
     ASYNC_ALLOW: bool = False
@@ -31,6 +29,8 @@ class ServerConfig(BaseSettings):
     WORKER_COUNT: int = Field(default=1, ge=1) # Number of worker processes to spawn
     JOB_MAX_RETRIES: int = Field(default=3, ge=0) # Maximum number of retries for a failed job
     JOB_RETRY_DELAY: int = Field(default=5, ge=0) # Seconds to wait before retrying a failed job
+    JOB_TTL: int = Field(default=86400, ge=0) # Time to live for job keys in Redis (seconds)
+    REQUEST_CACHE_TTL: int = 3600  # Time to live for job request in Redis (seconds)
 
     # Directory to store uploaded files / collections
     UPLOAD_STORAGE_DIR: str = os.path.join(os.path.expanduser("~"), ".openad_models", "collection_uploads")

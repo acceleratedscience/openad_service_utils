@@ -91,8 +91,7 @@ class JobManager:
             "retries": 0,
         }
 
-        await self.redis_client.set(f"job:{job_id}", json.dumps(job_info))
-        await self.redis_client.expire(f"job:{job_id}", 345600)  # Expire all jobs in cache after 4 days
+        await self.redis_client.set(f"job:{job_id}", json.dumps(job_info), ex=settings.JOB_TTL)
 
         if async_submission:
             logger.info(f"Submitted async job: {job_id}")

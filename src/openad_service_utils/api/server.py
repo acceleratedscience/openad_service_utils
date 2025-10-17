@@ -389,7 +389,7 @@ async def service(
         if settings.ENABLE_CACHE_RESULTS and service_type != ServiceType.GET_RESULT:
             if isinstance(result, DataFrame):
                 result = result.to_dict(orient="records")
-            await app.state.redis.set(cache_key, json.dumps(result), ex=settings.CACHE_TTL)
+            await app.state.redis.set(cache_key, json.dumps(result), ex=settings.REQUEST_CACHE_TTL)
 
         return result
 
@@ -414,9 +414,9 @@ async def handle_job_submission(
             submission_time=submission_time,
         )
         cache_key = generate_cache_key(original_request)
-        await app.state.redis.set(cache_key, json.dumps(job_id), ex=settings.CACHE_TTL)
+        await app.state.redis.set(cache_key, json.dumps(job_id), ex=settings.REQUEST_CACHE_TTL)
         return job_id
-        # await app.state.redis.set(cache_key, json.dumps({"job_id": job_id}), ex=settings.CACHE_TTL)
+        # await app.state.redis.set(cache_key, json.dumps({"job_id": job_id}), ex=settings.REQUEST_CACHE_TTL)
         # return {"job_id": job_id}
     else:
         job_id = await job_manager.submit_job(

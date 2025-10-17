@@ -4,11 +4,9 @@ The model wrapper can be configured using environment variables. The following t
 
 | Environment Variable | Type | Default | Description |
 | --- | --- | --- | --- |
-| `AUTO_CLEAR_GPU_MEM` | boolean | `True` | Automatically clear GPU memory after each request. |
+| `AUTO_CLEAR_GPU_MEM` | boolean | `True` | !important release gpu memory from async workers |
 | `AUTO_GARBAGE_COLLECT` | boolean | `True` | Automatically run garbage collection after each request. |
 | `ENABLE_CACHE_RESULTS` | boolean | `False` | Enable caching of results. |
-| `CACHE_TTL` | integer | `3600` | Time to live for cached results in seconds. |
-| `UPLOAD_FILE_TTL` | integer | `3600` | Time to live for uploaded file keys in Redis. |
 | `ASYNC_ALLOW` | boolean | `False` | Enable asynchronous job submission. |
 | `ASYNC_CLEANUP_AGE` | integer | `3` | The number of days to keep asynchronous job results before deleting them. |
 | `ASYNC_JOB_PATH` | string | `/tmp/openad_async_archive` | The path to store asynchronous job results. |
@@ -21,13 +19,16 @@ The model wrapper can be configured using environment variables. The following t
 | `WORKER_COUNT` | integer | `1` | Number of worker processes to spawn. |
 | `JOB_MAX_RETRIES` | integer | `3` | Maximum number of retries for a failed job. |
 | `JOB_RETRY_DELAY` | integer | `5` | Seconds to wait before retrying a failed job. |
-| `UPLOAD_STORAGE_DIR` | string | `/tmp/openad_uploads` | Directory to store uploaded files/collections. |
+| `JOB_TTL` | integer | `86400` | Time to live for job keys in Redis (seconds). |
+| `REQUEST_CACHE_TTL` | integer | `3600` | Time to live for job request in Redis (seconds). |
+| `UPLOAD_STORAGE_DIR` | string | `~/.openad_models/collection_uploads` | Directory to store uploaded files/collections. |
 | `UPLOAD_STORAGE_SYNC_INTERVAL` | integer | `60` | Interval in seconds to sync uploaded files. |
 | `HOST` | string | `0.0.0.0` | The host to bind the server to. |
 | `PORT` | integer | `8080` | The port to bind the server to. |
+| `ENABLE_MODEL_CACHING` | boolean | `False` | Enable in-memory caching of models within a worker. Set to False to reduce memory usage at the cost of reloading models for each job. |
 | `PROBE_PORT` | integer | `8081` | The port to bind the health probe server to. |
 | `UVICORN_LOG_LEVEL` | string | `info` | The log level for uvicorn. |
-| `SERVE_MAX_WORKERS` | integer | `1` | The maximum number of worker processes to use. |
+| `SERVE_MAX_WORKERS` | integer | `1` | number fastapi of worker processes |
 | `SERVE_WORKER_GPU_MIN` | integer | `2000` | The minimum GPU memory in MB required for a worker. |
 
 ### AWS S3 Configuration
