@@ -201,7 +201,13 @@ class JobManager:
                             "filename": os.path.basename(result.file_path),
                         }
                     else:
-                        job_info["result"] = result
+                        if isinstance(result, FileResponse):
+                            job_info["result"] = {
+                                "file_path": result.file_path,
+                                "filename": os.path.basename(result.file_path),
+                            }
+                        else:
+                            job_info["result"] = result
 
                     job_info["status"] = "completed"
 

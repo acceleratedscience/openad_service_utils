@@ -355,8 +355,14 @@ async def service(
         else:
             raise HTTPException(status_code=500, detail={"error": "service mismatch", "input": original_request})
 
-        if isinstance(result, CustomFileResponse):
-            file_path = result.file_path
+        if isinstance(result, CustomFileResponse) or (isinstance(result, dict) and "file_path" in result):
+            if isinstance(result, CustomFileResponse):
+                file_path = result.file_path
+                filename = os.path.basename(file_path)
+            else:
+                file_path = result["file_path"]
+                filename = result.get("filename", os.path.basename(file_path))
+
             sandbox_dir = os.path.dirname(file_path)
 
             def cleanup():
@@ -366,7 +372,7 @@ async def service(
                 return FileResponse(
                     path=file_path,
                     media_type="application/octet-stream",
-                    filename=os.path.basename(file_path),
+                    filename=filename,
                     background=BackgroundTask(cleanup),
                 )
             else:
