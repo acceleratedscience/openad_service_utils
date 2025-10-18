@@ -117,6 +117,7 @@ def generate_cache_key(request_data: dict) -> str:
 
 # Ensure the upload temp directory exists
 os.makedirs(settings.UPLOAD_STORAGE_DIR, exist_ok=True)
+os.makedirs(settings.ASYNC_JOB_PATH, exist_ok=True)
 
 
 def validate_collection_name(collection_name: str):

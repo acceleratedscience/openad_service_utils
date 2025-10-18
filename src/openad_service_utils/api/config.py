@@ -15,7 +15,7 @@ class ServerConfig(BaseSettings):
     # Asynchronous job settings
     ASYNC_ALLOW: bool = False
     ASYNC_CLEANUP_AGE: int = 3  # in days
-    ASYNC_JOB_PATH: str = "/tmp/openad_async_archive"
+    ASYNC_JOB_PATH: str = os.path.join(os.path.expanduser("~"), ".openad_models", "openad_async_jobs")
 
     # Redis and job queue settings
     REDIS_HOST: str = "localhost"

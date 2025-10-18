@@ -9,7 +9,7 @@ The model wrapper can be configured using environment variables. The following t
 | `ENABLE_CACHE_RESULTS` | boolean | `False` | Enable caching of results. |
 | `ASYNC_ALLOW` | boolean | `False` | Enable asynchronous job submission. |
 | `ASYNC_CLEANUP_AGE` | integer | `3` | The number of days to keep asynchronous job results before deleting them. |
-| `ASYNC_JOB_PATH` | string | `/tmp/openad_async_archive` | The path to store asynchronous job results. |
+| `ASYNC_JOB_PATH` | string | `~/.openad_models/openad_async_jobs` | The path to store asynchronous job results. |
 | `REDIS_HOST` | string | `localhost` | The hostname of the Redis server. |
 | `REDIS_PORT` | integer | `6379` | The port of the Redis server. |
 | `REDIS_DB` | integer | `0` | The Redis database to use. |
