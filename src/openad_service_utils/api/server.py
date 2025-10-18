@@ -393,9 +393,12 @@ async def service(
 
         return result
 
-    except HTTPException:
-        raise
+    except HTTPException as e:
+        logger.exception(e, exc_info=True)
+        raise e
     except Exception as e:
+        logger.error(f"Request: {original_request}")
+        logger.exception(e, exc_info=True)
         raise HTTPException(status_code=500, detail={"error": str(e), "input": original_request})
     # Cleanup of temporary files and Redis entries will be handled by the job_manager
 
