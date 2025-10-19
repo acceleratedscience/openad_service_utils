@@ -110,7 +110,7 @@ class JobManager:
         return f"{settings.ASYNC_JOB_PATH}/{job_id}.request"
 
     async def _get_job_info_by_id(self, job_id) -> Optional[Dict[str, Any]]:
-        """looks for a synchronous job if it s compled by its job id"""
+        """return job id data"""
         try:
             job_info_bytes = await self.redis_client.get(f"job:{job_id}")
             if job_info_bytes:
@@ -144,6 +144,7 @@ class JobManager:
         queues = [settings.REDIS_HIGH_PRIORITY_QUEUE, settings.REDIS_LOW_PRIORITY_QUEUE]
         
         while True:
+            job_id = None  # Initialize job_id for this loop iteration
             try:
                 # BLPOP waits for a job and returns the queue name and job_id
                 result = await self.redis_client.blpop(queues)
@@ -190,30 +191,42 @@ class JobManager:
                     job_info["inference_time"] = round(end_time - start_time, 2)
                     job_info["completion_time"] = end_time
 
-                    if async_job and isinstance(result, FileResponse):
-                        persistent_path = os.path.join(settings.ASYNC_JOB_PATH, f"{job_id}.result")
-                        shutil.move(result.file_path, persistent_path)
-                        shutil.rmtree(os.path.dirname(result.file_path), ignore_errors=True)
-                        job_info["result"] = {
-                            "file_path": persistent_path,
-                            "filename": os.path.basename(result.file_path),
-                        }
-                    else:
-                        if isinstance(result, FileResponse):
+                    # 1. Transform raw result for consistent JSON output
+                    if isinstance(result, pandas.DataFrame):
+                        result = result.to_dict(orient="records")
+                    elif isinstance(result, (str, int, float, bool)):
+                        result = {"result": result}
+
+                    # 2. Handle result based on its type (FileResponse or data)
+                    if isinstance(result, FileResponse):
+                        # Handle file-based results
+                        file_path = result.file_path
+                        filename = os.path.basename(file_path)
+                        if async_job:
+                            # For async jobs, move the file to a persistent location
+                            persistent_path = os.path.join(settings.ASYNC_JOB_PATH, f"{job_id}.result")
+                            shutil.move(file_path, persistent_path)
+                            shutil.rmtree(os.path.dirname(file_path), ignore_errors=True)
                             job_info["result"] = {
-                                "file_path": result.file_path,
-                                "filename": os.path.basename(result.file_path),
+                                "file_path": persistent_path,
+                                "filename": filename,
                             }
                         else:
-                            job_info["result"] = result
+                            # For sync jobs, use the temporary path
+                            job_info["result"] = {
+                                "file_path": file_path,
+                                "filename": filename,
+                            }
+                    else:
+                        # Handle data-based results
+                        job_info["result"] = result
+                        if async_job:
+                            # For async jobs, write data to a result file
+                            async with aiofiles.open(f"{settings.ASYNC_JOB_PATH}/{job_id}.result", "w") as fd:
+                                await fd.write(json.dumps(result))
 
+                    # 3. Finalize job status
                     job_info["status"] = "completed"
-
-                    if async_job and not isinstance(result, FileResponse):
-                        async with aiofiles.open(f"{settings.ASYNC_JOB_PATH}/{job_id}.result", "w") as fd:
-                            if isinstance(result, pandas.DataFrame):
-                                result = result.to_json()
-                            await fd.write(json.dumps(result))
                     logger.info(f"[{self.name}] Completed Job: {job_id}")
 
                 except Exception as e:
@@ -242,6 +255,20 @@ class JobManager:
                 
             except Exception as e:
                 logger.error(f"[{self.name}] An error occurred in the main worker loop: {e}", exc_info=True)
+                if job_id:
+                    try:
+                        # Attempt to fetch job_info again, as it might not be available from the try block
+                        job_info = await self._get_job_info_by_id(job_id)
+                        if job_info:
+                            job_info["status"] = "failed"
+                            job_info["error"] = True
+                            job_info["result"] = {"error": f"A critical error occurred in the worker: {str(e)}"}
+                            await self.redis_client.set(f"job:{job_id}", json.dumps(job_info))
+                        else:
+                            # If job_info cannot be fetched, we can't do much more.
+                            logger.error(f"[{self.name}] Could not retrieve job info for {job_id} to mark as failed.")
+                    except Exception as inner_e:
+                        logger.error(f"[{self.name}] Failed to update job {job_id} to failed status: {inner_e}", exc_info=True)
                 await asyncio.sleep(1) # Avoid rapid-fire errors
             
             finally:
