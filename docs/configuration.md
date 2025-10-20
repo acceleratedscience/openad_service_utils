@@ -30,6 +30,7 @@ The model wrapper can be configured using environment variables. The following t
 | `UVICORN_LOG_LEVEL` | string | `info` | The log level for uvicorn. |
 | `SERVE_MAX_WORKERS` | integer | `1` | number fastapi of worker processes |
 | `SERVE_WORKER_GPU_MIN` | integer | `2000` | The minimum GPU memory in MB required for a worker. |
+| `ADMIN_ENDPOINTS_ENABLED` | boolean | `False` | Enable admin endpoints like `/admin/details`. |
 
 ### AWS S3 Configuration
 

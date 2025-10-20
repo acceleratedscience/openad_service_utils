@@ -47,6 +47,7 @@ class ServerConfig(BaseSettings):
     UVICORN_LOG_LEVEL: str = "info"
     SERVE_MAX_WORKERS: int = Field(default=1, ge=1) # number fastapi of worker processes
     SERVE_WORKER_GPU_MIN: int = Field(default=2000, ge=1)  # in MB
+    ADMIN_ENDPOINTS_ENABLED: bool = False # Default to disabled for production
 
 @lru_cache(maxsize=None)
 def get_config_instance() -> ServerConfig:

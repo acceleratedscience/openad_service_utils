@@ -492,8 +492,15 @@ async def get_service_defs():
         logger.warning(f"could not print types: {str(e)}")
     return JSONResponse(all_services)
 
+def admin_endpoints_enabled():
+    """Dependency to check if admin endpoints are enabled."""
+    if not settings.ADMIN_ENDPOINTS_ENABLED:
+        raise HTTPException(
+            status_code=404,
+            detail="Not Found",
+        )
 
-@app.get("/admin/details")
+@app.get("/admin/details", dependencies=[Depends(admin_endpoints_enabled)])
 def server_details():
     """return server details"""
     logger.info("Retrieving server details")
