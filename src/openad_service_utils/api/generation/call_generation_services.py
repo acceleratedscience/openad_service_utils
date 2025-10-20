@@ -133,7 +133,7 @@ class service_requester:
 
         if current_service is None:
             logger.debug("service mismatch")
-            return None
+            raise ValueError("Invalid service request. Service mismatch.")
         if current_service["service_name"] in []:
             return [current_service["service_name"] + "   Not Currently Available"]
 

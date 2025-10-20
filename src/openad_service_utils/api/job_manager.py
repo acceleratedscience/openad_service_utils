@@ -191,12 +191,15 @@ class JobManager:
                     job_info["inference_time"] = round(end_time - start_time, 2)
                     job_info["completion_time"] = end_time
 
+                    if result is None:
+                        raise ValueError("Service returned an unexpected None result.")
+
                     # 1. Transform raw result for consistent JSON output
                     if isinstance(result, pandas.DataFrame):
                         result = result.to_dict(orient="records")
                     elif isinstance(result, (str, int, float, bool)):
                         result = {"result": result}
-
+                    logger.warning(f"result: {result}")
                     # 2. Handle result based on its type (FileResponse or data)
                     if isinstance(result, FileResponse):
                         # Handle file-based results
@@ -243,7 +246,7 @@ class JobManager:
                         _ = await self.redis_client.rpush(queue, job_id)
                     else:
                         logger.error(f"Job {job_id} failed after {settings.JOB_MAX_RETRIES} retries.")
-                        job_info["result"] = {"error": error_message}
+                        job_info["result"] = {"error": str(e)}
                         job_info["error"] = True
                         job_info["status"] = "failed"
                         if async_job:
