@@ -7,22 +7,28 @@ import os
 import re
 import shutil
 import signal
-import time
 import sys
+import time
 from contextlib import asynccontextmanager
 from itertools import chain
 from typing import List, Optional
 
 import redis.asyncio as redis
 import uvicorn
-from fastapi import Depends, FastAPI, File, HTTPException, Request, UploadFile
+from fastapi import (
+    APIRouter,
+    Depends,
+    FastAPI,
+    File,
+    HTTPException,
+    Request,
+    UploadFile,
+)
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from pandas import DataFrame
 from starlette.background import BackgroundTask
 from starlette.concurrency import run_in_threadpool
-
-from openad_service_utils.common.models import FileResponse as CustomFileResponse
 
 from openad_service_utils.api.config import get_config_instance
 from openad_service_utils.api.generation.call_generation_services import (
@@ -45,6 +51,7 @@ from openad_service_utils.api.properties.call_property_services import (
     service_requester as property_request,
 )
 from openad_service_utils.common.configuration import GT4SDConfiguration
+from openad_service_utils.common.models import FileResponse as CustomFileResponse
 from openad_service_utils.common.properties.property_factory import PropertyFactory
 from openad_service_utils.utils.logging_config import setup_logging
 
@@ -181,7 +188,23 @@ async def sync_files_periodically(redis_client: redis.Redis):
         await asyncio.sleep(settings.UPLOAD_STORAGE_SYNC_INTERVAL)  # Sync every 60 seconds
 
 
-@app.post("/service/collections/{collection_name}")
+def collections_enabled():
+    """Dependency to check if file collection endpoints are enabled."""
+    if "get_mesh_property" not in PropertyFactory.AVAILABLE_PROPERTY_PREDICTOR_TYPES():
+        raise HTTPException(
+            status_code=404,
+            detail="File collection endpoints are not available for this service configuration.",
+        )
+
+
+collections_router = APIRouter(
+    prefix="/service/collections",
+    dependencies=[Depends(collections_enabled)],
+    tags=["collections"],
+)
+
+
+@collections_router.post("/{collection_name}")
 async def upload_file_to_collection(collection_name: str, file: UploadFile = File(...)):
     """Uploads a file to a specific collection."""
     validate_collection_name(collection_name)
@@ -203,7 +226,7 @@ async def upload_file_to_collection(collection_name: str, file: UploadFile = Fil
         raise HTTPException(status_code=500, detail=f"Error uploading file: {str(e)}")
 
 
-@app.get("/service/collections")
+@collections_router.get("")
 async def get_collections():
     """Returns a list of all available collections."""
     try:
@@ -214,7 +237,7 @@ async def get_collections():
         raise HTTPException(status_code=500, detail=f"Error retrieving collections: {str(e)}")
 
 
-@app.delete("/service/collections/{collection_name}")
+@collections_router.delete("/{collection_name}")
 async def delete_collection(collection_name: str):
     """Deletes an entire collection and all of its files."""
     validate_collection_name(collection_name)
@@ -238,7 +261,7 @@ async def delete_collection(collection_name: str):
         raise HTTPException(status_code=500, detail=f"Error deleting collection: {str(e)}")
 
 
-@app.get("/service/collections/{collection_name}")
+@collections_router.get("/{collection_name}")
 async def get_files_in_collection(collection_name: str):
     """Returns a list of all files in a specific collection."""
     validate_collection_name(collection_name)
@@ -270,7 +293,7 @@ async def get_files_in_collection(collection_name: str):
         raise HTTPException(status_code=500, detail=f"Error retrieving files: {str(e)}")
 
 
-@app.get("/service/collections/{collection_name}/{filename}")
+@collections_router.get("/{collection_name}/{filename}")
 async def download_file_from_collection(collection_name: str, filename: str):
     """Downloads a file from a specific collection."""
     validate_collection_name(collection_name)
@@ -297,7 +320,7 @@ async def download_file_from_collection(collection_name: str, filename: str):
         raise HTTPException(status_code=500, detail=f"Error downloading file: {str(e)}")
 
 
-@app.delete("/service/collections/{collection_name}/{filename}")
+@collections_router.delete("/{collection_name}/{filename}")
 async def delete_file_from_collection(collection_name: str, filename: str):
     """Deletes a file from a specific collection."""
     validate_collection_name(collection_name)
@@ -317,6 +340,10 @@ async def delete_file_from_collection(collection_name: str, filename: str):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error deleting file: {str(e)}")
+
+
+# add routes for collection to main api
+app.include_router(collections_router)
 
 
 @app.post("/service")

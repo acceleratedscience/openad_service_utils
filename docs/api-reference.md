@@ -2,11 +2,39 @@
 
 This document provides a detailed reference for the model wrapper API.
 
-## Endpoints
+## Health & Admin
 
-The model wrapper exposes a single endpoint, `/service`, which supports both `GET` and `POST` requests.
+### `GET /health`
+
+Checks the health of the service.
+
+**Request:**
+*   **Method:** `GET`
+*   **Endpoint:** `/health`
+*   **Body:** None
+
+**Response:**
+*   **Content-Type:** `text/html`
+*   **Body:** "UP"
 
 ---
+
+### `GET /admin/details`
+
+Retrieves server configuration details.
+
+**Request:**
+*   **Method:** `GET`
+*   **Endpoint:** `/admin/details`
+*   **Body:** None
+
+**Response:**
+*   **Content-Type:** `application/json`
+*   **Body:** A JSON object containing the server settings.
+
+---
+
+## Service Definition & Execution
 
 ### `GET /service`
 
@@ -60,6 +88,10 @@ Used for retrieving the results of a previously submitted asynchronous job.
 *   A JSON object containing the status of the job. If the job is complete and the result is a file, the response will include a `download_url`. Otherwise, for JSON-based results, it will contain the result data directly.
 
 ---
+
+## File Collections
+
+**Note:** The file collection endpoints are only available if the service is configured with a property predictor that supports file collections (i.e., `get_mesh_property`). If not available, these endpoints will return a `404 Not Found` error.
 
 ### `GET /service/collections`
 
@@ -118,15 +150,31 @@ Retrieves a list of all files within a specific collection.
 
 **Response:**
 *   **Content-Type:** `application/json`
-*   **Body:** A JSON object containing a list of file objects, each with a `file_key` and `filename`.
+*   **Body:** A JSON object containing a list of file objects, each with a `file_key`, `filename`, and `size_bytes`.
     ```json
     {
       "files": [
-        {"file_key": "collection_name/file1.txt", "filename": "file1.txt"},
-        {"file_key": "collection_name/file2.txt", "filename": "file2.txt"}
+        {"file_key": "collection_name/file1.txt", "filename": "file1.txt", "size_bytes": 1024},
+        {"file_key": "collection_name/file2.txt", "filename": "file2.txt", "size_bytes": 2048}
       ]
     }
     ```
+
+---
+
+### `GET /service/collections/{collection_name}/{filename}`
+
+Downloads a file from a specific collection.
+
+**Request:**
+*   **Method:** `GET`
+*   **Endpoint:** `/service/collections/{collection_name}/{filename}`
+*   **Path Parameters:**
+    *   `collection_name` (string, required): The name of the collection.
+    *   `filename` (string, required): The name of the file to download.
+
+**Response:**
+*   The binary content of the file.
 
 ---
 
@@ -172,6 +220,8 @@ Deletes a specific file from a collection.
     ```
 
 ---
+
+## Asynchronous Job Results
 
 ### `GET /service/download/{job_id}/{filename}`
 
