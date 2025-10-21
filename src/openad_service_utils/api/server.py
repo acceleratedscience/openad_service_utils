@@ -81,11 +81,14 @@ async def lifespan(app: FastAPI):
     await clear_job_queues(app.state.redis)
     
     # Start the file sync background task
-    task = asyncio.create_task(sync_files_periodically(app.state.redis))
+    task = None
+    if "get_mesh_property" in PropertyFactory.AVAILABLE_PROPERTY_PREDICTOR_TYPES():
+        task = asyncio.create_task(sync_files_periodically(app.state.redis))
     
     yield
     
-    task.cancel()
+    if "get_mesh_property" in PropertyFactory.AVAILABLE_PROPERTY_PREDICTOR_TYPES() and task:
+        task.cancel()
     await app.state.redis.close()
 
     logger.debug("Shutting down server...")

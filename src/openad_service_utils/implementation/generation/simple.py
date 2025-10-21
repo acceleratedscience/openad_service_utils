@@ -104,11 +104,12 @@ class SimpleGenerator(AlgorithmConfiguration[S, T], ABC):
         model_location = get_properties_model_path(
             cls.algorithm_type, cls.algorithm_name, cls.__name__, cls.algorithm_version
         )
-        logger.info(f"registering generator model: {model_location}")
         try:
             os.makedirs(model_location, exist_ok=True)
         except Exception:
             logger.error(f"could not create model cache location: {model_location}")
+        if "OPENAD_MAIN_PROCESS" not in os.environ: # only log in main process
+            logger.info(f"registering generator model: {model_location}")
         ApplicationsRegistry.register_algorithm_application(algorithm)(cls)
 
     @abstractmethod
