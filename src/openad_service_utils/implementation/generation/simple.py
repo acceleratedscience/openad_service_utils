@@ -99,7 +99,8 @@ class SimpleGenerator(AlgorithmConfiguration[S, T], ABC):
         algorithm = type(cls.algorithm_name, (BaseAlgorithm,), {})
         # update class name to application name
         if cls.algorithm_application:
-            logger.debug(f"updating application name from '{cls.__name__}' to '{cls.algorithm_application}'")
+            if "OPENAD_MAIN_PROCESS" not in os.environ: # only log in main process
+                logger.debug(f"updating application name from '{cls.__name__}' to '{cls.algorithm_application}'")
             cls.__name__ = cls.algorithm_application
         model_location = get_properties_model_path(
             cls.algorithm_type, cls.algorithm_name, cls.__name__, cls.algorithm_version
