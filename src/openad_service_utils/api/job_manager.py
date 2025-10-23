@@ -2,6 +2,7 @@
 as parallel processes supporting asychrnous and synchronous user interaction"""
 
 import asyncio
+from async_timeout import timeout
 import gc
 import importlib
 import json
@@ -121,18 +122,57 @@ class JobManager:
             return None
 
     async def get_result_by_id(self, job_id: str) -> Dict[str, Any]:
+        """Waits for a job to complete using Redis Pub/Sub and returns the result."""
         try:
-            while True:
-                job_info = await self._get_job_info_by_id(job_id)
-                if job_info is None:
-                    return {"status": "failed", "error": f"Job {job_id} not found or expired."}
+            # First, check if the job is already completed to avoid unnecessary pub/sub
+            job_info = await self._get_job_info_by_id(job_id)
+            if job_info and job_info["status"] in ["completed", "error", "failed"]:
+                return job_info
 
-                if job_info["status"] in ["completed", "error", "failed"]:
-                    return job_info
-                
-                await asyncio.sleep(0.5)
+            if job_info is None:
+                return {"status": "failed", "error": f"Job {job_id} not found or expired."}
+
+            # If not completed, use Pub/Sub to wait for a notification
+            pubsub = self.redis_client.pubsub()
+            channel = f"job_completed:{job_id}"
+            await pubsub.subscribe(channel)
+
+            try:
+                # Re-check status after subscribing to close the race condition window.
+                job_info_after_sub = await self._get_job_info_by_id(job_id)
+                if job_info_after_sub and job_info_after_sub["status"] in ["completed", "error", "failed"]:
+                    logger.debug(f"Job {job_id} completed before waiting on Pub/Sub.")
+                    return job_info_after_sub
+
+                # Wait for a message on the channel with a timeout
+                async with timeout(settings.JOB_COMPLETION_TIMEOUT):
+                    async for message in pubsub.listen():
+                        if message["type"] == "message":
+                            logger.debug(f"Received completion notification for job {job_id}")
+                            break  # Exit loop once a message is received
+            
+            except asyncio.TimeoutError:
+                logger.warning(f"Timeout waiting for completion notification for job {job_id}")
+                # It's good practice to do one final check after a timeout
+                final_job_info = await self._get_job_info_by_id(job_id)
+                if final_job_info and final_job_info["status"] in ["completed", "error", "failed"]:
+                    return final_job_info
+                return {"status": "error", "error": f"Timeout waiting for job {job_id} to complete."}
+
+            finally:
+                # Ensure we always unsubscribe
+                await pubsub.unsubscribe(channel)
+
+            # Fetch the final job information
+            final_job_info = await self._get_job_info_by_id(job_id)
+            if final_job_info:
+                return final_job_info
+            else:
+                # This case might happen if the job expires right after completion
+                return {"status": "failed", "error": f"Could not retrieve final result for job {job_id}."}
 
         except (RedisError, asyncio.TimeoutError) as e:
+            logger.error(f"Error while waiting for job result for ID {job_id}: {str(e)}")
             return {"status": "error", "error": f"Failed to retrieve job result for ID {job_id}: {str(e)}"}
 
     async def process_jobs(self):
@@ -145,6 +185,7 @@ class JobManager:
         
         while True:
             job_id = None  # Initialize job_id for this loop iteration
+            job_info = None # Initialize job_info to prevent unbound local error
             try:
                 # BLPOP waits for a job and returns the queue name and job_id
                 result = await self.redis_client.blpop(queues)
@@ -275,6 +316,10 @@ class JobManager:
                 await asyncio.sleep(1) # Avoid rapid-fire errors
             
             finally:
+                # After processing, publish a notification for synchronous waiters
+                if job_id and job_info and not job_info.get("async", False) and job_info["status"] not in ["Requeued"]:
+                    channel = f"job_completed:{job_id}"
+                    await self.redis_client.publish(channel, "completed")
                 run_cleanup()
 
 

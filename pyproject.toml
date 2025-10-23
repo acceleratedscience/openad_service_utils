@@ -17,6 +17,7 @@ dependencies = [
  "aiofiles",
  "python-multipart>=0.0.20",
  "tqdm>=4.67.1",
+ "async-timeout>=5.0.1",
 ]
 
 [project.urls]

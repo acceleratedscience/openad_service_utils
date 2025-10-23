@@ -31,6 +31,7 @@ class ServerConfig(BaseSettings):
     JOB_RETRY_DELAY: int = Field(default=5, ge=0) # Seconds to wait before retrying a failed job
     JOB_TTL: int = Field(default=86400, ge=0) # Time to live for job keys in Redis (seconds)
     REQUEST_CACHE_TTL: int = 3600  # Time to live for job request in Redis (seconds)
+    JOB_COMPLETION_TIMEOUT: int = Field(default=3600, ge=0) # Timeout for waiting for a syncrounous job to complete (seconds)
 
     # Directory to store uploaded files / collections
     UPLOAD_STORAGE_DIR: str = os.path.join(os.path.expanduser("~"), ".openad_models", "collection_uploads")

@@ -1109,6 +1109,7 @@ version = "0.5.2"
 source = { editable = "." }
 dependencies = [
     { name = "aiofiles" },
+    { name = "async-timeout" },
     { name = "colorlog" },
     { name = "fastapi", extra = ["standard"] },
     { name = "minio" },
@@ -1130,6 +1131,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "aiofiles" },
+    { name = "async-timeout", specifier = ">=5.0.1" },
     { name = "colorlog" },
     { name = "fastapi", extras = ["standard"] },
     { name = "minio" },
