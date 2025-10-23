@@ -242,10 +242,13 @@ class request_generation:
 
         result = list(model.sample(sample_size))
         # return result
-        result = pd.DataFrame(result)
-        if len(result.columns) == 1:
-            result.columns = ["result"]
-        return result
+        # TODO: refactor this. remove pd dependency conversion
+        single_result = pd.DataFrame(result)
+        if len(single_result.columns) == 1:
+            single_result.columns = ["result"]
+            return single_result
+        else:
+            return result
 
     def generate_name(self, params: dict):
         valid_keys = [
