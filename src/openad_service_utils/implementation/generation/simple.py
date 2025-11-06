@@ -73,7 +73,9 @@ class SimpleGenerator(AlgorithmConfiguration[S, T], ABC):
         YourApplicationName.register()
     """
 
-    domain: ClassVar[str] = "materials"  # hardcoded because we dont care about it. does nothing but need it.
+    domain: ClassVar[str] = (
+        "materials"  # hardcoded because we dont care about it. does nothing but need it.
+    )
     __no_model__: bool = False
 
     def get_model_location(self):
@@ -94,13 +96,17 @@ class SimpleGenerator(AlgorithmConfiguration[S, T], ABC):
         cls.__no_model__ = no_model
         for field in required:
             if field not in cls.__dict__:
-                raise TypeError(f"Can't instantiate class ({cls.__name__}) without '{field}' class variable")
+                raise TypeError(
+                    f"Can't instantiate class ({cls.__name__}) without '{field}' class variable"
+                )
         # create during runtime so that user doesnt have to write separate algorithm class
         algorithm = type(cls.algorithm_name, (BaseAlgorithm,), {})
         # update class name to application name
         if cls.algorithm_application:
-            if "OPENAD_MAIN_PROCESS" not in os.environ: # only log in main process
-                logger.debug(f"updating application name from '{cls.__name__}' to '{cls.algorithm_application}'")
+            if "OPENAD_MAIN_PROCESS" not in os.environ:  # only log in main process
+                logger.debug(
+                    f"updating application name from '{cls.__name__}' to '{cls.algorithm_application}'"
+                )
             cls.__name__ = cls.algorithm_application
         model_location = get_properties_model_path(
             cls.algorithm_type, cls.algorithm_name, cls.__name__, cls.algorithm_version
@@ -109,7 +115,7 @@ class SimpleGenerator(AlgorithmConfiguration[S, T], ABC):
             os.makedirs(model_location, exist_ok=True)
         except Exception:
             logger.error(f"could not create model cache location: {model_location}")
-        if "OPENAD_MAIN_PROCESS" not in os.environ: # only log in main process
+        if "OPENAD_MAIN_PROCESS" not in os.environ:  # only log in main process
             logger.info(f"registering generator model: {model_location}")
         ApplicationsRegistry.register_algorithm_application(algorithm)(cls)
 
@@ -183,7 +189,9 @@ class BaseAlgorithm(GeneratorAlgorithm[S, T]):
         """
         # check if model is downloaded only once.
         if not self.__artifacts_downloaded__:
-            logger.debug(f"Downloading model: {configuration.algorithm_application}/{configuration.algorithm_version}")
+            logger.debug(
+                f"Downloading model: {configuration.algorithm_application}/{configuration.algorithm_version}"
+            )
             # download model
             self.local_artifacts = configuration.ensure_artifacts()
             if self.local_artifacts:

@@ -4,14 +4,17 @@ import tempfile
 import uuid
 import shutil
 import inspect
+
 # import glob
 import json
+
 # import os
 from pathlib import Path
 from typing import Any, Optional, List, Dict
 
 # from pandas import DataFrame
 from pydantic.v1 import BaseModel
+
 # from openad_service_utils.utils.convert import json_string_to_dict
 from openad_service_utils.api.config import get_config_instance
 
@@ -77,10 +80,24 @@ def is_valid_service(service: dict):
 
 def get_services() -> list:
     all_services = []
-    all_services.extend(generate_property_service_defs("molecule", PropertyFactory.molecule_predictors_registry))
-    all_services.extend(generate_property_service_defs("protein", PropertyFactory.protein_predictors_registry))
-    all_services.extend(generate_property_service_defs("crystal", PropertyFactory.crystal_predictors_registry))
-    all_services.extend(generate_property_service_defs("mesh", PropertyFactory.mesh_predictors_registry))
+    all_services.extend(
+        generate_property_service_defs(
+            "molecule", PropertyFactory.molecule_predictors_registry
+        )
+    )
+    all_services.extend(
+        generate_property_service_defs(
+            "protein", PropertyFactory.protein_predictors_registry
+        )
+    )
+    all_services.extend(
+        generate_property_service_defs(
+            "crystal", PropertyFactory.crystal_predictors_registry
+        )
+    )
+    all_services.extend(
+        generate_property_service_defs("mesh", PropertyFactory.mesh_predictors_registry)
+    )
     return all_services
 
 
@@ -98,7 +115,9 @@ class service_requester:
         return get_services()
 
     # @conditional_lru_cache(maxsize=100)
-    def route_service(self, request: Dict[str, Any], file_keys: Optional[List[str]] = None):
+    def route_service(
+        self, request: Dict[str, Any], file_keys: Optional[List[str]] = None
+    ):
         # if get_config_instance().ENABLE_CACHE_RESULTS:
         #     request = json_string_to_dict(request)
         result = None
@@ -106,7 +125,7 @@ class service_requester:
             return False
         category = None
 
-        current_service = None # Initialize current_service here
+        current_service = None  # Initialize current_service here
         for service in get_services():
             if (
                 service["service_type"] == request["service_type"]
@@ -131,7 +150,7 @@ class service_requester:
 
         return result
 
-    async def __call__(self, req: Any): # Changed type hint from json to Any
+    async def __call__(self, req: Any):  # Changed type hint from json to Any
         req = await req.json()
         return self.route_service(req)
 
@@ -142,7 +161,13 @@ class request_properties:
     def __init__(self) -> None:
         pass
 
-    def request(self, service_type, parameters: dict, file_keys: Optional[List[str]], apikey: str):
+    def request(
+        self,
+        service_type,
+        parameters: dict,
+        file_keys: Optional[List[str]],
+        apikey: str,
+    ):
         results = []
         if service_type not in PropertyFactory.AVAILABLE_PROPERTY_PREDICTOR_TYPES():
             return {f"No service of type {service_type} available "}
@@ -199,7 +224,9 @@ class request_properties:
                             predictor = model[using_model]
 
                 if predictor is None:
-                    predictor = PropertyPredictorRegistry.get_property_predictor(name=property_type, parameters=parms)
+                    predictor = PropertyPredictorRegistry.get_property_predictor(
+                        name=property_type, parameters=parms
+                    )
                     if predictor and settings.ENABLE_MODEL_CACHING:
                         # add model to cache in memory
                         logger.debug(f"adding model to cache as key: {using_model}")
@@ -207,25 +234,31 @@ class request_properties:
                 elif predictor is not None and settings.ENABLE_MODEL_CACHING:
                     # update model params if it came from cache
                     logger.debug(f"loading model from cache key: {using_model}")
-                    pydantic_params = PropertyPredictorRegistry.get_property_predictor_meta_params(name=property_type) # type: ignore
-                    predictor._update_parameters(pydantic_params(**parms)) # type: ignore
+                    pydantic_params = PropertyPredictorRegistry.get_property_predictor_meta_params(name=property_type)  # type: ignore
+                    predictor._update_parameters(pydantic_params(**parms))  # type: ignore
 
                 # Crystaline structure models take data as file sets, the following manages this for the Crystaline property requests
                 if service_type == "get_crystal_property":
                     tmpdir_cif = subject_files_repository("cif", parameters["subjects"])
                     tmpdir_csv = subject_files_repository("csv", parameters["subjects"])
 
-                    if property_type == "metal_nonmetal_classifier" and current_subject.endswith("csv"):
+                    if (
+                        property_type == "metal_nonmetal_classifier"
+                        and current_subject.endswith("csv")
+                    ):
                         data_module = Path(tmpdir_csv.name + "/crf_data.csv")
                         logger.debug(tmpdir_csv.name + "/crf_data.csv")
                         result_fields = ["formulas", "predictions"]
-                    elif not property_type == "metal_nonmetal_classifier" and current_subject.endswith("cif"):
+                    elif (
+                        not property_type == "metal_nonmetal_classifier"
+                        and current_subject.endswith("cif")
+                    ):
                         data_module = Path(tmpdir_cif.name + "/")
                         result_fields = ["cif_ids", "predictions"]
                     else:
                         continue
                     out = predictor(data_module)
-                    pred_dict = dict(zip(out[result_fields], out[result_fields])) # type: ignore
+                    pred_dict = dict(zip(out[result_fields], out[result_fields]))  # type: ignore
                     for key in pred_dict:
                         results.append(
                             {
@@ -238,7 +271,9 @@ class request_properties:
 
                 else:
                     # All other property Requests handled here.
-                    sandbox_dir = os.path.join(tempfile.gettempdir(), "openad_results", str(uuid.uuid4()))
+                    sandbox_dir = os.path.join(
+                        tempfile.gettempdir(), "openad_results", str(uuid.uuid4())
+                    )
                     os.makedirs(sandbox_dir, exist_ok=True)
                     try:
                         # Inspect the predictor's signature to decide whether to pass output_dir
@@ -251,10 +286,14 @@ class request_properties:
                         if isinstance(prediction_result, FileResponse):
                             relative_path = prediction_result.file_path
                             if ".." in relative_path or os.path.isabs(relative_path):
-                                raise ValueError("Invalid file path returned from predictor.")
+                                raise ValueError(
+                                    "Invalid file path returned from predictor."
+                                )
                             full_path = os.path.join(sandbox_dir, relative_path)
                             if not os.path.exists(full_path):
-                                raise FileNotFoundError("Predictor did not create the specified file.")
+                                raise FileNotFoundError(
+                                    "Predictor did not create the specified file."
+                                )
                             prediction_result.file_path = full_path
                             # Do not clean up the sandbox dir, the server will do it.
                             return prediction_result
@@ -276,14 +315,18 @@ class request_properties:
 
     def set_parms(self, property_type, parameters):
         request_params = {}
-        schema = PropertyPredictorRegistry.get_property_predictor_parameters_schema(property_type)
-        schema_dict = json.loads(schema) # type: ignore
+        schema = PropertyPredictorRegistry.get_property_predictor_parameters_schema(
+            property_type
+        )
+        schema_dict = json.loads(schema)  # type: ignore
         if "required" in schema_dict.keys():
-            for param in schema_dict["required"]: # Use schema_dict here
+            for param in schema_dict["required"]:  # Use schema_dict here
                 if param in ["property_type", "subjects", "subject_type"]:
                     continue
                 elif param in parameters.keys():
-                    request_params[param] = parameters[param] # Include the required parameter
+                    request_params[param] = parameters[
+                        param
+                    ]  # Include the required parameter
                     continue
                 else:
                     logger.debug("no required " + param)

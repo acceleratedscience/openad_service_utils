@@ -49,15 +49,13 @@ class PropertyFactory:
     ] = {}
 
     @staticmethod
-    def PROPERTY_PREDICTOR_FACTORY() -> (
-        Dict[
-            str,
-            Tuple[
-                Union[Type[PropertyPredictor], Type[PredictorAlgorithm]],
-                Type[PropertyPredictorParameters],
-            ],
-        ]
-    ):
+    def PROPERTY_PREDICTOR_FACTORY() -> Dict[
+        str,
+        Tuple[
+            Union[Type[PropertyPredictor], Type[PredictorAlgorithm]],
+            Type[PropertyPredictorParameters],
+        ],
+    ]:
         return {
             **PropertyFactory.protein_predictors_registry,
             **PropertyFactory.molecule_predictors_registry,
