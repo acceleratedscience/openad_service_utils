@@ -1,9 +1,11 @@
 # ----------------------------
 # region --- Setup
 
+# UPLOAD_STORAGE_DIR = ~/.openad_models/collection_uploads
+
 # Std
-import os
 import time
+import uuid
 import json
 import shutil
 import asyncio
@@ -12,6 +14,8 @@ import zipfile
 import tempfile
 from pathlib import Path
 from typing import List, Optional
+from datetime import datetime, timedelta
+
 
 # 3rd Party
 import redis.asyncio as redis
@@ -26,6 +30,7 @@ from openad_service_utils.api.config import get_config_instance
 from openad_service_utils.utils.validation import (
     validate_collection_name,
     validate_filename,
+    validate_filename_collision,
 )
 
 # Get configuration and logger
@@ -66,6 +71,52 @@ async def get_collections(redis_client: redis.Redis = Depends(get_redis_client))
     except Exception as e:
         raise HTTPException(
             status_code=500, detail=f"Error retrieving collections: {str(e)}"
+        ) from e
+
+
+@collections_router.post("/reindex")
+async def reindex_redis_from_filesystem(
+    redis_client: redis.Redis = Depends(get_redis_client),
+):
+    """
+    Reindex the Redis database to match the current state of the filesystem.
+
+    This function scans the upload storage directory and updates Redis to reflect
+    the current state of the files on disk. Any missing or outdated entries in Redis
+    will be corrected.
+
+    Args:
+        redis_client: The Redis client instance.
+    """
+    try:
+        logger.info("Starting Redis reindexing from filesystem...")
+        storage_path = Path(settings.UPLOAD_STORAGE_DIR)
+        if not storage_path.is_dir():
+            raise HTTPException(
+                status_code=500, detail="Upload storage directory does not exist."
+            )
+
+        # Scan the filesystem for all files
+        for collection_dir in storage_path.iterdir():
+            if collection_dir.is_dir():
+                collection_name = collection_dir.name
+                for file_path in collection_dir.iterdir():
+                    if file_path.is_file():
+                        file_key = str(Path(collection_name) / file_path.name)
+                        await redis_client.set(f"file_map:{file_key}", str(file_path))
+
+        # Clean up Redis keys that no longer exist on disk
+        redis_keys = [key async for key in redis_client.scan_iter("file_map:*")]
+        for key in redis_keys:
+            file_path_str = await redis_client.get(key)
+            if file_path_str and not Path(file_path_str).exists():
+                await redis_client.delete(key)
+
+        logger.info("Redis database successfully reindexed to match filesystem.")
+    except Exception as e:
+        logger.error("Error reindexing Redis database: %s", str(e))
+        raise HTTPException(
+            status_code=500, detail=f"Error reindexing Redis database: {str(e)}"
         ) from e
 
 
@@ -133,7 +184,7 @@ job_names = [
 ]
 # fmt: off
 import random
-import datetime
+# from datetime import datetime
 file_statuses = [
     "uploading",
     "completed",
@@ -156,7 +207,7 @@ class FileResultItem(BaseModel):
     jobName: str
     algoVersion: str
     checkpoint: str
-    completed: datetime.datetime | None
+    completed: datetime | None
     duration: int | None
     status: str
     download: bool
@@ -186,13 +237,13 @@ class JobItemsResponse(BaseModel):
     pageSize: int
     items: List['JobItem']  # Forward reference since JobItem is defined later
 
-NOW = datetime.datetime.now()
+NOW = datetime.now()
 for i in range(1, 5):
     status=random.choice(file_statuses)
     rd_starttime_secago = random.randint(1, 300000)
     rd_duration = int(rd_starttime_secago) if status == "completed" else None
-    rd_duration_pretty = str(datetime.timedelta(seconds=rd_starttime_secago)) if status == "completed" else '-'
-    rd_upload_date = NOW - datetime.timedelta(seconds=rd_starttime_secago) if status == "completed" else None
+    rd_duration_pretty = str(timedelta(seconds=rd_starttime_secago)) if status == "completed" else '-'
+    rd_upload_date = NOW - timedelta(seconds=rd_starttime_secago) if status == "completed" else None
     rd_upload_date_pretty = rd_upload_date.strftime("%b %d, %Y at %H:%M") if status == "completed" else '-'
     dummy_file_results.append(
         FileResultItem(
@@ -235,7 +286,7 @@ async def get_file_results_page(
     # Store the types per key
     # - - -
     # We cycle through the first 50 rows to determine the type
-    # of each key while proritizing str > int/float/datetime.datetime > bool > NoneType.
+    # of each key while proritizing str > int/float/datetime > bool > NoneType.
     # This is required for sorting.
     sort_key_type_map = {}
     for item in dummy_file_results[:50]:
@@ -248,7 +299,7 @@ async def get_file_results_page(
                 elif (
                     new_key_type == int
                     or new_key_type == float
-                    or new_key_type == datetime.datetime
+                    or new_key_type == datetime
                 ):
                     if prev_key_type == bool or prev_key_type == type(None):
                         sort_key_type_map[key] = new_key_type
@@ -284,8 +335,8 @@ async def get_file_results_page(
             0
             if sort_key_type_map.get(sort) in [int, float]
             else (
-                datetime.datetime.now()
-                if sort_key_type_map.get(sort) in [datetime.datetime]
+                datetime.now()
+                if sort_key_type_map.get(sort) in [datetime]
                 else "" if sort_key_type_map.get(sort) == str else False
             )
         )
@@ -333,7 +384,7 @@ class JobItem(BaseModel):
     icon: str
     jobName: str
     fileCount: int
-    completedDate: datetime.datetime | None
+    completedDate: datetime | None
     duration: int | None
     status: str
     download: bool
@@ -354,8 +405,8 @@ for i in range(1, 51):
     status=random.choice(job_statuses)
     rd_starttime_secago = random.randint(1, 300000)
     rd_duration = int(rd_starttime_secago) if status == "completed" else None
-    rd_duration_pretty = str(datetime.timedelta(seconds=rd_starttime_secago)) if status == "completed" else '-'
-    rd_upload_date = NOW - datetime.timedelta(seconds=rd_starttime_secago) if status == "completed" else None
+    rd_duration_pretty = str(timedelta(seconds=rd_starttime_secago)) if status == "completed" else '-'
+    rd_upload_date = NOW - timedelta(seconds=rd_starttime_secago) if status == "completed" else None
     rd_upload_date_pretty = rd_upload_date.strftime("%b %d, %Y at %H:%M") if status == "completed" else '-'
     dummy_jobs.append(
         JobItem(
@@ -398,7 +449,7 @@ async def get_jobs_page(
     # Store the types per key
     # - - -
     # We cycle through the first 50 rows to determine the type
-    # of each key while proritizing str > int/float/datetime.datetime > bool > NoneType.
+    # of each key while proritizing str > int/float/datetime > bool > NoneType.
     # This is required for sorting.
     sort_key_type_map = {}
     for item in dummy_jobs[:50]:
@@ -411,7 +462,7 @@ async def get_jobs_page(
                 elif (
                     new_key_type == int
                     or new_key_type == float
-                    or new_key_type == datetime.datetime
+                    or new_key_type == datetime
                 ):
                     if prev_key_type == bool or prev_key_type == type(None):
                         sort_key_type_map[key] = new_key_type
@@ -453,8 +504,8 @@ async def get_jobs_page(
             0
             if sort_key_type_map.get(sort) in [int, float]
             else (
-                datetime.datetime.now()
-                if sort_key_type_map.get(sort) in [datetime.datetime]
+                datetime.now()
+                if sort_key_type_map.get(sort) in [datetime]
                 else "" if sort_key_type_map.get(sort) == str else False
             )
         )
@@ -597,53 +648,6 @@ async def upload_files_to_collection_v1(
 # region --- Chunked Upload
 
 
-# Chunked Upload
-import uuid
-from datetime import datetime, timedelta
-
-
-async def cleanup_expired_uploads(redis_client: redis.Redis):
-    """Clean up expired upload sessions."""
-    current_time = time.time()
-
-    # Get all upload metadata keys
-    upload_keys = [key async for key in redis_client.scan_iter("upload:*:metadata")]
-
-    for key in upload_keys:
-        upload_id = key.split(":")[1]
-
-        # Check TTL
-        ttl_key = f"upload:{upload_id}:ttl"
-        expiry_time = await redis_client.get(ttl_key)
-
-        if expiry_time and float(expiry_time) < current_time:
-            # Clean up expired upload
-            await cleanup_upload_session(redis_client, upload_id)
-            logger.info("Cleaned up expired upload session: %s", upload_id)
-
-
-async def cleanup_upload_session(redis_client: redis.Redis, upload_id: str):
-    """Clean up an upload session completely."""
-    # Remove Redis keys
-    keys_to_delete = [
-        f"upload:{upload_id}:metadata",
-        f"upload:{upload_id}:chunks",
-        f"upload:{upload_id}:ttl",
-    ]
-    existing_keys = []
-    for key in keys_to_delete:
-        if await redis_client.exists(key):
-            existing_keys.append(key)
-
-    if existing_keys:
-        await redis_client.delete(*existing_keys)
-
-    # Remove temp directory
-    temp_dir = Path(settings.UPLOAD_STORAGE_DIR) / "temp" / upload_id
-    if temp_dir.exists():
-        await run_in_threadpool(shutil.rmtree, temp_dir, ignore_errors=True)
-
-
 @collections_router.post("/{collection_name}/upload/start")
 async def start_chunked_upload(
     collection_name: str,
@@ -651,10 +655,16 @@ async def start_chunked_upload(
     total_size: int,
     chunk_size: int = 5 * 1024 * 1024,  # 5MB default
     redis_client: redis.Redis = Depends(get_redis_client),
+    # Options for second try:
+    replace: bool = False,  # If filename exists, replace it
+    rename: bool = False,  # If filename exists, add -1, -2, etc.
 ):
     """Start a chunked upload session."""
+
     validate_collection_name(collection_name)
     validate_filename(filename)
+    if not replace and not rename:
+        await validate_filename_collision(redis_client, collection_name, filename)
 
     if total_size <= 0:
         raise HTTPException(status_code=400, detail="Total size must be greater than 0")
@@ -674,6 +684,21 @@ async def start_chunked_upload(
 
         # Calculate expected number of chunks
         total_chunks = (total_size + chunk_size - 1) // chunk_size
+
+        # Handle duplicate filenames
+        if rename:
+            collection_dir = Path(settings.UPLOAD_STORAGE_DIR) / collection_name
+            collection_dir.mkdir(parents=True, exist_ok=True)
+
+            file_path = collection_dir / filename
+            counter = 1
+            original_filename = filename
+            while file_path.exists():
+                name_part = Path(original_filename).stem
+                ext_part = Path(original_filename).suffix
+                filename = f"{name_part}_{counter}{ext_part}"
+                file_path = collection_dir / filename
+                counter += 1
 
         # Store upload metadata in Redis
         metadata = {
@@ -795,7 +820,7 @@ async def upload_chunk(
         print(f'--- {metadata["total_size"]}/{total_received}')
 
         # Build consistent response using shared function
-        response = await build_upload_status_response(
+        response = await _build_upload_status_response(
             upload_id, metadata, chunks_received, redis_client
         )
 
@@ -805,7 +830,7 @@ async def upload_chunk(
         if is_complete:
             # Assemble final file in background
             asyncio.create_task(
-                assemble_file_from_chunks(
+                _assemble_file_from_chunks(
                     upload_id, metadata, chunks_received, redis_client
                 )
             )
@@ -827,80 +852,67 @@ async def upload_chunk(
         ) from e
 
 
-async def assemble_file_from_chunks(
-    upload_id: str, metadata: dict, chunks_received: dict, redis_client: redis.Redis
+@collections_router.get("/{collection_name}/upload/{upload_id}/status")
+async def get_upload_status(
+    collection_name: str,
+    upload_id: str,
+    redis_client: redis.Redis = Depends(get_redis_client),
 ):
-    """Assemble the final file from chunks in the background."""
-    try:
-        collection_name = metadata["collection_name"]
-        filename = metadata["filename"]
+    """Get the status of a chunked upload."""
+    validate_collection_name(collection_name)
 
-        # Create collection directory
-        collection_dir = Path(settings.UPLOAD_STORAGE_DIR) / collection_name
-        collection_dir.mkdir(parents=True, exist_ok=True)
-
-        # Handle duplicate filenames
-        # Note: fallback, same file upload should be prevented in frontend
-        file_path = collection_dir / filename
-        counter = 1
-        original_filename = filename
-        while file_path.exists():
-            name_part = Path(original_filename).stem
-            ext_part = Path(original_filename).suffix
-            filename = f"{name_part}_{counter}{ext_part}"
-            file_path = collection_dir / filename
-            counter += 1
-
-        # Sort chunks by start byte position
-        sorted_chunks = []
-        for range_str, chunk_info in chunks_received.items():
-            start_byte, end_byte = map(int, range_str.split("-"))
-            sorted_chunks.append((start_byte, end_byte, chunk_info))
-
-        sorted_chunks.sort(key=lambda x: x[0])
-
-        # Assemble file
-        def write_assembled_file():
-            with file_path.open("wb") as final_file:
-                for start_byte, end_byte, chunk_info in sorted_chunks:
-                    chunk_path = Path(metadata["temp_dir"]) / chunk_info["chunk_file"]
-                    final_file.write(chunk_path.read_bytes())
-
-        await run_in_threadpool(write_assembled_file)
-
-        # Update Redis file mapping
-        file_key = str(Path(collection_name) / filename)
-        await redis_client.set(f"file_map:{file_key}", str(file_path))
-
-        # Mark upload as completed in Redis
-        completion_info = {
-            "status": "completed",
-            "file_path": str(file_path),
-            "file_key": file_key,
-            "final_filename": filename,
-            "completed_at": time.time(),
-            "file_size": file_path.stat().st_size,
-        }
-        await redis_client.set(
-            f"upload:{upload_id}:completion", json.dumps(completion_info)
+    # Get metadata
+    metadata_str = await redis_client.get(f"upload:{upload_id}:metadata")
+    if not metadata_str:
+        raise HTTPException(
+            status_code=404, detail="Upload session not found or expired"
         )
 
-        # Schedule cleanup (keep for 1 hour after completion)
-        cleanup_time = time.time() + (60 * 60)
-        await redis_client.set(f"upload:{upload_id}:ttl", str(cleanup_time))
+    metadata = json.loads(metadata_str)
 
-        logger.info(
-            "Successfully assembled file %s from chunked upload %s", filename, upload_id
-        )
+    # Verify collection matches
+    if metadata["collection_name"] != collection_name:
+        raise HTTPException(status_code=400, detail="Collection name mismatch")
 
-    except Exception as e:
-        # Mark as failed
-        error_info = {"status": "failed", "error": str(e), "failed_at": time.time()}
-        await redis_client.set(f"upload:{upload_id}:completion", json.dumps(error_info))
-        logger.error("Failed to assemble file from upload %s: %s", upload_id, str(e))
+    # Get chunks status
+    chunks_str = await redis_client.get(f"upload:{upload_id}:chunks")
+    chunks_received = json.loads(chunks_str) if chunks_str else {}
+
+    # Check if completed/failed
+    completion_str = await redis_client.get(f"upload:{upload_id}:completion")
+    completion_info = json.loads(completion_str) if completion_str else None
+
+    # Build consistent response using shared function
+    response = await _build_upload_status_response(
+        upload_id, metadata, chunks_received, redis_client, completion_info
+    )
+
+    return JSONResponse(response)
 
 
-async def build_upload_status_response(
+@collections_router.delete("/{collection_name}/upload/{upload_id}")
+async def cancel_upload(collection_name: str, upload_id: str, request: Request):
+    """Cancel and clean up a chunked upload session."""
+    validate_collection_name(collection_name)
+
+    # Verify upload exists and collection matches
+    metadata_str = await request.app.state.redis.get(f"upload:{upload_id}:metadata")
+    if not metadata_str:
+        raise HTTPException(status_code=404, detail="Upload session not found")
+
+    metadata = json.loads(metadata_str)
+    if metadata["collection_name"] != collection_name:
+        raise HTTPException(status_code=400, detail="Collection name mismatch")
+
+    # Clean up
+    await cleanup_upload_session(request.app.state.redis, upload_id)
+
+    return JSONResponse(
+        {"upload_id": upload_id, "message": "Upload session cancelled and cleaned up"}
+    )
+
+
+async def _build_upload_status_response(
     upload_id: str,
     metadata: dict,
     chunks_received: dict,
@@ -957,64 +969,111 @@ async def build_upload_status_response(
     return response
 
 
-@collections_router.get("/{collection_name}/upload/{upload_id}/status")
-async def get_upload_status(
-    collection_name: str,
-    upload_id: str,
-    redis_client: redis.Redis = Depends(get_redis_client),
+async def _assemble_file_from_chunks(
+    upload_id: str, metadata: dict, chunks_received: dict, redis_client: redis.Redis
 ):
-    """Get the status of a chunked upload."""
-    validate_collection_name(collection_name)
+    """Assemble the final file from chunks in the background."""
+    try:
+        collection_name = metadata["collection_name"]
+        filename = metadata["filename"]
 
-    # Get metadata
-    metadata_str = await redis_client.get(f"upload:{upload_id}:metadata")
-    if not metadata_str:
-        raise HTTPException(
-            status_code=404, detail="Upload session not found or expired"
+        # Create collection directory & final file path
+        collection_dir = Path(settings.UPLOAD_STORAGE_DIR) / collection_name
+        collection_dir.mkdir(parents=True, exist_ok=True)
+        file_path = collection_dir / filename
+
+        # Sort chunks by start byte position
+        sorted_chunks = []
+        for range_str, chunk_info in chunks_received.items():
+            start_byte, end_byte = map(int, range_str.split("-"))
+            sorted_chunks.append((start_byte, end_byte, chunk_info))
+
+        sorted_chunks.sort(key=lambda x: x[0])
+
+        # Assemble file
+        # Note: this will overwrite existing file if present
+        # Logic to prevent this lives under start_chunked_upload() -> replace/rename
+        def write_assembled_file():
+            with file_path.open("wb") as final_file:
+                for start_byte, end_byte, chunk_info in sorted_chunks:
+                    chunk_path = Path(metadata["temp_dir"]) / chunk_info["chunk_file"]
+                    final_file.write(chunk_path.read_bytes())
+
+        await run_in_threadpool(write_assembled_file)
+
+        # Update Redis file mapping
+        file_key = str(Path(collection_name) / filename)
+        await redis_client.set(f"file_map:{file_key}", str(file_path))
+
+        # Mark upload as completed in Redis
+        completion_info = {
+            "status": "completed",
+            "file_path": str(file_path),
+            "file_key": file_key,
+            "final_filename": filename,
+            "completed_at": time.time(),
+            "file_size": file_path.stat().st_size,
+        }
+        await redis_client.set(
+            f"upload:{upload_id}:completion", json.dumps(completion_info)
         )
 
-    metadata = json.loads(metadata_str)
+        # Schedule cleanup (keep for 1 hour after completion)
+        cleanup_time = time.time() + (60 * 60)
+        await redis_client.set(f"upload:{upload_id}:ttl", str(cleanup_time))
 
-    # Verify collection matches
-    if metadata["collection_name"] != collection_name:
-        raise HTTPException(status_code=400, detail="Collection name mismatch")
+        logger.info(
+            "Successfully assembled file %s from chunked upload %s", filename, upload_id
+        )
 
-    # Get chunks status
-    chunks_str = await redis_client.get(f"upload:{upload_id}:chunks")
-    chunks_received = json.loads(chunks_str) if chunks_str else {}
-
-    # Check if completed/failed
-    completion_str = await redis_client.get(f"upload:{upload_id}:completion")
-    completion_info = json.loads(completion_str) if completion_str else None
-
-    # Build consistent response using shared function
-    response = await build_upload_status_response(
-        upload_id, metadata, chunks_received, redis_client, completion_info
-    )
-
-    return JSONResponse(response)
+    except Exception as e:
+        # Mark as failed
+        error_info = {"status": "failed", "error": str(e), "failed_at": time.time()}
+        await redis_client.set(f"upload:{upload_id}:completion", json.dumps(error_info))
+        logger.error("Failed to assemble file from upload %s: %s", upload_id, str(e))
 
 
-@collections_router.delete("/{collection_name}/upload/{upload_id}")
-async def cancel_upload(collection_name: str, upload_id: str, request: Request):
-    """Cancel and clean up a chunked upload session."""
-    validate_collection_name(collection_name)
+# Cron job
+async def cleanup_expired_uploads(redis_client: redis.Redis):
+    """Clean up expired upload sessions."""
+    current_time = time.time()
 
-    # Verify upload exists and collection matches
-    metadata_str = await request.app.state.redis.get(f"upload:{upload_id}:metadata")
-    if not metadata_str:
-        raise HTTPException(status_code=404, detail="Upload session not found")
+    # Get all upload metadata keys
+    upload_keys = [key async for key in redis_client.scan_iter("upload:*:metadata")]
 
-    metadata = json.loads(metadata_str)
-    if metadata["collection_name"] != collection_name:
-        raise HTTPException(status_code=400, detail="Collection name mismatch")
+    for key in upload_keys:
+        upload_id = key.split(":")[1]
 
-    # Clean up
-    await cleanup_upload_session(request.app.state.redis, upload_id)
+        # Check TTL
+        ttl_key = f"upload:{upload_id}:ttl"
+        expiry_time = await redis_client.get(ttl_key)
 
-    return JSONResponse(
-        {"upload_id": upload_id, "message": "Upload session cancelled and cleaned up"}
-    )
+        if expiry_time and float(expiry_time) < current_time:
+            # Clean up expired upload
+            await cleanup_upload_session(redis_client, upload_id)
+            logger.info("Cleaned up expired upload session: %s", upload_id)
+
+
+async def cleanup_upload_session(redis_client: redis.Redis, upload_id: str):
+    """Clean up an upload session completely."""
+    # Remove Redis keys
+    keys_to_delete = [
+        f"upload:{upload_id}:metadata",
+        f"upload:{upload_id}:chunks",
+        f"upload:{upload_id}:ttl",
+    ]
+    existing_keys = []
+    for key in keys_to_delete:
+        if await redis_client.exists(key):
+            existing_keys.append(key)
+
+    if existing_keys:
+        await redis_client.delete(*existing_keys)
+
+    # Remove temp directory
+    temp_dir = Path(settings.UPLOAD_STORAGE_DIR) / "temp" / upload_id
+    if temp_dir.exists():
+        await run_in_threadpool(shutil.rmtree, temp_dir, ignore_errors=True)
 
 
 # endregion
@@ -1097,6 +1156,7 @@ async def get_files(
             scan_pattern = "file_map:*"
 
         file_keys = [key async for key in redis_client.scan_iter(scan_pattern)]
+        print(99999, file_keys)
 
         # Handle empty results
         if not file_keys:
@@ -1119,11 +1179,16 @@ async def get_files(
 
         # Process all files and add indices
         files = []
-        for index, key in enumerate(sorted(file_keys)):
+        for key in file_keys:
             file_key = key.split(":")[1]
             file_path_str = await redis_client.get(key)
-            file_info = await _process_file_info(file_key, file_path_str, index)
+            file_info = await _process_file_info(file_key, file_path_str)
             files.append(file_info)
+
+        # Sort by created_at and add index
+        files = _sort_files(files, "created_at", descending=True)
+        for idx, file_info in enumerate(files):
+            file_info["index"] = idx + 1  # 1-based index
 
         # Apply search filter first (before sorting/pagination)
         if search:
@@ -1193,16 +1258,13 @@ async def get_files(
         raise HTTPException(status_code=500, detail=f"{error_msg}: {str(e)}") from e
 
 
-async def _process_file_info(
-    file_key: str, file_path_str: str | None, index: int
-) -> dict:
+async def _process_file_info(file_key: str, file_path_str: str | None) -> dict:
     """
     Extract file information from Redis
 
     Args:
         file_key: The Redis key for the file (format: collection_name/filename)
         file_path_str: The file path string from Redis
-        index: The position/index of this file in the dataset
     """
     file_key_path = Path(file_key)
     collection_name = file_key_path.parts[0]
@@ -1222,7 +1284,6 @@ async def _process_file_info(
             created_at = stat_info.st_ctime * 1000  # Convert to milliseconds
 
     return {
-        "index": index,
         "file_key": file_key,
         "filename": filename,
         "collection_name": collection_name,
@@ -1370,25 +1431,27 @@ async def download_collection(
 ):
     """Downloads an entire collection as a ZIP file."""
     validate_collection_name(collection_name)
-    
+
     try:
         # Get all files in the collection
         file_keys = [
             key async for key in redis_client.scan_iter(f"file_map:{collection_name}/*")
         ]
-        
+
         if not file_keys:
-            raise HTTPException(status_code=404, detail="Collection not found or empty.")
-        
+            raise HTTPException(
+                status_code=404, detail="Collection not found or empty."
+            )
+
         # Create a temporary ZIP file
         temp_zip = tempfile.NamedTemporaryFile(
             delete=False, suffix=f"_{collection_name}.zip"
         )
-        
+
         try:
-            with zipfile.ZipFile(temp_zip.name, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+            with zipfile.ZipFile(temp_zip.name, "w", zipfile.ZIP_DEFLATED) as zip_file:
                 files_added = 0
-                
+
                 for key in file_keys:
                     file_path_str = await redis_client.get(key)
 
@@ -1399,20 +1462,27 @@ async def download_collection(
                             storage_path = Path(settings.UPLOAD_STORAGE_DIR).resolve()
                             if file_path.resolve().is_relative_to(storage_path):
                                 # Get just the filename for the ZIP archive
-                                filename = file_path.name                                # Add file to ZIP with just the filename (no nested folders in ZIP)
-                                await run_in_threadpool(zip_file.write, str(file_path), filename)
+                                filename = (
+                                    file_path.name
+                                )  # Add file to ZIP with just the filename (no nested folders in ZIP)
+                                await run_in_threadpool(
+                                    zip_file.write, str(file_path), filename
+                                )
                                 files_added += 1
                             else:
-                                logger.warning("Skipping file outside storage directory: %s", file_path_str)
+                                logger.warning(
+                                    "Skipping file outside storage directory: %s",
+                                    file_path_str,
+                                )
                         else:
                             logger.warning("File not found: %s", file_path_str)
-                
+
                 if files_added == 0:
                     raise HTTPException(
-                        status_code=404, 
-                        detail="No accessible files found in collection."
+                        status_code=404,
+                        detail="No accessible files found in collection.",
                     )
-            
+
             # Return the ZIP file as a download
             def cleanup_temp_file():
                 """Clean up the temporary ZIP file after sending."""
@@ -1420,14 +1490,14 @@ async def download_collection(
                     Path(temp_zip.name).unlink()
                 except OSError:
                     pass
-            
+
             return FileResponse(
                 path=temp_zip.name,
                 media_type="application/zip",
                 filename=f"{collection_name}.zip",
                 background=BackgroundTask(cleanup_temp_file),
             )
-            
+
         except Exception as zip_error:
             # Clean up temp file on error
             try:
@@ -1435,13 +1505,12 @@ async def download_collection(
             except OSError:
                 pass
             raise zip_error
-            
+
     except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(
-            status_code=500, 
-            detail=f"Error creating collection archive: {str(e)}"
+            status_code=500, detail=f"Error creating collection archive: {str(e)}"
         ) from e
 
 
@@ -1460,7 +1529,7 @@ async def download_file_from_collection(
 
         if not file_path_str:
             raise HTTPException(status_code=404, detail="File not found.")
-        
+
         file_path = Path(file_path_str)
         if not await run_in_threadpool(file_path.exists):
             raise HTTPException(status_code=404, detail="File not found.")
@@ -1483,7 +1552,6 @@ async def download_file_from_collection(
         raise HTTPException(status_code=500, detail=f"Error downloading file: {str(e)}")
 
 
-
 # endregion
 # ----------------------------
 # region --- Delete
@@ -1504,6 +1572,7 @@ async def delete_collection(
         file_keys = [
             key async for key in redis_client.scan_iter(f"file_map:{collection_name}/*")
         ]
+
         if file_keys:
             await redis_client.delete(*file_keys)
 
@@ -1533,10 +1602,11 @@ async def delete_file_from_collection(
     try:
         file_key = str(Path(collection_name) / filename)
         file_path_str = await redis_client.get(f"file_map:{file_key}")
+        print("Delete: ", file_key, file_path_str)
 
         if not file_path_str:
             raise HTTPException(status_code=404, detail="File not found.")
-        
+
         file_path = Path(file_path_str)
         if not file_path.exists():
             raise HTTPException(status_code=404, detail="File not found.")
@@ -1548,7 +1618,9 @@ async def delete_file_from_collection(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error deleting file: {str(e)}") from e
+        raise HTTPException(
+            status_code=500, detail=f"Error deleting file: {str(e)}"
+        ) from e
 
 
 # endregion
