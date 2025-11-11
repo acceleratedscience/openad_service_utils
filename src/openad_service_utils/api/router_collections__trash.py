@@ -21,7 +21,7 @@ from datetime import datetime, timedelta
 import redis.asyncio as redis
 from starlette.concurrency import run_in_threadpool
 from starlette.background import BackgroundTask
-from fastapi import APIRouter, Depends, File, Body
+from fastapi import APIRouter, Depends, File
 from fastapi import HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 
@@ -1156,6 +1156,7 @@ async def get_files(
             scan_pattern = "file_map:*"
 
         file_keys = [key async for key in redis_client.scan_iter(scan_pattern)]
+        print(99999, file_keys)
 
         # Handle empty results
         if not file_keys:
@@ -1556,12 +1557,7 @@ async def download_file_from_collection(
 # region --- Delete
 
 
-class FileDeleteRequest(BaseModel):
-    collection_name: str
-    filename: str
-
-
-@collections_router.delete("/{collection_name}", summary="Delete collection")
+@collections_router.delete("/{collection_name}")
 async def delete_collection(
     collection_name: str, redis_client: redis.Redis = Depends(get_redis_client)
 ):
@@ -1594,7 +1590,7 @@ async def delete_collection(
         ) from e
 
 
-@collections_router.delete("/{collection_name}/{filename}", summary="Delete file")
+@collections_router.delete("/{collection_name}/{filename}")
 async def delete_file_from_collection(
     collection_name: str,
     filename: str,
@@ -1625,92 +1621,6 @@ async def delete_file_from_collection(
         raise HTTPException(
             status_code=500, detail=f"Error deleting file: {str(e)}"
         ) from e
-
-
-@collections_router.delete("", summary="Delete multiple files")
-async def delete_files_from_collection(
-    files: List[FileDeleteRequest] = Body(...),
-    redis_client: redis.Redis = Depends(get_redis_client),
-):
-    """
-    Deletes multiple files from a collection.
-
-    Args:
-        files: A list of dictionaries containing `collection` and `filename` keys.
-        redis_client: The Redis client instance.
-
-    Returns:
-        JSON response with the status of each file deletion.
-    """
-    results = []
-
-    for file in files:
-        collection_name = file.collection_name
-        filename = file.filename
-
-        if not collection_name or not filename:
-            results.append(
-                {
-                    "collection": collection_name,
-                    "filename": filename,
-                    "status": "error",
-                    "message": "Missing collection or filename.",
-                }
-            )
-            continue
-
-        try:
-            validate_collection_name(collection_name)
-            validate_filename(filename)
-
-            file_key = str(Path(collection_name) / filename)
-            file_path_str = await redis_client.get(f"file_map:{file_key}")
-
-            if not file_path_str:
-                results.append(
-                    {
-                        "collection": collection_name,
-                        "filename": filename,
-                        "status": "error",
-                        "message": "File not found in Redis.",
-                    }
-                )
-                continue
-
-            file_path = Path(file_path_str)
-            if not file_path.exists():
-                results.append(
-                    {
-                        "collection": collection_name,
-                        "filename": filename,
-                        "status": "error",
-                        "message": "File not found on disk.",
-                    }
-                )
-                continue
-
-            file_path.unlink()
-            await redis_client.delete(f"file_map:{file_key}")
-
-            results.append(
-                {
-                    "collection": collection_name,
-                    "filename": filename,
-                    "status": "success",
-                    "message": "File deleted successfully.",
-                }
-            )
-        except Exception as e:
-            results.append(
-                {
-                    "collection": collection_name,
-                    "filename": filename,
-                    "status": "error",
-                    "message": f"Error deleting file: {str(e)}",
-                }
-            )
-
-    return JSONResponse({"results": results})
 
 
 # endregion
