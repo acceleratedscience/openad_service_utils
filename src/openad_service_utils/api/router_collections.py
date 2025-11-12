@@ -26,6 +26,7 @@ from fastapi import HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 
 # Utils
+from openad_service_utils.utils.router_dependencies import get_redis_client
 from openad_service_utils.api.config import get_config_instance
 from openad_service_utils.utils.validation import (
     validate_collection_name,
@@ -38,15 +39,9 @@ settings = get_config_instance()
 logger = logging.getLogger(__name__)
 
 
-async def get_redis_client(request: Request) -> redis.Redis:
-    """Dependency to get Redis client from app state."""
-    return request.app.state.redis
-
-
 collections_router = APIRouter(
-    prefix="/service/collections",
-    # dependencies=[Depends(get_redis_client)],
-    tags=["collections"],
+    prefix="/service/pde/files",
+    # tags=["ALL COLLECTION ROUTES"],
 )
 
 # endregion
@@ -54,12 +49,11 @@ collections_router = APIRouter(
 # region --- System routes
 
 
-@collections_router.get("/health", response_class=HTMLResponse)
-async def collections_router_health():
-    return "UP"
-
-
-@collections_router.get("/names")
+@collections_router.get(
+    "/collection-names",
+    summary="Get collection names to populate dropdown",
+    tags=["Data for UI"],
+)
 async def get_collections(redis_client: redis.Redis = Depends(get_redis_client)):
     """Returns a list of all available collections."""
     try:
@@ -74,11 +68,15 @@ async def get_collections(redis_client: redis.Redis = Depends(get_redis_client))
         ) from e
 
 
-@collections_router.post("/reindex")
+@collections_router.post(
+    "/reindex", summary="Re-index redis from file system status", tags=["Development"]
+)
 async def reindex_redis_from_filesystem(
     redis_client: redis.Redis = Depends(get_redis_client),
 ):
     """
+    DEVELOPMENT ONLY
+    - - -
     Reindex the Redis database to match the current state of the filesystem.
 
     This function scans the upload storage directory and updates Redis to reflect
@@ -273,7 +271,7 @@ for i in range(1, 5):
 # fmt: on
 
 
-@collections_router.get("/file-results-page")
+@collections_router.get("/file-results-page", tags=["Results"])
 async def get_file_results_page(
     page: int = 1,  # Page number
     page_size: int = 1,  # Page size
@@ -435,7 +433,7 @@ for i in range(1, 51):
 # fmt: on
 
 
-@collections_router.get("/jobs-page")
+@collections_router.get("/jobs-page", tags=["Jobs"])
 async def get_jobs_page(
     status_filter: str = None,  # Filter by status
     page: int = 1,  # Page number
@@ -543,104 +541,51 @@ async def get_jobs_page(
 
 # endregion
 # ----------------------------
-# region --- Basic Upload (unused)
+# region --- Create collection
 
 
-# Single file upload not useful, keeping for reference
-# @collections_router.post("/{collection_name}")
-# async def upload_file_to_collection(collection_name: str, file: UploadFile = File(...)):
-#     """Uploads a file to a specific collection."""
-#     validate_collection_name(collection_name)
-#     try:
-#         filename = file.filename if file.filename else "uploaded_file"
-#         validate_filename(filename)
-#         collection_dir = os.path.join(settings.UPLOAD_STORAGE_DIR, collection_name)
-#         os.makedirs(collection_dir, exist_ok=True)
-
-#         file_path = os.path.join(collection_dir, filename)
-#         # Offload blocking file write to a thread pool
-#         await run_in_threadpool(shutil.copyfileobj, file.file, open(file_path, "wb"))
-
-#         file_key = os.path.join(collection_name, filename)
-#         await app.state.redis.set(f"file_map:{file_key}", file_path)
-
-#         return JSONResponse({"file_key": file_key, "message": "File uploaded successfully."})
-#     except Exception as e:
-#         raise HTTPException(status_code=500, detail=f"Error uploading file: {str(e)}")
+class CreateCollectionRequest(BaseModel):
+    collection_name: str
 
 
-@collections_router.post("/{collection_name}")
-async def upload_files_to_collection_v1(
-    collection_name: str,
-    files: List[UploadFile] = File(...),
-    redis_client: redis.Redis = Depends(get_redis_client),
-):
-    """Uploads one or more files to a specific collection."""
+@collections_router.post(
+    "/create-collection",
+    summary="Create a new collection directory",
+    tags=["Collections / Upload"],
+)
+async def create_collection(req: CreateCollectionRequest):
+    """Create a new empty collection directory."""
+    collection_name = req.collection_name
     validate_collection_name(collection_name)
 
-    if not files:
-        raise HTTPException(status_code=400, detail="No files provided.")
-
-    uploaded_files = []
-    errors = []
+    storage_root = Path(settings.UPLOAD_STORAGE_DIR)
+    collection_dir = storage_root / collection_name
 
     try:
-        collection_dir = Path(settings.UPLOAD_STORAGE_DIR) / collection_name
-        collection_dir.mkdir(parents=True, exist_ok=True)
+        # Ensure root exists
+        await run_in_threadpool(storage_root.mkdir, parents=True, exist_ok=True)
 
-        for file in files:
-            try:
-                filename = (
-                    file.filename
-                    if file.filename
-                    else f"uploaded_file_{len(uploaded_files) + 1}"
-                )
-                validate_filename(filename)
+        # Check for existing collection
+        if await run_in_threadpool(collection_dir.exists):
+            raise HTTPException(status_code=409, detail="Collection already exists.")
 
-                file_path = collection_dir / filename
+        # Create the collection directory
+        await run_in_threadpool(collection_dir.mkdir, parents=True, exist_ok=False)
 
-                # Handle duplicate filenames by appending a counter
-                counter = 1
-                original_filename = filename
-                while file_path.exists():
-                    original_path = Path(original_filename)
-                    filename = f"{original_path.stem}_{counter}{original_path.suffix}"
-                    file_path = collection_dir / filename
-                    counter += 1
-
-                # Offload blocking file write to a thread pool
-                with open(file_path, "wb") as f:
-                    await run_in_threadpool(shutil.copyfileobj, file.file, f)
-
-                file_key = str(Path(collection_name) / filename)
-                await redis_client.set(f"file_map:{file_key}", str(file_path))
-
-                uploaded_files.append(
-                    {
-                        "file_key": file_key,
-                        "filename": filename,
-                        "original_filename": file.filename,
-                        "size_bytes": file_path.stat().st_size,
-                    }
-                )
-
-            except Exception as file_error:
-                errors.append({"filename": file.filename, "error": str(file_error)})
-
-        response_data = {
-            "uploaded_files": uploaded_files,
-            "total_uploaded": len(uploaded_files),
-            "message": f"Successfully uploaded {len(uploaded_files)} file(s) to collection '{collection_name}'.",
-        }
-
-        if errors:
-            response_data["errors"] = errors
-            response_data["total_errors"] = len(errors)
-
-        return JSONResponse(response_data)
-
+        return JSONResponse(
+            {
+                "collection_name": collection_name,
+                "path": str(collection_dir),
+                "message": "Collection created.",
+            },
+            status_code=201,
+        )
+    except HTTPException:
+        raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error uploading files: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Error creating collection: {str(e)}"
+        ) from e
 
 
 # endregion
@@ -648,7 +593,11 @@ async def upload_files_to_collection_v1(
 # region --- Chunked Upload
 
 
-@collections_router.post("/{collection_name}/upload/start")
+@collections_router.post(
+    "/{collection_name}/upload/start",
+    summary="Start chunked upload",
+    tags=["Collections / Upload"],
+)
 async def start_chunked_upload(
     collection_name: str,
     filename: str,
@@ -741,7 +690,11 @@ async def start_chunked_upload(
         ) from e
 
 
-@collections_router.put("/{collection_name}/upload/{upload_id}")
+@collections_router.put(
+    "/{collection_name}/upload/{upload_id}",
+    summary="Upload chunk",
+    tags=["Collections / Upload"],
+)
 async def upload_chunk(
     collection_name: str,
     upload_id: str,
@@ -852,7 +805,11 @@ async def upload_chunk(
         ) from e
 
 
-@collections_router.get("/{collection_name}/upload/{upload_id}/status")
+@collections_router.get(
+    "/{collection_name}/upload/{upload_id}/status",
+    summary="Get upload status",
+    tags=["Collections / Upload"],
+)
 async def get_upload_status(
     collection_name: str,
     upload_id: str,
@@ -890,7 +847,11 @@ async def get_upload_status(
     return JSONResponse(response)
 
 
-@collections_router.delete("/{collection_name}/upload/{upload_id}")
+@collections_router.delete(
+    "/{collection_name}/upload/{upload_id}",
+    summary="Cancel upload",
+    tags=["Collections / Upload"],
+)
 async def cancel_upload(collection_name: str, upload_id: str, request: Request):
     """Cancel and clean up a chunked upload session."""
     validate_collection_name(collection_name)
@@ -1081,8 +1042,16 @@ async def cleanup_upload_session(redis_client: redis.Redis, upload_id: str):
 # region --- Files table
 
 
-@collections_router.get("")
-@collections_router.get("/{collection_name}")
+@collections_router.get(
+    "",
+    summary="Get paginated files data",
+    tags=["Collections / Files"],
+)
+@collections_router.get(
+    "/{collection_name}",
+    summary="Get paginated files data by collection",
+    tags=["Collections / Files"],
+)
 async def get_files(
     collection_name: str | None = None,
     page: int = 1,
@@ -1423,7 +1392,11 @@ def _paginate_files(
 # region --- Download
 
 
-@collections_router.get("/download/{collection_name}")
+@collections_router.get(
+    "/download/{collection_name}",
+    summary="Download entire collection as a ZIP file",
+    tags=["Collections / Download"],
+)
 async def download_collection(
     collection_name: str,
     redis_client: redis.Redis = Depends(get_redis_client),
@@ -1513,7 +1486,11 @@ async def download_collection(
         ) from e
 
 
-@collections_router.get("/download/{collection_name}/{filename}")
+@collections_router.get(
+    "/download/{collection_name}/{filename}",
+    summary="Download single file from collection",
+    tags=["Collections / Download"],
+)
 async def download_file_from_collection(
     collection_name: str,
     filename: str,
@@ -1561,7 +1538,11 @@ class FileDeleteRequest(BaseModel):
     filename: str
 
 
-@collections_router.delete("/{collection_name}", summary="Delete collection")
+@collections_router.delete(
+    "/{collection_name}",
+    summary="Delete collection and all its files",
+    tags=["Collections / Delete"],
+)
 async def delete_collection(
     collection_name: str, redis_client: redis.Redis = Depends(get_redis_client)
 ):
@@ -1594,40 +1575,11 @@ async def delete_collection(
         ) from e
 
 
-@collections_router.delete("/{collection_name}/{filename}", summary="Delete file")
-async def delete_file_from_collection(
-    collection_name: str,
-    filename: str,
-    redis_client: redis.Redis = Depends(get_redis_client),
-):
-    """Deletes a file from a specific collection."""
-    validate_collection_name(collection_name)
-    validate_filename(filename)
-    try:
-        file_key = str(Path(collection_name) / filename)
-        file_path_str = await redis_client.get(f"file_map:{file_key}")
-        print("Delete: ", file_key, file_path_str)
-
-        if not file_path_str:
-            raise HTTPException(status_code=404, detail="File not found.")
-
-        file_path = Path(file_path_str)
-        if not file_path.exists():
-            raise HTTPException(status_code=404, detail="File not found.")
-
-        file_path.unlink()
-        await redis_client.delete(f"file_map:{file_key}")
-
-        return JSONResponse({"message": "File deleted successfully."})
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=500, detail=f"Error deleting file: {str(e)}"
-        ) from e
-
-
-@collections_router.delete("", summary="Delete multiple files")
+@collections_router.delete(
+    "",
+    summary="Delete multiple files across collections",
+    tags=["Collections / Delete"],
+)
 async def delete_files_from_collection(
     files: List[FileDeleteRequest] = Body(...),
     redis_client: redis.Redis = Depends(get_redis_client),
@@ -1712,6 +1664,141 @@ async def delete_files_from_collection(
 
     return JSONResponse({"results": results})
 
+
+# # No longer needed or used - batch delete above is preferred
+# @collections_router.delete("/{collection_name}/{filename}", summary="Delete file")
+# async def delete_file_from_collection(
+#     collection_name: str,
+#     filename: str,
+#     redis_client: redis.Redis = Depends(get_redis_client),
+# ):
+#     """Deletes a file from a specific collection."""
+#     validate_collection_name(collection_name)
+#     validate_filename(filename)
+#     try:
+#         file_key = str(Path(collection_name) / filename)
+#         file_path_str = await redis_client.get(f"file_map:{file_key}")
+#         print("Delete: ", file_key, file_path_str)
+
+#         if not file_path_str:
+#             raise HTTPException(status_code=404, detail="File not found.")
+
+#         file_path = Path(file_path_str)
+#         if not file_path.exists():
+#             raise HTTPException(status_code=404, detail="File not found.")
+
+#         file_path.unlink()
+#         await redis_client.delete(f"file_map:{file_key}")
+
+#         return JSONResponse({"message": "File deleted successfully."})
+#     except HTTPException:
+#         raise
+#     except Exception as e:
+#         raise HTTPException(
+#             status_code=500, detail=f"Error deleting file: {str(e)}"
+#         ) from e
+
+
+# endregion
+# ----------------------------
+# region --- Basic Upload (unused, keeping for reference)
+
+
+# Single file upload not useful, keeping for reference
+# @collections_router.post("/{collection_name}")
+# async def upload_file_to_collection(collection_name: str, file: UploadFile = File(...)):
+#     """Uploads a file to a specific collection."""
+#     validate_collection_name(collection_name)
+#     try:
+#         filename = file.filename if file.filename else "uploaded_file"
+#         validate_filename(filename)
+#         collection_dir = os.path.join(settings.UPLOAD_STORAGE_DIR, collection_name)
+#         os.makedirs(collection_dir, exist_ok=True)
+
+#         file_path = os.path.join(collection_dir, filename)
+#         # Offload blocking file write to a thread pool
+#         await run_in_threadpool(shutil.copyfileobj, file.file, open(file_path, "wb"))
+
+#         file_key = os.path.join(collection_name, filename)
+#         await app.state.redis.set(f"file_map:{file_key}", file_path)
+
+#         return JSONResponse({"file_key": file_key, "message": "File uploaded successfully."})
+#     except Exception as e:
+#         raise HTTPException(status_code=500, detail=f"Error uploading file: {str(e)}")
+
+
+# @collections_router.post("/{collection_name}", tags=["Unused"])
+# async def upload_files_to_collection_v1(
+#     collection_name: str,
+#     files: List[UploadFile] = File(...),
+#     redis_client: redis.Redis = Depends(get_redis_client),
+# ):
+#     """Uploads one or more files to a specific collection."""
+#     validate_collection_name(collection_name)
+
+#     if not files:
+#         raise HTTPException(status_code=400, detail="No files provided.")
+
+#     uploaded_files = []
+#     errors = []
+
+#     try:
+#         collection_dir = Path(settings.UPLOAD_STORAGE_DIR) / collection_name
+#         collection_dir.mkdir(parents=True, exist_ok=True)
+
+#         for file in files:
+#             try:
+#                 filename = (
+#                     file.filename
+#                     if file.filename
+#                     else f"uploaded_file_{len(uploaded_files) + 1}"
+#                 )
+#                 validate_filename(filename)
+
+#                 file_path = collection_dir / filename
+
+#                 # Handle duplicate filenames by appending a counter
+#                 counter = 1
+#                 original_filename = filename
+#                 while file_path.exists():
+#                     original_path = Path(original_filename)
+#                     filename = f"{original_path.stem}_{counter}{original_path.suffix}"
+#                     file_path = collection_dir / filename
+#                     counter += 1
+
+#                 # Offload blocking file write to a thread pool
+#                 with open(file_path, "wb") as f:
+#                     await run_in_threadpool(shutil.copyfileobj, file.file, f)
+
+#                 file_key = str(Path(collection_name) / filename)
+#                 await redis_client.set(f"file_map:{file_key}", str(file_path))
+
+#                 uploaded_files.append(
+#                     {
+#                         "file_key": file_key,
+#                         "filename": filename,
+#                         "original_filename": file.filename,
+#                         "size_bytes": file_path.stat().st_size,
+#                     }
+#                 )
+
+#             except Exception as file_error:
+#                 errors.append({"filename": file.filename, "error": str(file_error)})
+
+#         response_data = {
+#             "uploaded_files": uploaded_files,
+#             "total_uploaded": len(uploaded_files),
+#             "message": f"Successfully uploaded {len(uploaded_files)} file(s) to collection '{collection_name}'.",
+#         }
+
+#         if errors:
+#             response_data["errors"] = errors
+#             response_data["total_errors"] = len(errors)
+
+#         return JSONResponse(response_data)
+
+#     except Exception as e:
+#         raise HTTPException(status_code=500, detail=f"Error uploading files: {str(e)}")
 
 # endregion
 # ----------------------------

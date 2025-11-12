@@ -1,15 +1,13 @@
-
-
 # ----------------------------
 # region --- Setup
 
+# Std
 import asyncio
 import hashlib
 import json
 import logging
 import multiprocessing
 import os
-import re
 import shutil
 import signal
 import sys
@@ -19,25 +17,16 @@ from itertools import chain
 from pathlib import Path
 from typing import List, Optional
 
+# 3rd Party
 import redis.asyncio as redis
 import uvicorn
-from fastapi import (
-    APIRouter,
-    Depends,
-    FastAPI,
-    File,
-    HTTPException,
-    Request,
-    UploadFile,
-)
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from pandas import DataFrame
 from starlette.background import BackgroundTask
-from starlette.concurrency import run_in_threadpool
 
-from openad_service_utils.api.router_collections import collections_router
-
+# Core
 from openad_service_utils.api.config import get_config_instance
 from openad_service_utils.api.generation.call_generation_services import (
     get_services as get_generation_services,
@@ -61,8 +50,22 @@ from openad_service_utils.api.properties.call_property_services import (
 from openad_service_utils.common.configuration import GT4SDConfiguration
 from openad_service_utils.common.models import FileResponse as CustomFileResponse
 from openad_service_utils.common.properties.property_factory import PropertyFactory
+
+# Routers
+from openad_service_utils.api.router_main import main_router
+from openad_service_utils.api.router_jobs import jobs_router
+from openad_service_utils.api.router_collections import collections_router
+
+# Utils
 from openad_service_utils.utils.logging_config import setup_logging
-from openad_service_utils.utils.validation import validate_collection_name, validate_filename
+from openad_service_utils.utils.validation import (
+    validate_collection_name,
+    validate_filename,
+)
+from openad_service_utils.utils.router_dependencies import (
+    get_redis_client,
+    get_job_manager,
+)
 
 # Set up logging configuration
 setup_logging()
@@ -74,29 +77,29 @@ settings = get_config_instance()
 logger = logging.getLogger(__name__)
 
 
-async def get_redis(request: Request) -> redis.Redis:
-    return request.app.state.redis
-
-
-# create lifecycle event to initialize the job manager
-async def get_job_manager(redis_client: redis.Redis = Depends(get_redis)) -> JobManager:
-    return JobManager(redis_client, "Master Queue")
-
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Init Redis connection pool
-    app.state.redis = redis.Redis(host=settings.REDIS_HOST, port=settings.REDIS_PORT, db=settings.REDIS_DB, password=settings.REDIS_PASSWORD, decode_responses=True)
+    app.state.redis = redis.Redis(
+        host=settings.REDIS_HOST,
+        port=settings.REDIS_PORT,
+        db=settings.REDIS_DB,
+        password=settings.REDIS_PASSWORD,
+        decode_responses=True,
+    )
     await clear_job_queues(app.state.redis)
-    
+
     # Start the file sync background task
     task = None
     if "get_mesh_property" in PropertyFactory.AVAILABLE_PROPERTY_PREDICTOR_TYPES():
         task = asyncio.create_task(sync_files_periodically(app.state.redis))
-    
+
     yield
-    
-    if "get_mesh_property" in PropertyFactory.AVAILABLE_PROPERTY_PREDICTOR_TYPES() and task:
+
+    if (
+        "get_mesh_property" in PropertyFactory.AVAILABLE_PROPERTY_PREDICTOR_TYPES()
+        and task
+    ):
         task.cancel()
     await app.state.redis.close()
 
@@ -108,7 +111,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(lifespan=lifespan)
 kube_probe = FastAPI()
 
-
+# Middleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -117,14 +120,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Add routers
+app.include_router(main_router)
+app.include_router(jobs_router)
+app.include_router(collections_router)
+
 
 @kube_probe.get("/health", response_class=HTMLResponse)
 async def healthz(request: Request):
-    return "UP"
-
-
-@app.get("/health", response_class=HTMLResponse)
-async def health():
     return "UP"
 
 
@@ -142,7 +145,7 @@ os.makedirs(settings.ASYNC_JOB_PATH, exist_ok=True)
 async def sync_files_to_redis(redis_client: redis.Redis):
     """Scans the upload directory and syncs the file index with Redis."""
     # logger.debug("Starting file sync to Redis.")
-    
+
     # Get all file keys from Redis
     redis_keys = [key async for key in redis_client.scan_iter("file_map:*")]
     redis_file_keys = {key.split(":")[1] for key in redis_keys}
@@ -162,9 +165,13 @@ async def sync_files_to_redis(redis_client: redis.Redis):
                             file_key = os.path.join(collection_name, filename)
                             disk_files.add(file_key)
                         except HTTPException:
-                            logger.warning(f"Skipping invalid filename during sync: {filename}")
+                            logger.warning(
+                                f"Skipping invalid filename during sync: {filename}"
+                            )
             except HTTPException:
-                logger.warning(f"Skipping invalid collection name during sync: {collection_name}")
+                logger.warning(
+                    f"Skipping invalid collection name during sync: {collection_name}"
+                )
 
     # Add new files to Redis
     new_files = disk_files - redis_file_keys
@@ -185,7 +192,9 @@ async def sync_files_periodically(redis_client: redis.Redis):
     logger.info("Starting background file sync task...")
     while True:
         await sync_files_to_redis(redis_client)
-        await asyncio.sleep(settings.UPLOAD_STORAGE_SYNC_INTERVAL)  # Sync every 60 seconds
+        await asyncio.sleep(
+            settings.UPLOAD_STORAGE_SYNC_INTERVAL
+        )  # Sync every 60 seconds
 
 
 def collections_enabled():
@@ -198,40 +207,9 @@ def collections_enabled():
         )
 
 
-# add routes for collection to main api
-app.include_router(collections_router)
-
-# # !!! DEVELOPMENT ONLY - DISABLE FOR PRODUCTION !!!
-# @app.delete("/redis/clear")
-# async def clear_redis_database():
-#     """
-#     Clears the entire Redis database.
-#     WARNING: This will delete ALL data in Redis including caches, file mappings, and job data.
-#     """
-#     try:
-#         # Get Redis connection
-#         redis_client = app.state.redis
-        
-#         # Clear all keys in the current database
-#         await redis_client.flushdb()
-        
-#         logger.warning("Redis database cleared by admin request")
-        
-#         return JSONResponse({
-#             "message": "Redis database cleared successfully",
-#             "warning": "All cached data, file mappings, and job information have been deleted"
-#         })
-        
-#     except Exception as e:
-#         logger.error("Error clearing Redis database: %s",str(e))
-#         raise HTTPException(status_code=500, detail=f"Error clearing Redis database: {str(e)}") from e
-
-
-
 @app.post("/service")
 async def service(
-    restful_request: ServiceRequest,
-    job_manager: JobManager = Depends(get_job_manager)
+    restful_request: ServiceRequest, job_manager: JobManager = Depends(get_job_manager)
 ):
     original_request = restful_request.model_dump(by_alias=True)
     service_type = original_request.get("service_type")
@@ -250,28 +228,43 @@ async def service(
     if file_keys_for_job:
         for file_key in file_keys_for_job:
             if not await app.state.redis.exists(f"file_map:{file_key}"):
-                raise HTTPException(status_code=404, detail=f"File with key {file_key} not found.")
+                raise HTTPException(
+                    status_code=404, detail=f"File with key {file_key} not found."
+                )
 
     try:
         if service_type == ServiceType.GET_RESULT:
-            result = await retrieve_async_job(str(original_request.get("url")), app.state.redis)
+            result = await retrieve_async_job(
+                str(original_request.get("url")), app.state.redis
+            )
             if result is None:
                 return {"error": {"reason": "job does not exist"}}
 
         elif service_type in PropertyFactory.AVAILABLE_PROPERTY_PREDICTOR_TYPES():
             result = await handle_job_submission(
-                job_manager, property_request, original_request, file_keys=file_keys_for_job
+                job_manager,
+                property_request,
+                original_request,
+                file_keys=file_keys_for_job,
             )
 
         elif service_type == ServiceType.GENERATE_DATA:
             result = await handle_job_submission(
-                job_manager, generation_request, original_request, file_keys=file_keys_for_job
+                job_manager,
+                generation_request,
+                original_request,
+                file_keys=file_keys_for_job,
             )
 
         else:
-            raise HTTPException(status_code=500, detail={"error": "service mismatch", "input": original_request})
+            raise HTTPException(
+                status_code=500,
+                detail={"error": "service mismatch", "input": original_request},
+            )
 
-        if isinstance(result, CustomFileResponse) or (isinstance(result, dict) and "file_path" in result):
+        if isinstance(result, CustomFileResponse) or (
+            isinstance(result, dict) and "file_path" in result
+        ):
             if isinstance(result, CustomFileResponse):
                 file_path = result.file_path
                 filename = os.path.basename(file_path)
@@ -299,7 +292,9 @@ async def service(
         if settings.ENABLE_CACHE_RESULTS and service_type != ServiceType.GET_RESULT:
             if isinstance(result, DataFrame):
                 result = result.to_dict(orient="records")
-            await app.state.redis.set(cache_key, json.dumps(result), ex=settings.REQUEST_CACHE_TTL)
+            await app.state.redis.set(
+                cache_key, json.dumps(result), ex=settings.REQUEST_CACHE_TTL
+            )
 
         return result
 
@@ -309,12 +304,17 @@ async def service(
     except Exception as e:
         logger.error(f"Request: {original_request}")
         logger.exception(e, exc_info=True)
-        raise HTTPException(status_code=500, detail={"error": str(e), "input": original_request})
+        raise HTTPException(
+            status_code=500, detail={"error": str(e), "input": original_request}
+        )
     # Cleanup of temporary files and Redis entries will be handled by the job_manager
 
 
 async def handle_job_submission(
-    job_manager: JobManager, request_obj, original_request, file_keys: Optional[List[str]] = None
+    job_manager: JobManager,
+    request_obj,
+    original_request,
+    file_keys: Optional[List[str]] = None,
 ):
     submission_time = time.time()
     if settings.ASYNC_ALLOW and original_request.get("async"):
@@ -327,21 +327,31 @@ async def handle_job_submission(
             submission_time=submission_time,
         )
         cache_key = generate_cache_key(original_request)
-        await app.state.redis.set(cache_key, json.dumps(job_id), ex=settings.REQUEST_CACHE_TTL)
+        await app.state.redis.set(
+            cache_key, json.dumps(job_id), ex=settings.REQUEST_CACHE_TTL
+        )
         return job_id
         # await app.state.redis.set(cache_key, json.dumps({"job_id": job_id}), ex=settings.REQUEST_CACHE_TTL)
         # return {"job_id": job_id}
     else:
         job_id = await job_manager.submit_job(
-            request_obj, "route_service", original_request, file_keys=file_keys, submission_time=submission_time
+            request_obj,
+            "route_service",
+            original_request,
+            file_keys=file_keys,
+            submission_time=submission_time,
         )
         job_info = await job_manager.get_result_by_id(job_id)
-        
+
         if job_info["status"] == "completed":
             return job_info["result"]
         else:
-            error_detail = job_info.get("result", {}).get("error", "Job failed without a specific error message.")
-            raise HTTPException(status_code=500, detail={"error": error_detail, "job_id": job_id})
+            error_detail = job_info.get("result", {}).get(
+                "error", "Job failed without a specific error message."
+            )
+            raise HTTPException(
+                status_code=500, detail={"error": error_detail, "job_id": job_id}
+            )
 
 
 @app.get("/service")
@@ -369,10 +379,13 @@ async def get_service_defs():
         logger.warning("No property or generation services registered!")
     # log services
     try:
-        logger.info(f"Available Property types: {list(chain.from_iterable([i['valid_types'] for i in all_services]))}")
+        logger.info(
+            f"Available Property types: {list(chain.from_iterable([i['valid_types'] for i in all_services]))}"
+        )
     except Exception as e:
         logger.warning(f"could not print types: {str(e)}")
     return JSONResponse(all_services)
+
 
 def admin_endpoints_enabled():
     """Dependency to check if admin endpoints are enabled."""
@@ -382,6 +395,7 @@ def admin_endpoints_enabled():
             detail="Not Found",
         )
 
+
 @app.get("/admin/details", dependencies=[Depends(admin_endpoints_enabled)])
 def server_details():
     """return server details"""
@@ -390,7 +404,9 @@ def server_details():
 
 
 @app.get("/service/download/{job_id}/{filename}")
-async def download_file(job_id: str, filename: str, job_manager: JobManager = Depends(get_job_manager)):
+async def download_file(
+    job_id: str, filename: str, job_manager: JobManager = Depends(get_job_manager)
+):
     """
     Downloads the file result of a completed asynchronous job.
     """
@@ -408,13 +424,17 @@ async def download_file(job_id: str, filename: str, job_manager: JobManager = De
         or "file_path" not in result
         or not os.path.exists(result["file_path"])
     ):
-        raise HTTPException(status_code=404, detail="Result file not found for this job.")
+        raise HTTPException(
+            status_code=404, detail="Result file not found for this job."
+        )
 
     file_path = result["file_path"]
     filename = result.get("filename", os.path.basename(file_path))
 
     # Security check: ensure the file is within the async path
-    if not os.path.abspath(file_path).startswith(os.path.abspath(settings.ASYNC_JOB_PATH)):
+    if not os.path.abspath(file_path).startswith(
+        os.path.abspath(settings.ASYNC_JOB_PATH)
+    ):
         raise HTTPException(status_code=403, detail="Access to this file is forbidden.")
 
     return FileResponse(
@@ -490,7 +510,7 @@ def start_server(
 
         if torch.cuda.is_available():
             logger.debug(f"CUDA is available: {torch.cuda.is_available()}")
-            logger.debug(f"CUDA version: {torch.version.cuda}") # type: ignore # noqa: F821
+            logger.debug(f"CUDA version: {torch.version.cuda}")  # type: ignore # noqa: F821
             logger.debug(f"Device name: {torch.cuda.get_device_name(0)}")
             logger.debug(f"Torch version: {torch.__version__}")
             gpu_id = torch.cuda.current_device()
@@ -505,11 +525,15 @@ def start_server(
         logger.debug("CUDA not available. Running on CPU.")
 
     if os.environ.get("GT4SD_S3_ACCESS_KEY", ""):
-        logger.info(f"Using private S3 model repository | Host: {os.environ.get('GT4SD_S3_HOST', '')}")
+        logger.info(
+            f"Using private S3 model repository | Host: {os.environ.get('GT4SD_S3_HOST', '')}"
+        )
     else:
         logger.info("Using public GT4SD S3 model repository.")
 
-    config_settings = GT4SDConfiguration().model_dump(include={"OPENAD_S3_HOST", "OPENAD_S3_HOST_HUB"})
+    config_settings = GT4SDConfiguration().model_dump(
+        include={"OPENAD_S3_HOST", "OPENAD_S3_HOST_HUB"}
+    )
     logger.info(f"S3 Config: {config_settings}")
     # logger.info(f"Total workers: {max_workers}")
 
@@ -530,16 +554,21 @@ def start_server(
         )
         processes.append(main_service_process)
         main_service_process.start()
-        logger.info(f"Uvicorn main service started on {host}:{port} with PID: {main_service_process.pid}")
+        logger.info(
+            f"Uvicorn main service started on {host}:{port} with PID: {main_service_process.pid}"
+        )
 
         # Start Kubernetes health probe if in Kubernetes
         if is_running_in_kubernetes():
             health_service_process = multiprocessing.Process(
-                target=run_health_service, args=(host, settings.PROBE_PORT, log_level, 1)
+                target=run_health_service,
+                args=(host, settings.PROBE_PORT, log_level, 1),
             )
             processes.append(health_service_process)
             health_service_process.start()
-            logger.info(f"Kubernetes health probe started on {host}:{settings.PROBE_PORT}.")
+            logger.info(
+                f"Kubernetes health probe started on {host}:{settings.PROBE_PORT}."
+            )
 
         # Set up signal handling
         signal.signal(signal.SIGINT, lambda s, f: signal_handler(s, f, processes))
@@ -568,4 +597,3 @@ def start_server(
 
 if __name__ == "__main__":
     start_server()
-
