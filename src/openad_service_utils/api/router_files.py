@@ -21,7 +21,7 @@ from datetime import datetime, timedelta
 import redis.asyncio as redis
 from starlette.concurrency import run_in_threadpool
 from starlette.background import BackgroundTask
-from fastapi import APIRouter, Depends, File, Body
+from fastapi import APIRouter, Depends, File, Body, Query
 from fastapi import HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 
@@ -50,25 +50,6 @@ files_router = APIRouter(
 # endregion
 # ----------------------------
 # region --- System routes
-
-
-@files_router.get(
-    "/collection-names",
-    summary="Get collection names to populate dropdown",
-    tags=["Data for UI"],
-)
-async def get_collections(redis_client: redis.Redis = Depends(get_redis_client)):
-    """Returns a list of all available collections."""
-    try:
-        file_keys = [key async for key in redis_client.scan_iter("file_map:*")]
-        collections = sorted(
-            list(set([key.split(":")[1].split("/")[0] for key in file_keys]))
-        )
-        return JSONResponse({"collections": collections})
-    except Exception as e:
-        raise HTTPException(
-            status_code=500, detail=f"Error retrieving collections: {str(e)}"
-        ) from e
 
 
 @files_router.post(
@@ -1038,7 +1019,7 @@ async def cleanup_upload_session(redis_client: redis.Redis, upload_id: str):
     tags=["Collections / Files"],
 )
 @files_router.get(
-    "/{collection_name}",
+    "/collection/{collection_name}",
     summary="Get paginated files data by collection",
     tags=["Collections / Files"],
 )
@@ -1123,13 +1104,14 @@ async def get_files(
                 collection_dir = Path(settings.UPLOAD_STORAGE_DIR) / collection_name
                 if not await run_in_threadpool(collection_dir.is_dir):
                     raise HTTPException(status_code=404, detail="Collection not found.")
-                return JSONResponse({"files": []})
+                return JSONResponse({"files": [], "pagination": {}})
             else:
                 # No files across all collections
                 return JSONResponse({"files": [], "pagination": {}})
 
         # Process all files and add indices
         files = []
+        file_keys
         for key in file_keys:
             file_key = key.split(":")[1]
             file_path_str = await redis_client.get(key)
@@ -1152,25 +1134,30 @@ async def get_files(
         if limit_indices:
             files = _filter_files_by_limit_indices(files, limit_indices)
 
-        # Store total before pagination for metadata
-        total_files_after_filters = len(files)
-
         # Apply pagination
         paginated_files, pagination_info = _paginate_files(files, page, page_size)
 
-        # Prepare response based on whether it's a specific collection or all
-        base_response = {"files": paginated_files, "pagination": pagination_info}
+        # Fetch list of all collections so dropdown is in sync at all times
+        collection_names = await _get_all_collections(redis_client)
 
+        # Base response
+        base_response = {
+            "files": paginated_files,
+            "pagination": pagination_info,
+            "all_collections": collection_names,
+        }
+
+        # Single collection response
         if collection_name:
-            # Single collection response
             base_response.update(
                 {
                     "collection_name": collection_name,
                     "total_size_bytes": sum(file["size_bytes"] for file in files),
                 }
             )
+
+        # All collections response with additional aggregation
         else:
-            # All collections response with additional aggregation
             collections_data = {}
             for (
                 file_info
@@ -1207,6 +1194,19 @@ async def get_files(
             else "Error retrieving all files"
         )
         raise HTTPException(status_code=500, detail=f"{error_msg}: {str(e)}") from e
+
+
+async def _get_all_collections(redis_client: redis.Redis) -> list[str]:
+    """Returns a list of all available collections."""
+    try:
+        file_keys = [key async for key in redis_client.scan_iter("file_map:*")]
+        all_collections = sorted(
+            list(set([key.split(":")[1].split("/")[0] for key in file_keys]))
+        )
+        return all_collections
+    except Exception as e:
+        logger.error("Error fetching all collection names: %s", str(e))
+        return []
 
 
 async def _process_file_info(file_key: str, file_path_str: str | None) -> dict:
@@ -1376,27 +1376,51 @@ def _paginate_files(
 
 
 @files_router.get(
+    "/download",
+    summary="Download list of files as a ZIP file",
+    tags=["Collections / Download"],
+)
+@files_router.get(
     "/download/{collection_name}",
     summary="Download entire collection as a ZIP file",
     tags=["Collections / Download"],
 )
-async def download_collection(
-    collection_name: str,
+async def download_multiple(
+    collection_name: str | None = None,
+    files: List[str] = Query(
+        [],
+        description="Repeat ?files=collection_name/filename for multiple files",
+    ),
     redis_client: redis.Redis = Depends(get_redis_client),
 ):
     """Downloads an entire collection as a ZIP file."""
-    validate_collection_name(collection_name)
+    # return JSONResponse(
+    #     {
+    #         "collection_name": collection_name,
+    #         "files": files,
+    #     }
+    # )
 
     try:
-        # Get all files in the collection
-        file_keys = [
-            key async for key in redis_client.scan_iter(f"file_map:{collection_name}/*")
-        ]
+        # A: Gather file keys from collection
+        if collection_name:
+            validate_collection_name(collection_name)
+            file_keys = [
+                key
+                async for key in redis_client.scan_iter(f"file_map:{collection_name}/*")
+            ]
+            if not file_keys:
+                raise HTTPException(
+                    status_code=404, detail="Collection not found or empty."
+                )
 
-        if not file_keys:
-            raise HTTPException(
-                status_code=404, detail="Collection not found or empty."
-            )
+        # B: Gather file keys from URL
+        else:
+            file_keys = [f"file_map:{file_key}" for file_key in files]
+            if not file_keys:
+                raise HTTPException(
+                    status_code=404, detail="No files specified for download."
+                )
 
         # Create a temporary ZIP file
         temp_zip = tempfile.NamedTemporaryFile(
@@ -1409,6 +1433,7 @@ async def download_collection(
 
                 for key in file_keys:
                     file_path_str = await redis_client.get(key)
+                    print("&&", file_path_str)
 
                     if file_path_str:
                         file_path = Path(file_path_str)
@@ -1417,9 +1442,8 @@ async def download_collection(
                             storage_path = Path(settings.UPLOAD_STORAGE_DIR).resolve()
                             if file_path.resolve().is_relative_to(storage_path):
                                 # Get just the filename for the ZIP archive
-                                filename = (
-                                    file_path.name
-                                )  # Add file to ZIP with just the filename (no nested folders in ZIP)
+                                # No nested folders in ZIP
+                                filename = file_path.name
                                 await run_in_threadpool(
                                     zip_file.write, str(file_path), filename
                                 )
@@ -1446,10 +1470,16 @@ async def download_collection(
                 except OSError:
                     pass
 
+            # Create zip filename
+            timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+            zip_filename = (
+                collection_name if collection_name else f"vtk_download_{timestamp}"
+            )
+
             return FileResponse(
                 path=temp_zip.name,
                 media_type="application/zip",
-                filename=f"{collection_name}.zip",
+                filename=f"{zip_filename}.zip",
                 background=BackgroundTask(cleanup_temp_file),
             )
 
