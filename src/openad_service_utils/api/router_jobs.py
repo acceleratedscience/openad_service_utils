@@ -27,6 +27,9 @@ from fastapi import APIRouter, Depends, File, Body
 from fastapi import HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 
+# Schemas
+from openad_service_utils.api.models import FileInfo
+
 # Utils
 from openad_service_utils.utils.router_dependencies import get_redis_client
 from openad_service_utils.api.config import get_config_instance
@@ -70,11 +73,6 @@ async def get_model_versions(redis_client: redis.Redis = Depends(get_redis_clien
 # endregion
 # ----------------------------
 # region --- Create
-
-
-class FileInfo(BaseModel):
-    filename: str
-    filepath: str
 
 
 class CreateJobRequest(BaseModel):

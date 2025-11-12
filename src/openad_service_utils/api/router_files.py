@@ -25,6 +25,9 @@ from fastapi import APIRouter, Depends, File, Body
 from fastapi import HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 
+# Schemas
+from openad_service_utils.api.models import FileInfo
+
 # Utils
 from openad_service_utils.utils.router_dependencies import get_redis_client
 from openad_service_utils.api.config import get_config_instance
@@ -39,7 +42,7 @@ settings = get_config_instance()
 logger = logging.getLogger(__name__)
 
 
-collections_router = APIRouter(
+files_router = APIRouter(
     prefix="/service/pde/files",
     # tags=["ALL COLLECTION ROUTES"],
 )
@@ -49,7 +52,7 @@ collections_router = APIRouter(
 # region --- System routes
 
 
-@collections_router.get(
+@files_router.get(
     "/collection-names",
     summary="Get collection names to populate dropdown",
     tags=["Data for UI"],
@@ -68,7 +71,7 @@ async def get_collections(redis_client: redis.Redis = Depends(get_redis_client))
         ) from e
 
 
-@collections_router.post(
+@files_router.post(
     "/reindex", summary="Re-index redis from file system status", tags=["Development"]
 )
 async def reindex_redis_from_filesystem(
@@ -271,7 +274,7 @@ for i in range(1, 5):
 # fmt: on
 
 
-@collections_router.get("/file-results-page", tags=["Results"])
+@files_router.get("/file-results-page", tags=["Results"])
 async def get_file_results_page(
     page: int = 1,  # Page number
     page_size: int = 1,  # Page size
@@ -433,7 +436,7 @@ for i in range(1, 51):
 # fmt: on
 
 
-@collections_router.get("/jobs-page", tags=["Jobs"])
+@files_router.get("/jobs-page", tags=["Jobs"])
 async def get_jobs_page(
     status_filter: str = None,  # Filter by status
     page: int = 1,  # Page number
@@ -544,44 +547,31 @@ async def get_jobs_page(
 # region --- Create collection
 
 
-class CreateCollectionRequest(BaseModel):
-    collection_name: str
-
-
-@collections_router.post(
-    "/create-collection",
+@files_router.post(
+    "/create-collection/{collection_name}",
     summary="Create a new collection directory",
     tags=["Collections / Upload"],
 )
-async def create_collection(req: CreateCollectionRequest):
+async def create_collection(collection_name: str):
     """Create a new empty collection directory."""
-    collection_name = req.collection_name
     validate_collection_name(collection_name)
-
-    storage_root = Path(settings.UPLOAD_STORAGE_DIR)
-    collection_dir = storage_root / collection_name
+    collection_dir = Path(settings.UPLOAD_STORAGE_DIR) / collection_name
 
     try:
-        # Ensure root exists
-        await run_in_threadpool(storage_root.mkdir, parents=True, exist_ok=True)
-
-        # Check for existing collection
-        if await run_in_threadpool(collection_dir.exists):
-            raise HTTPException(status_code=409, detail="Collection already exists.")
+        # Determine status code based on existence
+        status_code = 200 if await run_in_threadpool(collection_dir.exists) else 201
 
         # Create the collection directory
-        await run_in_threadpool(collection_dir.mkdir, parents=True, exist_ok=False)
-
+        await run_in_threadpool(collection_dir.mkdir, parents=True, exist_ok=True)
         return JSONResponse(
             {
                 "collection_name": collection_name,
                 "path": str(collection_dir),
                 "message": "Collection created.",
             },
-            status_code=201,
+            status_code=status_code,
         )
-    except HTTPException:
-        raise
+
     except Exception as e:
         raise HTTPException(
             status_code=500, detail=f"Error creating collection: {str(e)}"
@@ -593,7 +583,7 @@ async def create_collection(req: CreateCollectionRequest):
 # region --- Chunked Upload
 
 
-@collections_router.post(
+@files_router.post(
     "/{collection_name}/upload/start",
     summary="Start chunked upload",
     tags=["Collections / Upload"],
@@ -690,7 +680,7 @@ async def start_chunked_upload(
         ) from e
 
 
-@collections_router.put(
+@files_router.put(
     "/{collection_name}/upload/{upload_id}",
     summary="Upload chunk",
     tags=["Collections / Upload"],
@@ -805,7 +795,7 @@ async def upload_chunk(
         ) from e
 
 
-@collections_router.get(
+@files_router.get(
     "/{collection_name}/upload/{upload_id}/status",
     summary="Get upload status",
     tags=["Collections / Upload"],
@@ -847,7 +837,7 @@ async def get_upload_status(
     return JSONResponse(response)
 
 
-@collections_router.delete(
+@files_router.delete(
     "/{collection_name}/upload/{upload_id}",
     summary="Cancel upload",
     tags=["Collections / Upload"],
@@ -1042,12 +1032,12 @@ async def cleanup_upload_session(redis_client: redis.Redis, upload_id: str):
 # region --- Files table
 
 
-@collections_router.get(
+@files_router.get(
     "",
     summary="Get paginated files data",
     tags=["Collections / Files"],
 )
-@collections_router.get(
+@files_router.get(
     "/{collection_name}",
     summary="Get paginated files data by collection",
     tags=["Collections / Files"],
@@ -1136,14 +1126,7 @@ async def get_files(
                 return JSONResponse({"files": []})
             else:
                 # No files across all collections
-                return JSONResponse(
-                    {
-                        "files": [],
-                        "total_files": 0,
-                        "total_collections": 0,
-                        "total_size_bytes": 0,
-                    }
-                )
+                return JSONResponse({"files": [], "pagination": {}})
 
         # Process all files and add indices
         files = []
@@ -1392,7 +1375,7 @@ def _paginate_files(
 # region --- Download
 
 
-@collections_router.get(
+@files_router.get(
     "/download/{collection_name}",
     summary="Download entire collection as a ZIP file",
     tags=["Collections / Download"],
@@ -1486,7 +1469,7 @@ async def download_collection(
         ) from e
 
 
-@collections_router.get(
+@files_router.get(
     "/download/{collection_name}/{filename}",
     summary="Download single file from collection",
     tags=["Collections / Download"],
@@ -1533,12 +1516,7 @@ async def download_file_from_collection(
 # region --- Delete
 
 
-class FileDeleteRequest(BaseModel):
-    collection_name: str
-    filename: str
-
-
-@collections_router.delete(
+@files_router.delete(
     "/{collection_name}",
     summary="Delete collection and all its files",
     tags=["Collections / Delete"],
@@ -1575,13 +1553,13 @@ async def delete_collection(
         ) from e
 
 
-@collections_router.delete(
+@files_router.delete(
     "",
     summary="Delete multiple files across collections",
     tags=["Collections / Delete"],
 )
 async def delete_files_from_collection(
-    files: List[FileDeleteRequest] = Body(...),
+    files: List[FileInfo] = Body(...),
     redis_client: redis.Redis = Depends(get_redis_client),
 ):
     """

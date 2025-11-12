@@ -54,7 +54,7 @@ from openad_service_utils.common.properties.property_factory import PropertyFact
 # Routers
 from openad_service_utils.api.router_main import main_router
 from openad_service_utils.api.router_jobs import jobs_router
-from openad_service_utils.api.router_collections import collections_router
+from openad_service_utils.api.router_files import files_router
 
 # Utils
 from openad_service_utils.utils.logging_config import setup_logging
@@ -123,7 +123,7 @@ app.add_middleware(
 # Add routers
 app.include_router(main_router)
 app.include_router(jobs_router)
-app.include_router(collections_router)
+app.include_router(files_router)
 
 
 @kube_probe.get("/health", response_class=HTMLResponse)
