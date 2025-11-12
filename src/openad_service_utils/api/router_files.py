@@ -51,6 +51,24 @@ files_router = APIRouter(
 # ----------------------------
 # region --- System routes
 
+# No longger needed, this is now _get_all_collections, part of fetching files, but we may need to bring this back
+# @files_router.get(
+#     "/collection-names",
+#     summary="Get collection names to populate dropdown",
+#     tags=["Data for UI"],
+# )
+# async def get_all_collections(redis_client: redis.Redis = Depends(get_redis_client)):
+#     """Returns a list of all available collections."""
+#     try:
+#         file_keys = [key async for key in redis_client.scan_iter("file_map:*")]
+#         all_collections = sorted(
+#             list(set([key.split(":")[1].split("/")[0] for key in file_keys]))
+#         )
+#         return all_collections
+#     except Exception as e:
+#         logger.error("Error fetching all collection names: %s", str(e))
+#         return []
+
 
 @files_router.post(
     "/reindex", summary="Re-index redis from file system status", tags=["Development"]
