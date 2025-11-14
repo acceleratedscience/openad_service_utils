@@ -88,7 +88,7 @@ def filter_algorithm_applications(
 
 
 def get_configuration_tuples(
-    algorithms: List[Dict[str, str]],
+    algorithms: List[Dict[str, str]]
 ) -> List[ConfigurationTuple]:
     """
     Returning configuration tuples from a list of applications.

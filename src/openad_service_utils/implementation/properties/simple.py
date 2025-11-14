@@ -13,12 +13,7 @@ from openad_service_utils.common.algorithms.core import (
 )
 from openad_service_utils.common.configuration import get_cached_algorithm_path
 from openad_service_utils.common.models import FileResponse
-from openad_service_utils.common.properties.core import (
-    DomainSubmodule,
-    S3Parameters,
-    Mesh,
-    PropertyPredictorParameters,
-)
+from openad_service_utils.common.properties.core import DomainSubmodule, S3Parameters, Mesh, PropertyPredictorParameters
 from openad_service_utils.common.properties.property_factory import (
     PredictorTypes,
     PropertyFactory,
@@ -53,13 +48,9 @@ class PropertyInfo(TypedDict):
 class BasePredictorParameters:
     # TODO: change all this into 1 base_model_path or have user implement their style of downloading e.g. remove configuration dependency
     algorithm_type: str = "prediction"
-    domain: DomainSubmodule = Field(
-        ..., example="molecules", description="Submodule of gt4sd.properties"
-    )
+    domain: DomainSubmodule = Field(..., example="molecules", description="Submodule of gt4sd.properties")
     algorithm_name: str = Field(..., example="MCA", description="Name of the algorithm")
-    algorithm_version: str = Field(
-        ..., example="v0", description="Version of the algorithm"
-    )
+    algorithm_version: str = Field(..., example="v0", description="Version of the algorithm")
     algorithm_application: str = Field(..., example="Tox21")
 
 
@@ -79,24 +70,17 @@ class PredictorParameters(BaseModel):
     """
 
     algorithm_type: str = "prediction"
-    domain: DomainSubmodule = Field(
-        ..., example="molecules", description="Submodule of gt4sd.properties"
-    )
+    domain: DomainSubmodule = Field(..., example="molecules", description="Submodule of gt4sd.properties")
     algorithm_name: str = Field(..., example="MCA", description="Name of the algorithm")
-    algorithm_version: str = Field(
-        ..., example="v0", description="Version of the algorithm"
-    )
+    algorithm_version: str = Field(..., example="v0", description="Version of the algorithm")
     algorithm_application: str = Field(..., example="Tox21")
     # this is used to select a var::PropertyInfo.name available_properties. User selected property from api.
     # this is not harcoded in the class, but is added to the class when registering the predictor
     selected_property: str = ""
     subjects: Optional[List[Union[str, Mesh, Dict[str, Any]]]] = Field(
-        None,
-        description="List of subjects for prediction (e.g., SMILES strings, protein sequences, or Mesh objects).",
+        None, description="List of subjects for prediction (e.g., SMILES strings, protein sequences, or Mesh objects)."
     )
-    file_keys: Optional[List[str]] = Field(
-        None, description="List of file paths for uploaded subjects."
-    )
+    file_keys: Optional[List[str]] = Field(None, description="List of file paths for uploaded subjects.")
 
 
 class SimplePredictor(PredictorAlgorithm, BasePredictorParameters):
@@ -248,25 +232,15 @@ class SimplePredictor(PredictorAlgorithm, BasePredictorParameters):
         raise NotImplementedError("Not implemented in baseclass.")
 
     @classmethod
-    def register(
-        cls, parameters: Optional[PredictorParameters] = None, no_model=False
-    ) -> None:
+    def register(cls, parameters: Optional[PredictorParameters] = None, no_model=False) -> None:
         """**no_model** : defaults to false, so that the model is always retrieved. If on register this is set to true, allows the user to manage loading of checkpoint or
         the ability to run a inference that only uses an API to retrieve a result"""
         if not parameters:
             # parameters defined in class
-            class_fields = {
-                k: v
-                for k, v in cls.__dict__.items()
-                if not callable(v) and not k.startswith("__")
-            }
+            class_fields = {k: v for k, v in cls.__dict__.items() if not callable(v) and not k.startswith("__")}
             class_fields.pop("_abc_impl", "")
         else:
-            class_fields = {
-                k: v
-                for k, v in vars(parameters).items()
-                if not callable(v) and not k.startswith("__")
-            }
+            class_fields = {k: v for k, v in vars(parameters).items() if not callable(v) and not k.startswith("__")}
         # check if required fields are set
         required = [
             "algorithm_name",
@@ -277,9 +251,7 @@ class SimplePredictor(PredictorAlgorithm, BasePredictorParameters):
         ]
         for field in required:
             if field not in class_fields:
-                raise TypeError(
-                    f"Can't instantiate class ({cls.__name__}) without '{field}' class variable"
-                )
+                raise TypeError(f"Can't instantiate class ({cls.__name__}) without '{field}' class variable")
         # update class name to be `algorithm_application`
         # cls.__name__ = class_fields.get("algorithm_application") # Removed: __name__ is read-only
         cls.__no_model__ = no_model
@@ -292,25 +264,17 @@ class SimplePredictor(PredictorAlgorithm, BasePredictorParameters):
         # Initialize variables with explicit types and handle potential None from .get()
         domain_val: DomainSubmodule = cast(DomainSubmodule, class_fields.get("domain"))
         if not isinstance(domain_val, DomainSubmodule):
-            raise TypeError(
-                f"Domain must be a DomainSubmodule enum, got {type(domain_val)}"
-            )
-
+            raise TypeError(f"Domain must be a DomainSubmodule enum, got {type(domain_val)}")
+        
         algo_name_val: str = cast(str, class_fields.get("algorithm_name"))
         if not isinstance(algo_name_val, str):
-            raise TypeError(
-                f"Algorithm name must be a string, got {type(algo_name_val)}"
-            )
-
+            raise TypeError(f"Algorithm name must be a string, got {type(algo_name_val)}")
+        
         algo_version_val: str = cast(str, class_fields.get("algorithm_version"))
         if not isinstance(algo_version_val, str):
-            raise TypeError(
-                f"Algorithm version must be a string, got {type(algo_version_val)}"
-            )
+            raise TypeError(f"Algorithm version must be a string, got {type(algo_version_val)}")
 
-        model_param_class: Type[PredictorParameters] = type(
-            f"{app_name}Parameters", (PredictorParameters,), class_fields
-        )
+        model_param_class: Type[PredictorParameters] = type(f"{app_name}Parameters", (PredictorParameters,), class_fields)
 
         if class_fields.get("available_properties"):
             available_props = class_fields.get("available_properties")
@@ -321,58 +285,42 @@ class SimplePredictor(PredictorAlgorithm, BasePredictorParameters):
                 if isinstance(predictor_info, dict):
                     predictor_name = predictor_info.get("name")
                 else:
-                    predictor_name = (
-                        predictor_info  # Assuming it's a string if not a dict
-                    )
+                    predictor_name = predictor_info # Assuming it's a string if not a dict
                 if not isinstance(predictor_name, str):
-                    raise TypeError(
-                        f"Predictor name must be a string, got {type(predictor_name)}"
-                    )
+                    raise TypeError(f"Predictor name must be a string, got {type(predictor_name)}")
 
-                property_type_val = cast(
-                    PredictorTypes, class_fields.get("property_type")
-                )
+                property_type_val = cast(PredictorTypes, class_fields.get("property_type"))
                 if not isinstance(property_type_val, PredictorTypes):
-                    raise TypeError(
-                        f"Property type must be a PredictorTypes enum, got {type(property_type_val)}"
-                    )
+                    raise TypeError(f"Property type must be a PredictorTypes enum, got {type(property_type_val)}")
 
                 PropertyFactory.add_predictor(
                     name=predictor_name,
                     property_type=property_type_val,
-                    predictor=(
-                        cls,
-                        cast(Type[PropertyPredictorParameters], model_param_class),
-                    ),
+                    predictor=(cls, cast(Type[PropertyPredictorParameters], model_param_class)),
                 )
         else:
             # set class name as property type in PropertyFactory
             property_type_val = cast(PredictorTypes, class_fields.get("property_type"))
             if not isinstance(property_type_val, PredictorTypes):
-                raise TypeError(
-                    f"Property type must be a PredictorTypes enum, got {type(property_type_val)}"
-                )
+                raise TypeError(f"Property type must be a PredictorTypes enum, got {type(property_type_val)}")
 
             PropertyFactory.add_predictor(
                 name=cls.__name__,
                 property_type=property_type_val,
-                predictor=(
-                    cls,
-                    cast(Type[PropertyPredictorParameters], model_param_class),
-                ),
+                predictor=(cls, cast(Type[PropertyPredictorParameters], model_param_class)),
             )
 
         model_location = get_properties_model_path(
             domain_val,
             algo_name_val,
-            app_name,  # Use app_name here
+            app_name, # Use app_name here
             algo_version_val,
         )
         try:
             os.makedirs(model_location, exist_ok=True)
         except Exception:
             logger.error(f"could not create model cache location: {model_location}")
-        if "OPENAD_MAIN_PROCESS" not in os.environ:  # only log in main process
+        if "OPENAD_MAIN_PROCESS" not in os.environ: # only log in main process
             logger.info(f"registering predictor model: {model_location}")
         # logger.debug(cls(model_param_class(**model_param_class().dict())).get_model_location())
 
@@ -382,11 +330,7 @@ class SimplePredictorMultiAlgorithm(SimplePredictor):
     def get_model_location(self):
         """gets the true path of a property checkpoint"""
         return (
-            super()
-            .get_model_location()
-            .replace(
-                f"/{self.algorithm_application}/", f"/{self.get_selected_property()}/"
-            )
+            super().get_model_location().replace(f"/{self.algorithm_application}/", f"/{self.get_selected_property()}/")
         )
 
     def _update_parameters(self, parameters: PredictorParameters):
@@ -400,13 +344,13 @@ class SimplePredictorMultiAlgorithm(SimplePredictor):
         # download model
         if self.__no_model__:
             logger.info("No model required, skipping download.")
-            return cast(Predictor, self.predict)  # Return casted predict method
+            return cast(Predictor, self.predict) # Return casted predict method
         # .__download_model()
         # get prediction function
         self.__download_model()
         model = self.get_model(self.get_model_location())
 
-        return cast(Predictor, model)  # Cast the model to Predictor
+        return cast(Predictor, model) # Cast the model to Predictor
 
     def __init__(self, parameters):
         parameters.algorithm_application = parameters.selected_property
@@ -421,9 +365,7 @@ class SimplePredictorMultiAlgorithm(SimplePredictor):
             raise ValueError("Model configuration is not set.")
         if not self.__artifacts_downloaded__:
 
-            logger.info(
-                f"Downloading model: {self.get_selected_property()}/{self.configuration.algorithm_version}"
-            )
+            logger.info(f"Downloading model: {self.get_selected_property()}/{self.configuration.algorithm_version}")
             if self.configuration.ensure_artifacts():
                 self.__artifacts_downloaded__ = True
                 # logger.info(f"model downloaded")

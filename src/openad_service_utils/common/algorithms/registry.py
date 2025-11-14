@@ -192,9 +192,7 @@ class ApplicationsRegistry:
 
             # get missing entries
             missing_in__dict__ = [
-                key
-                for key in configuration_class.__dict__
-                if key not in PydanticConfiguration.__dict__
+                key for key in configuration_class.__dict__ if key not in PydanticConfiguration.__dict__
             ]
 
             update_wrapper(
@@ -348,8 +346,7 @@ class ApplicationsRegistry:
             algorithm_application=algorithm_application,
         )
         parameters = {
-            key: annotation_tuple.default_value
-            for key, annotation_tuple in application_tuple.parameters_dict.items()
+            key: annotation_tuple.default_value for key, annotation_tuple in application_tuple.parameters_dict.items()
         }
         parameters.update(kwargs)
 

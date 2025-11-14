@@ -8,7 +8,7 @@ from pydantic_settings import BaseSettings
 
 class ServerConfig(BaseSettings):
     # General performance and caching
-    AUTO_CLEAR_GPU_MEM: bool = True  # !important release gpu memory from async workers
+    AUTO_CLEAR_GPU_MEM: bool = True # !important release gpu memory from async workers
     AUTO_GARBAGE_COLLECT: bool = True
     ENABLE_CACHE_RESULTS: bool = False
 
@@ -26,26 +26,16 @@ class ServerConfig(BaseSettings):
     REDIS_LOW_PRIORITY_QUEUE: str = "low_priority_jobs"
 
     # Worker and job processing settings
-    WORKER_COUNT: int = Field(default=1, ge=1)  # Number of worker processes to spawn
-    JOB_MAX_RETRIES: int = Field(
-        default=3, ge=0
-    )  # Maximum number of retries for a failed job
-    JOB_RETRY_DELAY: int = Field(
-        default=5, ge=0
-    )  # Seconds to wait before retrying a failed job
-    JOB_TTL: int = Field(
-        default=86400, ge=0
-    )  # Time to live for job keys in Redis (seconds)
+    WORKER_COUNT: int = Field(default=1, ge=1) # Number of worker processes to spawn
+    JOB_MAX_RETRIES: int = Field(default=3, ge=0) # Maximum number of retries for a failed job
+    JOB_RETRY_DELAY: int = Field(default=5, ge=0) # Seconds to wait before retrying a failed job
+    JOB_TTL: int = Field(default=86400, ge=0) # Time to live for job keys in Redis (seconds)
     REQUEST_CACHE_TTL: int = 3600  # Time to live for job request in Redis (seconds)
-    JOB_COMPLETION_TIMEOUT: int = Field(
-        default=3600, ge=0
-    )  # Timeout for waiting for a syncrounous job to complete (seconds)
+    JOB_COMPLETION_TIMEOUT: int = Field(default=3600, ge=0) # Timeout for waiting for a syncrounous job to complete (seconds)
 
     # Directory to store uploaded files / collections
-    UPLOAD_STORAGE_DIR: str = os.path.join(
-        os.path.expanduser("~"), ".openad_models", "collection_uploads"
-    )
-    UPLOAD_STORAGE_SYNC_INTERVAL: int = Field(default=60, ge=0)  # seconds
+    UPLOAD_STORAGE_DIR: str = os.path.join(os.path.expanduser("~"), ".openad_models", "collection_uploads")
+    UPLOAD_STORAGE_SYNC_INTERVAL: int = Field(default=60, ge=0) # seconds
 
     # uvicorn settings
     HOST: str = "0.0.0.0"
@@ -56,12 +46,9 @@ class ServerConfig(BaseSettings):
     )
     PROBE_PORT: int = 8081
     UVICORN_LOG_LEVEL: str = "info"
-    SERVE_MAX_WORKERS: int = Field(
-        default=1, ge=1
-    )  # number fastapi of worker processes
+    SERVE_MAX_WORKERS: int = Field(default=1, ge=1) # number fastapi of worker processes
     SERVE_WORKER_GPU_MIN: int = Field(default=2000, ge=1)  # in MB
-    ADMIN_ENDPOINTS_ENABLED: bool = False  # Default to disabled for production
-
+    ADMIN_ENDPOINTS_ENABLED: bool = False # Default to disabled for production
 
 @lru_cache(maxsize=None)
 def get_config_instance() -> ServerConfig:
