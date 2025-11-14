@@ -29,7 +29,10 @@ from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from openad_service_utils.api.models import FileInfo
 
 # Utils
-from openad_service_utils.utils.router_dependencies import get_redis_client
+from openad_service_utils.utils.router_dependencies import (
+    get_redis_client,
+    files_enabled,
+)
 from openad_service_utils.api.config import get_config_instance
 from openad_service_utils.utils.validation import (
     validate_collection_name,
@@ -44,6 +47,7 @@ logger = logging.getLogger(__name__)
 
 files_router = APIRouter(
     prefix="/service/pde/files",
+    dependencies=[Depends(files_enabled)],
     # tags=["ALL COLLECTION ROUTES"],
 )
 

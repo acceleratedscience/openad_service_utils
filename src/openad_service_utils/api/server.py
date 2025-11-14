@@ -55,6 +55,7 @@ from openad_service_utils.common.properties.property_factory import PropertyFact
 from openad_service_utils.api.router_main import main_router
 from openad_service_utils.api.router_jobs import jobs_router
 from openad_service_utils.api.router_files import files_router
+from openad_service_utils.api.router_results import results_router
 
 # Utils
 from openad_service_utils.utils.logging_config import setup_logging
@@ -123,11 +124,19 @@ app.add_middleware(
 # Add routers
 app.include_router(main_router)
 app.include_router(jobs_router)
-app.include_router(files_router)
+if files_router:
+    app.include_router(files_router)
+app.include_router(results_router)
 
 
 @kube_probe.get("/health", response_class=HTMLResponse)
 async def healthz(request: Request):
+    return "UP"
+
+
+@app.get("/", response_class=HTMLResponse)
+@app.get("/health", response_class=HTMLResponse)
+async def health():
     return "UP"
 
 
@@ -197,20 +206,11 @@ async def sync_files_periodically(redis_client: redis.Redis):
         )  # Sync every 60 seconds
 
 
-def collections_enabled():
-    """Dependency to check if file collection endpoints are enabled."""
-    print(31, PropertyFactory.AVAILABLE_PROPERTY_PREDICTOR_TYPES())
-    if "get_mesh_property" not in PropertyFactory.AVAILABLE_PROPERTY_PREDICTOR_TYPES():
-        raise HTTPException(
-            status_code=404,
-            detail="File collection endpoints are not available for this service configuration.",
-        )
-
-
 @app.post("/service")
 async def service(
     restful_request: ServiceRequest, job_manager: JobManager = Depends(get_job_manager)
 ):
+
     original_request = restful_request.model_dump(by_alias=True)
     service_type = original_request.get("service_type")
     cache_key = generate_cache_key(original_request)
@@ -356,34 +356,40 @@ async def handle_job_submission(
 
 @app.get("/service")
 async def get_service_defs():
-    """return service definitions"""
+    """Return service definitions."""
     all_services = []
-    # get generation service list
+
+    # Get generation service list
     gen_services: list = get_generation_services()
     if gen_services:
         if settings.ASYNC_ALLOW:
-            for i in range(len(gen_services)):
-                gen_services[i]["async_allow"] = settings.ASYNC_ALLOW
+            for _service in gen_services:
+                _service["async_allow"] = settings.ASYNC_ALLOW
         all_services.extend(gen_services)
-        logger.debug(f"generation models registered: {len(gen_services)}")
-    # get property service list
+        logger.debug("generation models registered: %s", len(gen_services))
+
+    # Get property service list
     prop_services = get_property_services()
     if settings.ASYNC_ALLOW:
-        for i in range(len(prop_services)):
-            prop_services[i]["async_allow"] = settings.ASYNC_ALLOW
+        for _prop_service in prop_services:
+            _prop_service["async_allow"] = settings.ASYNC_ALLOW
     if prop_services:
         all_services.extend(prop_services)
-        logger.info(f"Available Property Services: {len(prop_services)}")
-    # check if services available
+        logger.info("Available Property Services: %s", len(prop_services))
+
+    # Check if services available
     if not all_services:
         logger.warning("No property or generation services registered!")
-    # log services
+
+    # Log services
     try:
         logger.info(
-            f"Available Property types: {list(chain.from_iterable([i['valid_types'] for i in all_services]))}"
+            "Available Property types: %s",
+            list(chain.from_iterable([i["valid_types"] for i in all_services])),
         )
-    except Exception as e:
-        logger.warning(f"could not print types: {str(e)}")
+
+    except Exception as e:  # pylint: disable=broad-except
+        logger.warning("could not print types: %s", str(e))
     return JSONResponse(all_services)
 
 
