@@ -58,14 +58,9 @@ from openad_service_utils.api.router_results import results_router
 
 # Utils
 from openad_service_utils.utils.logging_config import setup_logging
-from openad_service_utils.utils.validation import (
-    validate_collection_name,
-    validate_filename,
-)
-from openad_service_utils.utils.router_dependencies import (
-    get_redis_client,
-    get_job_manager,
-)
+from openad_service_utils.api.router_files import validate_filename
+from openad_service_utils.api.router_files import validate_collection_name
+from openad_service_utils.utils.router_dependencies import get_job_manager
 
 # Set up logging configuration
 setup_logging()
