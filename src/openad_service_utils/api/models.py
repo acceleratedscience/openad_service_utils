@@ -71,10 +71,3 @@ class ServiceRequest(BaseModel):
 
     class Config:
         validate_by_name = True
-
-
-class FileInfo(BaseModel):
-    """File identifier info, used instead of ID"""
-
-    filename: str
-    collection_name: str

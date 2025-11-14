@@ -27,8 +27,6 @@ from fastapi import APIRouter, Depends, File, Body
 from fastapi import HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 
-# Schemas
-from openad_service_utils.api.models import FileInfo
 
 # Utils
 from openad_service_utils.utils.router_dependencies import get_redis_client

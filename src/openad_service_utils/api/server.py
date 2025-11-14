@@ -52,7 +52,6 @@ from openad_service_utils.common.models import FileResponse as CustomFileRespons
 from openad_service_utils.common.properties.property_factory import PropertyFactory
 
 # Routers
-from openad_service_utils.api.router_main import main_router
 from openad_service_utils.api.router_jobs import jobs_router
 from openad_service_utils.api.router_files import files_router
 from openad_service_utils.api.router_results import results_router
@@ -121,12 +120,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Add routers
-app.include_router(main_router)
-app.include_router(jobs_router)
+# Add optional routers for UI
+if jobs_router:
+    app.include_router(jobs_router)
 if files_router:
     app.include_router(files_router)
-app.include_router(results_router)
+if results_router:
+    app.include_router(results_router)
 
 
 @kube_probe.get("/health", response_class=HTMLResponse)

@@ -27,8 +27,6 @@ from fastapi import APIRouter, Depends, File, Body
 from fastapi import HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 
-# Schemas
-from openad_service_utils.api.models import FileInfo
 
 # Utils
 from openad_service_utils.utils.router_dependencies import get_redis_client
@@ -38,6 +36,7 @@ from openad_service_utils.utils.validation import (
     validate_filename,
     validate_filename_collision,
 )
+
 
 # Get configuration and logger
 settings = get_config_instance()
@@ -73,6 +72,13 @@ async def get_model_versions(redis_client: redis.Redis = Depends(get_redis_clien
 # endregion
 # ----------------------------
 # region --- Create
+
+
+class FileInfo(BaseModel):
+    """File identifier info, used for locating files instead of ID"""
+
+    filename: str
+    collection_name: str
 
 
 class CreateJobRequest(BaseModel):

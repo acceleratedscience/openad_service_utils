@@ -25,8 +25,6 @@ from fastapi import APIRouter, Depends, File, Body, Query
 from fastapi import HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 
-# Schemas
-from openad_service_utils.api.models import FileInfo
 
 # Utils
 from openad_service_utils.utils.router_dependencies import (
@@ -46,82 +44,18 @@ logger = logging.getLogger(__name__)
 
 
 files_router = APIRouter(
-    prefix="/service/pde/files",
+    prefix="/service/ui/files",
     dependencies=[Depends(files_enabled)],
-    # tags=["ALL COLLECTION ROUTES"],
+    # tags=["ALL FILE ROUTES"],
 )
 
-# endregion
-# ----------------------------
-# region --- System routes
 
-# No longger needed, this is now _get_all_collections, part of fetching files, but we may need to bring this back
-# @files_router.get(
-#     "/collection-names",
-#     summary="Get collection names to populate dropdown",
-#     tags=["Data for UI"],
-# )
-# async def get_all_collections(redis_client: redis.Redis = Depends(get_redis_client)):
-#     """Returns a list of all available collections."""
-#     try:
-#         file_keys = [key async for key in redis_client.scan_iter("file_map:*")]
-#         all_collections = sorted(
-#             list(set([key.split(":")[1].split("/")[0] for key in file_keys]))
-#         )
-#         return all_collections
-#     except Exception as e:
-#         logger.error("Error fetching all collection names: %s", str(e))
-#         return []
-
-
-@files_router.post(
-    "/reindex", summary="Re-index redis from file system status", tags=["Development"]
-)
-async def reindex_redis_from_filesystem(
-    redis_client: redis.Redis = Depends(get_redis_client),
-):
-    """
-    DEVELOPMENT ONLY
-    - - -
-    Reindex the Redis database to match the current state of the filesystem.
-
-    This function scans the upload storage directory and updates Redis to reflect
-    the current state of the files on disk. Any missing or outdated entries in Redis
-    will be corrected.
-
-    Args:
-        redis_client: The Redis client instance.
-    """
-    try:
-        logger.info("Starting Redis reindexing from filesystem...")
-        storage_path = Path(settings.UPLOAD_STORAGE_DIR)
-        if not storage_path.is_dir():
-            raise HTTPException(
-                status_code=500, detail="Upload storage directory does not exist."
-            )
-
-        # Scan the filesystem for all files
-        for collection_dir in storage_path.iterdir():
-            if collection_dir.is_dir():
-                collection_name = collection_dir.name
-                for file_path in collection_dir.iterdir():
-                    if file_path.is_file():
-                        file_key = str(Path(collection_name) / file_path.name)
-                        await redis_client.set(f"file_map:{file_key}", str(file_path))
-
-        # Clean up Redis keys that no longer exist on disk
-        redis_keys = [key async for key in redis_client.scan_iter("file_map:*")]
-        for key in redis_keys:
-            file_path_str = await redis_client.get(key)
-            if file_path_str and not Path(file_path_str).exists():
-                await redis_client.delete(key)
-
-        logger.info("Redis database successfully reindexed to match filesystem.")
-    except Exception as e:
-        logger.error("Error reindexing Redis database: %s", str(e))
-        raise HTTPException(
-            status_code=500, detail=f"Error reindexing Redis database: {str(e)}"
-        ) from e
+# The frontend only knows about /service/files
+# so we need an additional health check here
+@files_router.get("/", response_class=HTMLResponse)
+@files_router.get("/health", response_class=HTMLResponse)
+async def health():
+    return "UP"
 
 
 # endregion
@@ -550,6 +484,7 @@ async def get_jobs_page(
 # region --- Create collection
 
 
+# TO BE REMOVED
 @files_router.post(
     "/create-collection/{collection_name}",
     summary="Create a new collection directory",
@@ -586,6 +521,7 @@ async def create_collection(collection_name: str):
 # region --- Chunked Upload
 
 
+# replaced
 @files_router.post(
     "/{collection_name}/upload/start",
     summary="Start chunked upload",
@@ -619,6 +555,12 @@ async def start_chunked_upload(
     try:
         # Generate unique upload ID
         upload_id = str(uuid.uuid4())
+
+        # Create final collection directory if not exists
+        # This is needed so we can open the collection page
+        # while the files are being uploaded
+        final_dir = Path(settings.UPLOAD_STORAGE_DIR) / filename
+        final_dir.mkdir(parents=True, exist_ok=True)
 
         # Create temp directory for chunks
         temp_dir = Path(settings.UPLOAD_STORAGE_DIR) / "temp" / upload_id
@@ -1032,39 +974,54 @@ async def cleanup_upload_session(redis_client: redis.Redis, upload_id: str):
 
 # endregion
 # ----------------------------
-# region --- Files table
+# region --- Fetch files for table
+
+# NOTE: this endpoint loads all files without sorting or pagination,
+# which is instead handled by the frontend table component. This is
+# not scalable for large numbers of files. If this becomes unmanageable,
+# the table component can be updated to support server-side pagination,
+# sorting, and filtering, and this endpoint should be updated accordingly
+# Documentation for this lives in the frontend repo.
 
 
+class FileObject(BaseModel):
+    """Individual file model, as consumed by the frontend table component"""
+
+    collection_name: str
+    filename: str
+    file_key: str
+    file_extension: str
+    size_bytes: int
+    created_at: datetime
+
+
+class FileListResponse(BaseModel):
+    """Files list endpoint response model"""
+
+    files: List[FileObject]
+    all_collections: List[str]
+
+
+# replaced
 @files_router.get(
     "",
-    summary="Get paginated files data",
+    summary="Get all files",
     tags=["Collections / Files"],
 )
 @files_router.get(
     "/collection/{collection_name}",
-    summary="Get paginated files data by collection",
+    summary="Get files by collection",
     tags=["Collections / Files"],
 )
 async def get_files(
     collection_name: str | None = None,
-    page: int = 1,
-    page_size: int = 50,
-    sort: str | None = "created_at",  # Also set below to cover empty ?sort=
-    limit: str = None,
-    search: str = None,
     redis_client: redis.Redis = Depends(get_redis_client),
 ):
     """
-    Returns files from collections with advanced filtering, sorting, and pagination.
+    Returns all files, or files from a given collection.
 
     Args:
         collection_name: Optional collection name. If None, returns files from all collections
-        page: Page number (1-based, default: 1)
-        page_size: Number of items per page (default: 50, max: 1000)
-        sort: Sort field with optional '-' prefix for descending (default: 'created_at')
-              Valid fields: filename, size_bytes, created_at, collection_name, file_extension
-        limit: Comma-separated list of specific indices to return (e.g., "1,7,12")
-        search: Search term to filter by filename or collection name
 
     Returns:
         JSON response with files and metadata
@@ -1072,140 +1029,41 @@ async def get_files(
     if collection_name:
         validate_collection_name(collection_name)
 
-    # Validate and constrain parameters
-    page = max(1, page)
-    page_size = min(max(1, page_size), 1000)  # Max 1000 items per page
-
-    # Parse limit indices if provided
-    limit_indices = []
-    if limit:
-        try:
-            limit_indices = [
-                int(idx.strip()) for idx in limit.split(",") if idx.strip().isdigit()
-            ]
-        except ValueError as e:
-            raise HTTPException(
-                status_code=400,
-                detail="Invalid limit parameter. Use comma-separated integers.",
-            ) from e
-
-    # Validate sort field
-    valid_sort_fields = {
-        "filename",
-        "size_bytes",
-        "created_at",
-        "collection_name",
-        "file_extension",
-        "index",
-    }
-
-    # Handle empty or None sort parameter
-    if not sort or sort.strip() == "":
-        sort = "created_at"
-
-    sort_field, sort_descending = _parse_sort_key(sort)
-    if sort_field not in valid_sort_fields:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Invalid sort field '{sort_field}'. Valid fields: {', '.join(valid_sort_fields)}",
-        )
+    # Fetch list of all collections, used to populate
+    # dropdown which should be in sync at all times
+    collection_names = await _get_all_collections(redis_client)
 
     try:
-        # Determine Redis scan pattern based on collection_name
-        if collection_name:
-            scan_pattern = f"file_map:{collection_name}/*"
-        else:
-            scan_pattern = "file_map:*"
-
+        # Scan for file keys
+        scan_pattern = (
+            f"file_map:{collection_name}/*" if collection_name else "file_map:*"
+        )
         file_keys = [key async for key in redis_client.scan_iter(scan_pattern)]
 
         # Handle empty results
         if not file_keys:
             if collection_name:
-                # Check if collection directory exists but is empty
+                # Collection doesn't exist
                 collection_dir = Path(settings.UPLOAD_STORAGE_DIR) / collection_name
                 if not await run_in_threadpool(collection_dir.is_dir):
                     raise HTTPException(status_code=404, detail="Collection not found.")
-                return JSONResponse({"files": [], "pagination": {}})
+
+                # Collection is empty
+                return JSONResponse({"files": [], "all_collections": collection_names})
             else:
                 # No files across all collections
-                return JSONResponse({"files": [], "pagination": {}})
+                return JSONResponse({"files": [], "all_collections": collection_names})
 
-        # Process all files and add indices
+        # Assemble file objects for frontend
         files = []
-        file_keys
         for key in file_keys:
             file_key = key.split(":")[1]
             file_path_str = await redis_client.get(key)
-            file_info = await _process_file_info(file_key, file_path_str)
+            file_info = await _assemble_file_info(file_key, file_path_str)
             files.append(file_info)
 
-        # Sort by created_at and add index
-        files = _sort_files(files, "created_at", descending=True)
-        for idx, file_info in enumerate(files):
-            file_info["index"] = idx + 1  # 1-based index
-
-        # Apply search filter first (before sorting/pagination)
-        if search:
-            files = _filter_files_by_search(files, search)
-
-        # Apply sorting
-        files = _sort_files(files, sort_field, sort_descending)
-
-        # Apply limit indices filter (after sorting to maintain index meaning)
-        if limit_indices:
-            files = _filter_files_by_limit_indices(files, limit_indices)
-
-        # Apply pagination
-        paginated_files, pagination_info = _paginate_files(files, page, page_size)
-
-        # Fetch list of all collections so dropdown is in sync at all times
-        collection_names = await _get_all_collections(redis_client)
-
-        # Base response
-        base_response = {
-            "files": paginated_files,
-            "pagination": pagination_info,
-            "all_collections": collection_names,
-        }
-
-        # Single collection response
-        if collection_name:
-            base_response.update(
-                {
-                    "collection_name": collection_name,
-                    "total_size_bytes": sum(file["size_bytes"] for file in files),
-                }
-            )
-
-        # All collections response with additional aggregation
-        else:
-            collections_data = {}
-            for (
-                file_info
-            ) in files:  # Use all files (not paginated) for collection stats
-                collection_name_key = file_info["collection_name"]
-                if collection_name_key not in collections_data:
-                    collections_data[collection_name_key] = {
-                        "collection_name": collection_name_key,
-                        "file_count": 0,
-                        "total_size_bytes": 0,
-                    }
-
-                collections_data[collection_name_key]["file_count"] += 1
-                collections_data[collection_name_key]["total_size_bytes"] += file_info[
-                    "size_bytes"
-                ]
-
-            base_response.update(
-                {
-                    "collections_summary": list(collections_data.values()),
-                    "total_collections": len(collections_data),
-                    "total_size_bytes": sum(file["size_bytes"] for file in files),
-                }
-            )
-
-        return JSONResponse(base_response)
+        # Success repsonse
+        return FileListResponse(files=files, all_collections=collection_names)
 
     except HTTPException:
         raise
@@ -1218,20 +1076,7 @@ async def get_files(
         raise HTTPException(status_code=500, detail=f"{error_msg}: {str(e)}") from e
 
 
-async def _get_all_collections(redis_client: redis.Redis) -> list[str]:
-    """Returns a list of all available collections."""
-    try:
-        file_keys = [key async for key in redis_client.scan_iter("file_map:*")]
-        all_collections = sorted(
-            list(set([key.split(":")[1].split("/")[0] for key in file_keys]))
-        )
-        return all_collections
-    except Exception as e:
-        logger.error("Error fetching all collection names: %s", str(e))
-        return []
-
-
-async def _process_file_info(file_key: str, file_path_str: str | None) -> dict:
+async def _assemble_file_info(file_key: str, file_path_str: str | None) -> dict:
     """
     Extract file information from Redis
 
@@ -1256,140 +1101,27 @@ async def _process_file_info(file_key: str, file_path_str: str | None) -> dict:
             file_size = stat_info.st_size
             created_at = stat_info.st_ctime * 1000  # Convert to milliseconds
 
-    return {
-        "file_key": file_key,
-        "filename": filename,
-        "collection_name": collection_name,
-        "size_bytes": file_size,
-        "created_at": created_at,
-        "file_extension": file_extension,
-    }
+    return FileObject(
+        file_key=file_key,
+        filename=filename,
+        collection_name=collection_name,
+        size_bytes=file_size,
+        created_at=created_at,
+        file_extension=file_extension,
+    )
 
 
-def _parse_sort_key(sort_param: str) -> tuple[str, bool]:
-    """
-    Parse sort parameter to extract field and direction.
-
-    Args:
-        sort_param: Sort parameter (e.g., 'filename', '-created_at')
-
-    Returns:
-        Tuple of (field_name, is_descending)
-    """
-    if sort_param.startswith("-"):
-        return sort_param[1:], True
-    return sort_param, False
-
-
-def _sort_files(
-    files: list[dict], sort_key: str, descending: bool = False
-) -> list[dict]:
-    """
-    Sort files by the specified key.
-
-    Args:
-        files: List of file dictionaries
-        sort_key: Key to sort by
-        descending: Whether to sort in descending order
-
-    Returns:
-        Sorted list of files
-    """
-
-    # Handle None values for sorting
-    def sort_key_func(file_dict):
-        value = file_dict.get(sort_key)
-        if value is None:
-            return "" if isinstance(file_dict.get("filename", ""), str) else 0
-        return value
-
-    return sorted(files, key=sort_key_func, reverse=descending)
-
-
-def _filter_files_by_search(files: list[dict], search_term: str) -> list[dict]:
-    """
-    Filter files based on search term.
-
-    Args:
-        files: List of file dictionaries
-        search_term: Search string to match against filename and collection_name
-
-    Returns:
-        Filtered list of files
-    """
-    if not search_term:
-        return files
-
-    search_lower = search_term.lower()
-    filtered = []
-
-    for file_info in files:
-        # Search in filename and collection name
-        if (
-            search_lower in file_info["filename"].lower()
-            or search_lower in file_info["collection_name"].lower()
-        ):
-            filtered.append(file_info)
-
-    return filtered
-
-
-def _filter_files_by_limit_indices(
-    files: list[dict], limit_indices: list[int]
-) -> list[dict]:
-    """
-    Filter files by specific indices.
-
-    Args:
-        files: List of file dictionaries
-        limit_indices: List of indices to include
-
-    Returns:
-        Filtered list of files
-    """
-    if not limit_indices:
-        return files
-
-    return [file_info for file_info in files if file_info["index"] in limit_indices]
-
-
-def _paginate_files(
-    files: list[dict], page: int, page_size: int
-) -> tuple[list[dict], dict]:
-    """
-    Paginate files and return pagination metadata.
-
-    Args:
-        files: List of file dictionaries
-        page: Page number (1-based)
-        page_size: Number of items per page
-
-    Returns:
-        Tuple of (paginated_files, pagination_info)
-    """
-    total_items = len(files)
-    total_pages = (total_items + page_size - 1) // page_size if page_size > 0 else 1
-
-    # Validate page number
-    if page < 1:
-        page = 1
-    if page > total_pages and total_pages > 0:
-        page = total_pages
-
-    start_idx = (page - 1) * page_size
-    end_idx = start_idx + page_size
-    paginated_files = files[start_idx:end_idx]
-
-    pagination_info = {
-        "page": page,
-        "page_size": page_size,
-        "total_items": total_items,
-        "total_pages": total_pages,
-        "has_next": page < total_pages,
-        "has_previous": page > 1,
-    }
-
-    return paginated_files, pagination_info
+async def _get_all_collections(redis_client: redis.Redis) -> list[str]:
+    """Returns a list of all available collections."""
+    try:
+        file_keys = [key async for key in redis_client.scan_iter("file_map:*")]
+        all_collections = sorted(
+            list(set([key.split(":")[1].split("/")[0] for key in file_keys]))
+        )
+        return all_collections
+    except Exception as e:
+        logger.error("Error fetching all collection names: %s", str(e))
+        return []
 
 
 # endregion
@@ -1397,130 +1129,7 @@ def _paginate_files(
 # region --- Download
 
 
-@files_router.get(
-    "/download",
-    summary="Download list of files as a ZIP file",
-    tags=["Collections / Download"],
-)
-@files_router.get(
-    "/download/{collection_name}",
-    summary="Download entire collection as a ZIP file",
-    tags=["Collections / Download"],
-)
-async def download_multiple(
-    collection_name: str | None = None,
-    files: List[str] = Query(
-        [],
-        description="Repeat ?files=collection_name/filename for multiple files",
-    ),
-    redis_client: redis.Redis = Depends(get_redis_client),
-):
-    """Downloads an entire collection as a ZIP file."""
-    # return JSONResponse(
-    #     {
-    #         "collection_name": collection_name,
-    #         "files": files,
-    #     }
-    # )
-
-    try:
-        # A: Gather file keys from collection
-        if collection_name:
-            validate_collection_name(collection_name)
-            file_keys = [
-                key
-                async for key in redis_client.scan_iter(f"file_map:{collection_name}/*")
-            ]
-            if not file_keys:
-                raise HTTPException(
-                    status_code=404, detail="Collection not found or empty."
-                )
-
-        # B: Gather file keys from URL
-        else:
-            file_keys = [f"file_map:{file_key}" for file_key in files]
-            if not file_keys:
-                raise HTTPException(
-                    status_code=404, detail="No files specified for download."
-                )
-
-        # Create a temporary ZIP file
-        temp_zip = tempfile.NamedTemporaryFile(
-            delete=False, suffix=f"_{collection_name}.zip"
-        )
-
-        try:
-            with zipfile.ZipFile(temp_zip.name, "w", zipfile.ZIP_DEFLATED) as zip_file:
-                files_added = 0
-
-                for key in file_keys:
-                    file_path_str = await redis_client.get(key)
-                    print("&&", file_path_str)
-
-                    if file_path_str:
-                        file_path = Path(file_path_str)
-                        if await run_in_threadpool(file_path.exists):
-                            # Security check: ensure the file is within the upload storage directory
-                            storage_path = Path(settings.UPLOAD_STORAGE_DIR).resolve()
-                            if file_path.resolve().is_relative_to(storage_path):
-                                # Get just the filename for the ZIP archive
-                                # No nested folders in ZIP
-                                filename = file_path.name
-                                await run_in_threadpool(
-                                    zip_file.write, str(file_path), filename
-                                )
-                                files_added += 1
-                            else:
-                                logger.warning(
-                                    "Skipping file outside storage directory: %s",
-                                    file_path_str,
-                                )
-                        else:
-                            logger.warning("File not found: %s", file_path_str)
-
-                if files_added == 0:
-                    raise HTTPException(
-                        status_code=404,
-                        detail="No accessible files found in collection.",
-                    )
-
-            # Return the ZIP file as a download
-            def cleanup_temp_file():
-                """Clean up the temporary ZIP file after sending."""
-                try:
-                    Path(temp_zip.name).unlink()
-                except OSError:
-                    pass
-
-            # Create zip filename
-            timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-            zip_filename = (
-                collection_name if collection_name else f"vtk_download_{timestamp}"
-            )
-
-            return FileResponse(
-                path=temp_zip.name,
-                media_type="application/zip",
-                filename=f"{zip_filename}.zip",
-                background=BackgroundTask(cleanup_temp_file),
-            )
-
-        except Exception as zip_error:
-            # Clean up temp file on error
-            try:
-                Path(temp_zip.name).unlink()
-            except OSError:
-                pass
-            raise zip_error
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=500, detail=f"Error creating collection archive: {str(e)}"
-        ) from e
-
-
+# original + small improvements
 @files_router.get(
     "/download/{collection_name}/{filename}",
     summary="Download single file from collection",
@@ -1560,7 +1169,9 @@ async def download_file_from_collection(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error downloading file: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Error downloading file: {str(e)}"
+        ) from e
 
 
 # endregion
@@ -1568,6 +1179,7 @@ async def download_file_from_collection(
 # region --- Delete
 
 
+# original
 @files_router.delete(
     "/{collection_name}",
     summary="Delete collection and all its files",
@@ -1605,230 +1217,38 @@ async def delete_collection(
         ) from e
 
 
-@files_router.delete(
-    "",
-    summary="Delete multiple files across collections",
-    tags=["Collections / Delete"],
-)
-async def delete_files_from_collection(
-    files: List[FileInfo] = Body(...),
+# original + small improvements
+@files_router.delete("/{collection_name}/{filename}", summary="Delete file")
+async def delete_file_from_collection(
+    collection_name: str,
+    filename: str,
     redis_client: redis.Redis = Depends(get_redis_client),
 ):
-    """
-    Deletes multiple files from a collection.
+    """Deletes a file from a specific collection."""
+    validate_collection_name(collection_name)
+    validate_filename(filename)
+    try:
+        file_key = str(Path(collection_name) / filename)
+        file_path_str = await redis_client.get(f"file_map:{file_key}")
 
-    Args:
-        files: A list of dictionaries containing `collection` and `filename` keys.
-        redis_client: The Redis client instance.
+        if not file_path_str:
+            raise HTTPException(status_code=404, detail="File not found.")
 
-    Returns:
-        JSON response with the status of each file deletion.
-    """
-    results = []
+        file_path = Path(file_path_str)
+        if not file_path.exists():
+            raise HTTPException(status_code=404, detail="File not found.")
 
-    for file in files:
-        collection_name = file.collection_name
-        filename = file.filename
+        file_path.unlink()
+        await redis_client.delete(f"file_map:{file_key}")
 
-        if not collection_name or not filename:
-            results.append(
-                {
-                    "collection": collection_name,
-                    "filename": filename,
-                    "status": "error",
-                    "message": "Missing collection or filename.",
-                }
-            )
-            continue
+        return JSONResponse({"message": "File deleted successfully."})
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Error deleting file: {str(e)}"
+        ) from e
 
-        try:
-            validate_collection_name(collection_name)
-            validate_filename(filename)
-
-            file_key = str(Path(collection_name) / filename)
-            file_path_str = await redis_client.get(f"file_map:{file_key}")
-
-            if not file_path_str:
-                results.append(
-                    {
-                        "collection": collection_name,
-                        "filename": filename,
-                        "status": "error",
-                        "message": "File not found in Redis.",
-                    }
-                )
-                continue
-
-            file_path = Path(file_path_str)
-            if not file_path.exists():
-                results.append(
-                    {
-                        "collection": collection_name,
-                        "filename": filename,
-                        "status": "error",
-                        "message": "File not found on disk.",
-                    }
-                )
-                continue
-
-            file_path.unlink()
-            await redis_client.delete(f"file_map:{file_key}")
-
-            results.append(
-                {
-                    "collection": collection_name,
-                    "filename": filename,
-                    "status": "success",
-                    "message": "File deleted successfully.",
-                }
-            )
-        except Exception as e:
-            results.append(
-                {
-                    "collection": collection_name,
-                    "filename": filename,
-                    "status": "error",
-                    "message": f"Error deleting file: {str(e)}",
-                }
-            )
-
-    return JSONResponse({"results": results})
-
-
-# # No longer needed or used - batch delete above is preferred
-# @collections_router.delete("/{collection_name}/{filename}", summary="Delete file")
-# async def delete_file_from_collection(
-#     collection_name: str,
-#     filename: str,
-#     redis_client: redis.Redis = Depends(get_redis_client),
-# ):
-#     """Deletes a file from a specific collection."""
-#     validate_collection_name(collection_name)
-#     validate_filename(filename)
-#     try:
-#         file_key = str(Path(collection_name) / filename)
-#         file_path_str = await redis_client.get(f"file_map:{file_key}")
-#         print("Delete: ", file_key, file_path_str)
-
-#         if not file_path_str:
-#             raise HTTPException(status_code=404, detail="File not found.")
-
-#         file_path = Path(file_path_str)
-#         if not file_path.exists():
-#             raise HTTPException(status_code=404, detail="File not found.")
-
-#         file_path.unlink()
-#         await redis_client.delete(f"file_map:{file_key}")
-
-#         return JSONResponse({"message": "File deleted successfully."})
-#     except HTTPException:
-#         raise
-#     except Exception as e:
-#         raise HTTPException(
-#             status_code=500, detail=f"Error deleting file: {str(e)}"
-#         ) from e
-
-
-# endregion
-# ----------------------------
-# region --- Basic Upload (unused, keeping for reference)
-
-
-# Single file upload not useful, keeping for reference
-# @collections_router.post("/{collection_name}")
-# async def upload_file_to_collection(collection_name: str, file: UploadFile = File(...)):
-#     """Uploads a file to a specific collection."""
-#     validate_collection_name(collection_name)
-#     try:
-#         filename = file.filename if file.filename else "uploaded_file"
-#         validate_filename(filename)
-#         collection_dir = os.path.join(settings.UPLOAD_STORAGE_DIR, collection_name)
-#         os.makedirs(collection_dir, exist_ok=True)
-
-#         file_path = os.path.join(collection_dir, filename)
-#         # Offload blocking file write to a thread pool
-#         await run_in_threadpool(shutil.copyfileobj, file.file, open(file_path, "wb"))
-
-#         file_key = os.path.join(collection_name, filename)
-#         await app.state.redis.set(f"file_map:{file_key}", file_path)
-
-#         return JSONResponse({"file_key": file_key, "message": "File uploaded successfully."})
-#     except Exception as e:
-#         raise HTTPException(status_code=500, detail=f"Error uploading file: {str(e)}")
-
-
-# @collections_router.post("/{collection_name}", tags=["Unused"])
-# async def upload_files_to_collection_v1(
-#     collection_name: str,
-#     files: List[UploadFile] = File(...),
-#     redis_client: redis.Redis = Depends(get_redis_client),
-# ):
-#     """Uploads one or more files to a specific collection."""
-#     validate_collection_name(collection_name)
-
-#     if not files:
-#         raise HTTPException(status_code=400, detail="No files provided.")
-
-#     uploaded_files = []
-#     errors = []
-
-#     try:
-#         collection_dir = Path(settings.UPLOAD_STORAGE_DIR) / collection_name
-#         collection_dir.mkdir(parents=True, exist_ok=True)
-
-#         for file in files:
-#             try:
-#                 filename = (
-#                     file.filename
-#                     if file.filename
-#                     else f"uploaded_file_{len(uploaded_files) + 1}"
-#                 )
-#                 validate_filename(filename)
-
-#                 file_path = collection_dir / filename
-
-#                 # Handle duplicate filenames by appending a counter
-#                 counter = 1
-#                 original_filename = filename
-#                 while file_path.exists():
-#                     original_path = Path(original_filename)
-#                     filename = f"{original_path.stem}_{counter}{original_path.suffix}"
-#                     file_path = collection_dir / filename
-#                     counter += 1
-
-#                 # Offload blocking file write to a thread pool
-#                 with open(file_path, "wb") as f:
-#                     await run_in_threadpool(shutil.copyfileobj, file.file, f)
-
-#                 file_key = str(Path(collection_name) / filename)
-#                 await redis_client.set(f"file_map:{file_key}", str(file_path))
-
-#                 uploaded_files.append(
-#                     {
-#                         "file_key": file_key,
-#                         "filename": filename,
-#                         "original_filename": file.filename,
-#                         "size_bytes": file_path.stat().st_size,
-#                     }
-#                 )
-
-#             except Exception as file_error:
-#                 errors.append({"filename": file.filename, "error": str(file_error)})
-
-#         response_data = {
-#             "uploaded_files": uploaded_files,
-#             "total_uploaded": len(uploaded_files),
-#             "message": f"Successfully uploaded {len(uploaded_files)} file(s) to collection '{collection_name}'.",
-#         }
-
-#         if errors:
-#             response_data["errors"] = errors
-#             response_data["total_errors"] = len(errors)
-
-#         return JSONResponse(response_data)
-
-#     except Exception as e:
-#         raise HTTPException(status_code=500, detail=f"Error uploading files: {str(e)}")
 
 # endregion
 # ----------------------------
