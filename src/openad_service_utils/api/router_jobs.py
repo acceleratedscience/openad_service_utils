@@ -29,7 +29,6 @@ from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 
 
 # Utils
-from openad_service_utils.utils.router_dependencies import get_redis_client
 from openad_service_utils.api.config import get_config_instance
 
 
@@ -53,7 +52,7 @@ jobs_router = APIRouter(
     summary="Get model versions to populate dropdown",
     tags=["Data for UI"],
 )
-async def get_model_versions(redis_client: redis.Redis = Depends(get_redis_client)):
+async def get_model_versions():
     """Returns a list of all available model versions."""
     try:
         versions = ["v1.0", "v1.1", "v2.0", "v2.1", "v3.0"]  # FPO

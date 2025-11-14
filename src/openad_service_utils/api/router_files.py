@@ -4,6 +4,7 @@
 # UPLOAD_STORAGE_DIR = ~/.openad_models/collection_uploads
 
 # Std
+import os
 import re
 import time
 import uuid
@@ -19,37 +20,34 @@ from datetime import datetime, timedelta
 # 3rd Party
 import redis.asyncio as redis
 from starlette.concurrency import run_in_threadpool
-from starlette.background import BackgroundTask
 from fastapi import APIRouter, Depends, File, Body, Query
 from fastapi import HTTPException, Request, UploadFile
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
 
 
-# Utils
-from openad_service_utils.utils.router_dependencies import (
-    get_redis_client,
-    files_enabled,
-)
+# Internal
 from openad_service_utils.api.config import get_config_instance
+from openad_service_utils.utils.logging_config import setup_logging
+from openad_service_utils.utils.router_dependencies import files_enabled
+from openad_service_utils.utils.router_dependencies import get_redis_client
+
+# Set up logging configuration
+setup_logging()
 
 # Get configuration and logger
 settings = get_config_instance()
 logger = logging.getLogger(__name__)
 
 
+# CREATE ROUTER
 files_router = APIRouter(
     prefix="/service/ui/files",
     dependencies=[Depends(files_enabled)],
     # tags=["ALL FILE ROUTES"],
 )
 
-
-# The frontend only knows about /service/files
-# so we need an additional health check here
-@files_router.get("/", response_class=HTMLResponse)
-@files_router.get("/health", response_class=HTMLResponse)
-async def health():
-    return "UP"
+#
+#
 
 
 # endregion
@@ -475,43 +473,6 @@ async def get_jobs_page(
 
 # endregion
 # ----------------------------
-# region --- Create collection
-
-
-# TO BE REMOVED
-@files_router.post(
-    "/create-collection/{collection_name}",
-    summary="Create a new collection directory",
-    tags=["Collections / Upload"],
-)
-async def create_collection(collection_name: str):
-    """Create a new empty collection directory."""
-    validate_collection_name(collection_name)
-    collection_dir = Path(settings.UPLOAD_STORAGE_DIR) / collection_name
-
-    try:
-        # Determine status code based on existence
-        status_code = 200 if await run_in_threadpool(collection_dir.exists) else 201
-
-        # Create the collection directory
-        await run_in_threadpool(collection_dir.mkdir, parents=True, exist_ok=True)
-        return JSONResponse(
-            {
-                "collection_name": collection_name,
-                "path": str(collection_dir),
-                "message": "Collection created.",
-            },
-            status_code=status_code,
-        )
-
-    except Exception as e:
-        raise HTTPException(
-            status_code=500, detail=f"Error creating collection: {str(e)}"
-        ) from e
-
-
-# endregion
-# ----------------------------
 # region --- Chunked Upload
 
 
@@ -533,18 +494,23 @@ async def start_chunked_upload(
 ):
     """Start a chunked upload session."""
 
+    # Validate inputs
     validate_collection_name(collection_name)
     validate_filename(filename)
-    if not replace and not rename:
-        await validate_filename_collision(redis_client, collection_name, filename)
-
     if total_size <= 0:
         raise HTTPException(status_code=400, detail="Total size must be greater than 0")
-
     if chunk_size <= 0 or chunk_size > 50 * 1024 * 1024:  # Max 50MB per chunk
         raise HTTPException(
             status_code=400, detail="Chunk size must be between 1 byte and 50MB"
         )
+
+    # Ansure the collection directory exists
+    collection_dir = Path(settings.UPLOAD_STORAGE_DIR) / collection_name
+    await run_in_threadpool(collection_dir.mkdir, parents=True, exist_ok=True)
+
+    # If filename exists, send back to client to choose action (replace/rename)
+    if not replace and not rename:
+        await validate_filename_collision(redis_client, collection_name, filename)
 
     try:
         # Generate unique upload ID
@@ -565,7 +531,6 @@ async def start_chunked_upload(
 
         # Handle duplicate filenames
         if rename:
-            collection_dir = Path(settings.UPLOAD_STORAGE_DIR) / collection_name
             collection_dir.mkdir(parents=True, exist_ok=True)
 
             file_path = collection_dir / filename
@@ -1278,6 +1243,65 @@ async def validate_filename_collision(
             status_code=409,
             detail=f"File '{filename}' already exists in collection '{collection_name}'",
         )
+
+
+# endregion
+# ----------------------------
+# region --- Sync files
+
+
+async def sync_files_to_redis(redis_client: redis.Redis):
+    """Scans the upload directory and syncs the file index with Redis."""
+    # logger.debug("Starting file sync to Redis.")
+
+    # Get all file keys from Redis
+    redis_keys = [key async for key in redis_client.scan_iter("file_map:*")]
+    redis_file_keys = {key.split(":")[1] for key in redis_keys}
+
+    # Get all files from the filesystem, assuming subdirectories are collections
+    disk_files = set()
+    for collection_name in os.listdir(settings.UPLOAD_STORAGE_DIR):
+        collection_path = os.path.join(settings.UPLOAD_STORAGE_DIR, collection_name)
+        if os.path.isdir(collection_path):
+            try:
+                validate_collection_name(collection_name)
+                for filename in os.listdir(collection_path):
+                    full_path = os.path.join(collection_path, filename)
+                    if os.path.isfile(full_path):
+                        try:
+                            validate_filename(filename)
+                            file_key = os.path.join(collection_name, filename)
+                            disk_files.add(file_key)
+                        except HTTPException:
+                            logger.warning(
+                                f"Skipping invalid filename during sync: {filename}"
+                            )
+            except HTTPException:
+                logger.warning(
+                    f"Skipping invalid collection name during sync: {collection_name}"
+                )
+
+    # Add new files to Redis
+    new_files = disk_files - redis_file_keys
+    for file_key in new_files:
+        full_path = os.path.join(settings.UPLOAD_STORAGE_DIR, file_key)
+        await redis_client.set(f"file_map:{file_key}", full_path)
+        logger.debug(f"Added new file to Redis: {file_key}")
+
+    # Remove deleted files from Redis
+    deleted_files = redis_file_keys - disk_files
+    if deleted_files:
+        await redis_client.delete(*[f"file_map:{key}" for key in deleted_files])
+        logger.debug(f"Removed deleted files from Redis: {deleted_files}")
+
+
+async def sync_files_periodically(redis_client: redis.Redis):
+    """Runs the file sync process at a regular interval."""
+    logger.info("Starting background file sync task...")
+    while True:
+        await sync_files_to_redis(redis_client)
+        # Sync every 60 seconds
+        await asyncio.sleep(settings.UPLOAD_STORAGE_SYNC_INTERVAL)
 
 
 # endregion

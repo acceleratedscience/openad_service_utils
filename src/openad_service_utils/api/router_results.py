@@ -29,7 +29,6 @@ from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 
 
 # Utils
-from openad_service_utils.utils.router_dependencies import get_redis_client
 from openad_service_utils.api.config import get_config_instance
 
 # Get configuration and logger

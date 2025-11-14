@@ -58,8 +58,7 @@ from openad_service_utils.api.router_results import results_router
 
 # Utils
 from openad_service_utils.utils.logging_config import setup_logging
-from openad_service_utils.api.router_files import validate_filename
-from openad_service_utils.api.router_files import validate_collection_name
+from openad_service_utils.api.router_files import sync_files_periodically
 from openad_service_utils.utils.router_dependencies import get_job_manager
 
 # Set up logging configuration
@@ -142,63 +141,8 @@ def generate_cache_key(request_data: dict) -> str:
 
 
 # Ensure the upload temp directory exists
-os.makedirs(settings.UPLOAD_STORAGE_DIR, exist_ok=True)
+os.makedirs(settings.UPLOAD_STORAGE_DIR, exist_ok=True)  # <--  move to router?
 os.makedirs(settings.ASYNC_JOB_PATH, exist_ok=True)
-
-
-async def sync_files_to_redis(redis_client: redis.Redis):
-    """Scans the upload directory and syncs the file index with Redis."""
-    # logger.debug("Starting file sync to Redis.")
-
-    # Get all file keys from Redis
-    redis_keys = [key async for key in redis_client.scan_iter("file_map:*")]
-    redis_file_keys = {key.split(":")[1] for key in redis_keys}
-
-    # Get all files from the filesystem, assuming subdirectories are collections
-    disk_files = set()
-    for collection_name in os.listdir(settings.UPLOAD_STORAGE_DIR):
-        collection_path = os.path.join(settings.UPLOAD_STORAGE_DIR, collection_name)
-        if os.path.isdir(collection_path):
-            try:
-                validate_collection_name(collection_name)
-                for filename in os.listdir(collection_path):
-                    full_path = os.path.join(collection_path, filename)
-                    if os.path.isfile(full_path):
-                        try:
-                            validate_filename(filename)
-                            file_key = os.path.join(collection_name, filename)
-                            disk_files.add(file_key)
-                        except HTTPException:
-                            logger.warning(
-                                f"Skipping invalid filename during sync: {filename}"
-                            )
-            except HTTPException:
-                logger.warning(
-                    f"Skipping invalid collection name during sync: {collection_name}"
-                )
-
-    # Add new files to Redis
-    new_files = disk_files - redis_file_keys
-    for file_key in new_files:
-        full_path = os.path.join(settings.UPLOAD_STORAGE_DIR, file_key)
-        await redis_client.set(f"file_map:{file_key}", full_path)
-        logger.debug(f"Added new file to Redis: {file_key}")
-
-    # Remove deleted files from Redis
-    deleted_files = redis_file_keys - disk_files
-    if deleted_files:
-        await redis_client.delete(*[f"file_map:{key}" for key in deleted_files])
-        logger.debug(f"Removed deleted files from Redis: {deleted_files}")
-
-
-async def sync_files_periodically(redis_client: redis.Redis):
-    """Runs the file sync process at a regular interval."""
-    logger.info("Starting background file sync task...")
-    while True:
-        await sync_files_to_redis(redis_client)
-        await asyncio.sleep(
-            settings.UPLOAD_STORAGE_SYNC_INTERVAL
-        )  # Sync every 60 seconds
 
 
 @app.post("/service")
