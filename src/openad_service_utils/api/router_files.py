@@ -20,18 +20,18 @@ import random
 import shutil
 import asyncio
 import logging
-from typing import List
 from pathlib import Path
+from typing import List, Literal
 from datetime import datetime, timedelta
 from contextlib import asynccontextmanager
 
 
 # 3rd Party
 import redis.asyncio as redis
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from starlette.concurrency import run_in_threadpool
 from fastapi.responses import FileResponse, JSONResponse
-from fastapi import APIRouter, Depends, HTTPException, Request, FastAPI
+from fastapi import APIRouter, Depends, HTTPException, Request, FastAPI, Body
 
 
 # Internal
@@ -517,22 +517,25 @@ result_statuses = [
 ]
 
 
-class ResultObject(BaseModel):
-    """Individual result model, as consumed by the frontend table component"""
+class Job(BaseModel):
+    """Individual job model, as consumed by the frontend table component"""
 
     filename: str
-    job_name: str
+    collection_name: str
     model_version: str
     checkpoint: str
     size_bytes: int
-    created_at: datetime
-    completed_at: datetime
+    submission_time: datetime
+    completion_time: datetime | None = None
+    inference_time: int | None = None
+    # @brian is this correct:
+    status: Literal["Submitted", "completed", "error", "failed", "Requeued"]
 
 
 class ResultListResponse(BaseModel):
     """File results endpoint response model"""
 
-    results: List[ResultObject]
+    results: List[Job]
 
 
 @files_router.get("/{collection_name}/{filename}", tags=["Job Results"])
@@ -553,11 +556,13 @@ async def get_file_results_page(
     """
     validate_collection_name(collection_name)
     validate_filename(filename)
-    validate_collection_exists(collection_name)  # %%%
+    validate_collection_exists(collection_name)
     validate_file_exists(collection_name, filename)
 
     try:
         # Scan for result keys
+        # @brian make this scan for jobs associates with file key instead
+        file_key = f"{collection_name}/{filename}"
         result_keys = [
             key async for key in redis_client.scan_iter(f"file_map:{collection_name}/*")
         ]
@@ -595,11 +600,9 @@ async def _assemble_result_info(filename: str, result_path_str: str | None) -> d
         result_path_str: The file path string from Redis
     """
 
-    # Placeholder values:
-    job_name = random.choice(dummy_job_names)
-    model_version = "v1"
-    checkpoint = "cp-001"
-    completed_at = datetime.now() - timedelta(days=random.randint(1, 3))
+    model_version = "v1"  # Placeholder @brian
+    checkpoint = "cp-001"  # Placeholder @brian
+    status = "complete"  # Placeholder @brian
 
     result_size = 0
     created_at = None
@@ -611,77 +614,39 @@ async def _assemble_result_info(filename: str, result_path_str: str | None) -> d
             result_size = stat_info.st_size
             created_at = stat_info.st_ctime * 1000  # Convert to milliseconds
 
-    return ResultObject(
+    return Job(
         filename=filename,
-        job_name=job_name,
         model_version=model_version,
         checkpoint=checkpoint,
         size_bytes=result_size,
         created_at=created_at,
-        completed_at=completed_at,
+        status=status,
     )
 
 
 # endregion
 # ----------------------------
-# region --- Create Jobset
+# region --- Fetch: Jobs for table
 
 
+class JobListResponse(BaseModel):
+    """Jobs endpoint response model"""
+
+    results: List[Job]
 
 
-@files_router.post(
-    "create-jobset",
-    summary="Create a new job set with a name and multiple files",
-    tags=["Jobs / Create"],
-)
-async def create_jobset(jobset_name: str, files: List[str]):
-    """
-    Create a new job set with the given name and associated files.
-
-    A job set is a group of jobs (each corresponding to a file)
-    that are associated together under a common name.
-
-    Note that to the user, the term "job set" is not exposed,
-    for them this is simply a
-
-    This calls the /service POST endpoint to create jobs for each file
-
-    Args:
-        jobset_name: Name of the job set to create
-        files: List of file names to associate with the job set
-
-    Returns:
-        JSONResponse: Confirmation message with job set details
-    """
-    validate_jobset_name(jobset_name)
-    for file in files:
-        validate_filename(file)
-    
-    file_keys = 
-
-
-@files_router.post("/create-jobset")
-async def create_multiple_jobs_direct(
-    requests: list[ServiceRequest],
-    job_manager=Depends(get_job_manager),
+@files_router.get("/all-jobs", tags=["Job Results"])
+async def get_all_jobs(
+    redis_client: redis.Redis = Depends(get_redis_client),
 ):
     """
-    Create multiple jobs by directly calling the `service` function.
+    Returns all jobs.
+
+    Returns:
+        JobListResponse
     """
-    from openad_service_utils.api.server import service
-
-    results = []
-    for request_data in requests:
-        try:
-            # Call the `service` function with each request object
-            result = await service(request_data, job_manager)
-            results.append(result)
-        except HTTPException as e:
-            results.append({"error": e.detail})
-        except Exception as e:
-            results.append({"error": str(e)})
-
-    return results
+    # @brian just add the redis iter function here and I can handle the rest
+    return "OK"
 
 
 # endregion
