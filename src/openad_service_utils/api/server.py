@@ -52,14 +52,12 @@ from openad_service_utils.common.models import FileResponse as CustomFileRespons
 from openad_service_utils.common.properties.property_factory import PropertyFactory
 
 # Routers
-from openad_service_utils.api.router_jobs import jobs_router
-from openad_service_utils.api.router_files import files_router
-from openad_service_utils.api.router_results import results_router
+from openad_service_utils.api.router_files import files_router, files_router_lifespan
 
 # Utils
 from openad_service_utils.utils.logging_config import setup_logging
-from openad_service_utils.api.router_files import sync_files_periodically
-from openad_service_utils.utils.router_dependencies import get_job_manager
+
+# from openad_service_utils.api.router_files import sync_files_periodically
 
 # Set up logging configuration
 setup_logging()
@@ -69,6 +67,11 @@ settings = get_config_instance()
 
 # Create a logger
 logger = logging.getLogger(__name__)
+
+
+# create lifecycle event to initialize the job manager
+async def get_job_manager(redis_client: redis.Redis = Depends(get_redis)) -> JobManager:
+    return JobManager(redis_client, "Master Queue")
 
 
 @asynccontextmanager
@@ -83,22 +86,13 @@ async def lifespan(app: FastAPI):
     )
     await clear_job_queues(app.state.redis)
 
-    # Start the file sync background task
-    task = None
-    if "get_mesh_property" in PropertyFactory.AVAILABLE_PROPERTY_PREDICTOR_TYPES():
-        task = asyncio.create_task(sync_files_periodically(app.state.redis))
+    # Router files handle their own background tasks
+    async with files_router_lifespan(app):
+        yield
 
-    yield
-
-    if (
-        "get_mesh_property" in PropertyFactory.AVAILABLE_PROPERTY_PREDICTOR_TYPES()
-        and task
-    ):
-        task.cancel()
+    # Close Redis connection
     await app.state.redis.close()
-
     logger.debug("Shutting down server...")
-    # Cleanup code here
 
 
 # Create FastAPI app with lifespan event
@@ -115,12 +109,7 @@ app.add_middleware(
 )
 
 # Add optional routers for UI
-if jobs_router:
-    app.include_router(jobs_router)
-if files_router:
-    app.include_router(files_router)
-if results_router:
-    app.include_router(results_router)
+app.include_router(files_router)
 
 
 @kube_probe.get("/health", response_class=HTMLResponse)
