@@ -69,8 +69,15 @@ settings = get_config_instance()
 logger = logging.getLogger(__name__)
 
 
-# create lifecycle event to initialize the job manager
-async def get_job_manager(redis_client: redis.Redis = Depends(get_redis)) -> JobManager:
+# Dependency: Redis client
+async def get_redis_client(request: Request) -> redis.Redis:
+    return request.app.state.redis
+
+
+# Dependency: Job Manager
+async def get_job_manager(
+    redis_client: redis.Redis = Depends(get_redis_client),
+) -> JobManager:
     return JobManager(redis_client, "Master Queue")
 
 

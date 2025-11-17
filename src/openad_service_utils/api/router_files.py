@@ -35,6 +35,8 @@ from fastapi import APIRouter, Depends, HTTPException, Request, FastAPI
 
 
 # Internal
+from openad_service_utils.api.models import ServiceRequest
+from openad_service_utils.api.job_manager import JobManager
 from openad_service_utils.api.config import get_config_instance
 from openad_service_utils.utils.logging_config import setup_logging
 from openad_service_utils.common.properties.property_factory import PropertyFactory
@@ -49,7 +51,42 @@ logger = logging.getLogger(__name__)
 
 # endregion
 # ----------------------------
-# region --- Lifespan & Dependencies
+# region --- Dependencies
+
+
+# Duplicate from server.py to avoid circular import
+async def get_redis_client(request: Request) -> redis.Redis:
+    """Dependency to get Redis client from app state."""
+    return request.app.state.redis
+
+
+# Duplicate from server.py to avoid circular import
+async def get_job_manager(
+    redis_client: redis.Redis = Depends(get_redis_client),
+) -> JobManager:
+    """Dependency to get JobManager instance."""
+    return JobManager(redis_client, "Master Queue")
+
+
+def files_enabled() -> bool:
+    return True  # TEMPORARY -- DELETE THIS
+    return "get_mesh_property" in PropertyFactory.AVAILABLE_PROPERTY_PREDICTOR_TYPES()
+
+
+def files_enabled_dependency():
+    """Dependency to check if file collection endpoints are enabled."""
+    if not files_enabled():
+        raise HTTPException(
+            status_code=404,
+            detail="File collection endpoints are not available for this service configuration.",
+        )
+    else:
+        logger.info("File collection endpoints are enabled")
+
+
+# endregion
+# ----------------------------
+# region --- Lifespan & Router Creation
 
 
 @asynccontextmanager
@@ -59,7 +96,7 @@ async def files_router_lifespan(app: FastAPI):
     Starts and stops the file sync background task.
     """
     task = None
-    if "get_mesh_property" in PropertyFactory.AVAILABLE_PROPERTY_PREDICTOR_TYPES():
+    if files_enabled():
         task = asyncio.create_task(sync_files_periodically(app.state.redis))
 
     yield
@@ -69,30 +106,13 @@ async def files_router_lifespan(app: FastAPI):
         try:
             await task
         except asyncio.CancelledError:
-            logger.log("Background file sync task was cancelled.")
-
-
-async def get_redis_client(request: Request) -> redis.Redis:
-    """Dependency to get Redis client from app state."""
-    return request.app.state.redis
-
-
-def files_enabled():
-    """Dependency to check if file collection endpoints are enabled."""
-    return True  # TEMPORARY -- DELETE THIS
-    if "get_mesh_property" not in PropertyFactory.AVAILABLE_PROPERTY_PREDICTOR_TYPES():
-        raise HTTPException(
-            status_code=404,
-            detail="File collection endpoints are not available for this service configuration.",
-        )
-    else:
-        logger.info("File collection endpoints are enabled")
+            logger.info("Background file sync task was cancelled.")
 
 
 # CREATE ROUTER
 files_router = APIRouter(
     prefix="/service/ui/files",
-    dependencies=[Depends(files_enabled)],
+    dependencies=[Depends(files_enabled_dependency)],
     # tags=["ALL FILE ROUTES"],
 )
 
@@ -165,6 +185,12 @@ dummy_job_names = [
 # region --- DUMMY: Fetch: Jobs for table
 
 
+class Meta(BaseModel):
+    error: str | None = None
+    note: str | None = None
+    data: dict | None = None
+
+
 # Job Item model
 class JobItem(BaseModel):
     index_: int
@@ -182,6 +208,7 @@ class JobItem(BaseModel):
 
 
 # Generate dummy jobs
+NOW = datetime.now()
 job_statuses = [
     "running",
     "completed",
@@ -221,6 +248,15 @@ for i in range(1, 51):
         )
     )
 # fmt: on
+
+
+class JobItemsResponse(BaseModel):
+    total: int
+    totalPages: int
+    resultIndices: List[int]
+    page: int
+    pageSize: int
+    items: List[JobItem]
 
 
 @files_router.get("/jobs-page", tags=["Jobs (dummy)"])
@@ -591,6 +627,8 @@ async def _assemble_result_info(filename: str, result_path_str: str | None) -> d
 # region --- Create Jobset
 
 
+
+
 @files_router.post(
     "create-jobset",
     summary="Create a new job set with a name and multiple files",
@@ -616,6 +654,34 @@ async def create_jobset(jobset_name: str, files: List[str]):
         JSONResponse: Confirmation message with job set details
     """
     validate_jobset_name(jobset_name)
+    for file in files:
+        validate_filename(file)
+    
+    file_keys = 
+
+
+@files_router.post("/create-jobset")
+async def create_multiple_jobs_direct(
+    requests: list[ServiceRequest],
+    job_manager=Depends(get_job_manager),
+):
+    """
+    Create multiple jobs by directly calling the `service` function.
+    """
+    from openad_service_utils.api.server import service
+
+    results = []
+    for request_data in requests:
+        try:
+            # Call the `service` function with each request object
+            result = await service(request_data, job_manager)
+            results.append(result)
+        except HTTPException as e:
+            results.append({"error": e.detail})
+        except Exception as e:
+            results.append({"error": str(e)})
+
+    return results
 
 
 # endregion
@@ -742,7 +808,7 @@ async def upload_chunk(
     redis_client: redis.Redis = Depends(get_redis_client),
 ):
     """Upload a chunk using Content-Range header."""
-    print("upload_chunk!")
+    # print("upload_chunk!")
     validate_collection_name(collection_name)
 
     # Get metadata
@@ -810,7 +876,7 @@ async def upload_chunk(
         total_received = sum(chunk["size"] for chunk in chunks_received.values())
         is_complete = total_received == metadata["total_size"]
 
-        print(f'--- {metadata["total_size"]}/{total_received}')
+        # print(f'--- {metadata["total_size"]}/{total_received}')
 
         # Build consistent response using shared function
         response = await _build_upload_status_response(
@@ -1250,7 +1316,7 @@ async def validate_filename_collision(
 
 async def sync_files_to_redis(redis_client: redis.Redis):
     """Scans the upload directory and syncs the file index with Redis."""
-    # logger.debug("Starting file sync to Redis...")
+    logger.debug("Starting file sync to Redis...")
 
     # Get all file keys from Redis
     redis_keys = [key async for key in redis_client.scan_iter("file_map:*")]
@@ -1258,44 +1324,47 @@ async def sync_files_to_redis(redis_client: redis.Redis):
 
     # Get all files from the filesystem, assuming subdirectories are collections
     disk_files = set()
-    for collection_name in os.listdir(settings.UPLOAD_STORAGE_DIR):
-        collection_path = os.path.join(settings.UPLOAD_STORAGE_DIR, collection_name)
-        if os.path.isdir(collection_path):
+    root_dir = Path(settings.UPLOAD_STORAGE_DIR)
+    for collection in root_dir.iterdir():
+        if collection.is_dir():
             try:
-                validate_collection_name(collection_name)
-                for filename in os.listdir(collection_path):
-                    full_path = os.path.join(collection_path, filename)
-                    if os.path.isfile(full_path):
+                validate_collection_name(collection.name)
+                for file in collection.iterdir():
+                    if file.is_file():
                         try:
-                            validate_filename(filename)
-                            file_key = os.path.join(collection_name, filename)
+                            validate_filename(file.name)
+                            file_key = collection.name + "/" + file.name
                             disk_files.add(file_key)
                         except HTTPException:
                             logger.warning(
-                                "Skipping invalid filename during sync: %s", filename
+                                "Sync: Skipping invalid filename during sync: %s",
+                                file.name,
                             )
-            except HTTPException:
+            except HTTPException as e:
                 logger.warning(
-                    "Skipping invalid collection name during sync: %s", collection_name
+                    "Sync: Skipping invalid collection name during sync: %s (%s)",
+                    collection.name,
+                    e,
                 )
 
     # Add new files to Redis
     new_files = disk_files - redis_file_keys
     for file_key in new_files:
-        full_path = os.path.join(settings.UPLOAD_STORAGE_DIR, file_key)
+        full_path = (root_dir / file_key).as_posix()
         await redis_client.set(f"file_map:{file_key}", full_path)
-        logger.debug("Added new file to Redis: %s", file_key)
+        logger.debug("Sync: Added new file to Redis: %s", file_key)
 
     # Remove deleted files from Redis
     deleted_files = redis_file_keys - disk_files
     if deleted_files:
         await redis_client.delete(*[f"file_map:{key}" for key in deleted_files])
-        logger.debug("Removed deleted files from Redis: %s", deleted_files)
+        for key in deleted_files:
+            logger.debug("Sync: Removed deleted file from Redis: %s", key)
 
 
 async def sync_files_periodically(redis_client: redis.Redis):
     """Runs the file sync process at a regular interval."""
-    logger.info("Background file sync every 60 seconds has started...")
+    logger.debug("Sync: Background file sync every 60 seconds has started...")
     while True:
         await sync_files_to_redis(redis_client)
         # Sync every 60 seconds
