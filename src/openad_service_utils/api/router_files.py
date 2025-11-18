@@ -35,7 +35,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, FastAPI, Body
 
 
 # Internal
-from openad_service_utils.api.models import ServiceRequest
+from openad_service_utils.api.models import JobListResponse, ServiceRequest
 from openad_service_utils.api.job_manager import JobManager
 from openad_service_utils.api.config import get_config_instance
 from openad_service_utils.utils.logging_config import setup_logging
@@ -527,9 +527,8 @@ class Job(BaseModel):
     size_bytes: int
     submission_time: datetime
     completion_time: datetime | None = None
-    inference_time: int | None = None
-    # @brian is this correct:
-    status: Literal["Submitted", "completed", "error", "failed", "Requeued"]
+    inference_time: float | None = None
+    status: Literal["Submitted", "In Progress", "completed", "error", "failed", "Requeued"]
 
 
 class ResultListResponse(BaseModel):
@@ -556,30 +555,79 @@ async def get_file_results_page(
     """
     validate_collection_name(collection_name)
     validate_filename(filename)
-    validate_collection_exists(collection_name)
-    validate_file_exists(collection_name, filename)
+    await validate_collection_exists(collection_name)
+    await validate_file_exists(collection_name, filename)
 
     try:
-        # Scan for result keys
-        # @brian make this scan for jobs associates with file key instead
         file_key = f"{collection_name}/{filename}"
-        result_keys = [
-            key async for key in redis_client.scan_iter(f"file_map:{collection_name}/*")
-        ]
+        results = []
+        job_keys = [key async for key in redis_client.scan_iter("job:*")]
+
+        for job_key in job_keys:
+            job_info_str = await redis_client.get(job_key)
+            if not job_info_str:
+                continue
+
+            job_info = json.loads(job_info_str)
+
+            job_file_keys = job_info.get("file_keys")
+            if not isinstance(job_file_keys, list) or file_key not in job_file_keys:
+                continue
+
+            # This job is associated with the file. Now create a Job object.
+            size_bytes = 0
+            if (
+                job_info.get("result")
+                and isinstance(job_info["result"], dict)
+                and job_info["result"].get("file_path")
+            ):
+                result_path = Path(job_info["result"]["file_path"])
+                if await run_in_threadpool(result_path.exists):
+                    stat_info = await run_in_threadpool(result_path.stat)
+                    size_bytes = stat_info.st_size
+
+            model_version = "unknown"
+            if (
+                job_info.get("args")
+                and isinstance(job_info["args"], dict)
+                and job_info["args"].get("service_name")
+            ):
+                model_version = job_info["args"]["service_name"]
+
+            submission_time = (
+                datetime.fromtimestamp(job_info["submission_time"])
+                if job_info.get("submission_time")
+                else None
+            )
+            completion_time = (
+                datetime.fromtimestamp(job_info["completion_time"])
+                if job_info.get("completion_time")
+                else None
+            )
+
+            if not submission_time:
+                logger.warning(f"Job {job_info.get('job_id')} has no submission time, skipping.")
+                continue
+
+            job = Job(
+                filename=filename,
+                collection_name=collection_name,
+                model_version=model_version,
+                checkpoint="cp-001",  # Still a placeholder
+                size_bytes=size_bytes,
+                submission_time=submission_time,
+                completion_time=completion_time,
+                inference_time=job_info.get("inference_time"),
+                status=job_info["status"],
+            )
+            results.append(job)
 
         # Handle empty results
-        if not result_keys:
+        if not results:
             return ResultListResponse(results=[])
 
-        # Assemble result objects for frontend consumption
-        results = []
-        for key in result_keys:
-            result_path_str = await redis_client.get(key)
-            file_info = await _assemble_result_info(filename, result_path_str)
-            results.append(file_info)
-
         # @dummy - sort is handled by frontend, just for demo purposes here
-        results = sorted(results, key=lambda x: x.created_at, reverse=True)
+        results = sorted(results, key=lambda x: x.submission_time, reverse=True)
 
         # Success response
         return ResultListResponse(results=results)
@@ -588,10 +636,11 @@ async def get_file_results_page(
         raise
     except Exception as e:
         error_msg = "Error retrieving file results"
+        logger.error(f"{error_msg}: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"{error_msg}: {str(e)}") from e
 
 
-async def _assemble_result_info(filename: str, result_path_str: str | None) -> dict:
+async def _assemble_result_info(filename: str, result_path_str: str | None) -> Job:
     """
     Assemble result info for frontend consumption.
 
@@ -602,24 +651,29 @@ async def _assemble_result_info(filename: str, result_path_str: str | None) -> d
 
     model_version = "v1"  # Placeholder @brian
     checkpoint = "cp-001"  # Placeholder @brian
-    status = "complete"  # Placeholder @brian
+    status = "completed"  # Placeholder @brian
 
     result_size = 0
     created_at = None
-
+    submission_time = datetime.now()  # Placeholder
     if result_path_str:
         result_path = Path(result_path_str)
         if await run_in_threadpool(result_path.exists):
             stat_info = await run_in_threadpool(result_path.stat)
             result_size = stat_info.st_size
-            created_at = stat_info.st_ctime * 1000  # Convert to milliseconds
+            created_at = datetime.fromtimestamp(stat_info.st_ctime)
+            submission_time = created_at - timedelta(
+                seconds=random.randint(5, 60)
+            )  # Fake submission time
 
     return Job(
         filename=filename,
+        collection_name="unknown",  # Placeholder
         model_version=model_version,
         checkpoint=checkpoint,
         size_bytes=result_size,
-        created_at=created_at,
+        submission_time=submission_time,
+        completion_time=created_at,
         status=status,
     )
 
@@ -629,24 +683,26 @@ async def _assemble_result_info(filename: str, result_path_str: str | None) -> d
 # region --- Fetch: Jobs for table
 
 
-class JobListResponse(BaseModel):
-    """Jobs endpoint response model"""
-
-    results: List[Job]
-
-
-@files_router.get("/all-jobs", tags=["Job Results"])
+@files_router.get("/all-jobs", response_model=JobListResponse, tags=["Job Results"])
 async def get_all_jobs(
     redis_client: redis.Redis = Depends(get_redis_client),
-):
+) -> JobListResponse:
     """
-    Returns all jobs.
-
+    Returns all job IDs.
     Returns:
-        JobListResponse
+        A list of all job IDs.
     """
-    # @brian just add the redis iter function here and I can handle the rest
-    return "OK"
+    try:
+        job_ids = [
+            key.split(":")[1]
+            async for key in redis_client.scan_iter("job:*")
+        ]
+        return JobListResponse(job_ids=job_ids)
+    except Exception as e:
+        logger.error("Error retrieving job IDs: %s", str(e))
+        raise HTTPException(
+            status_code=500, detail=f"Error retrieving job IDs: {str(e)}"
+        ) from e
 
 
 # endregion

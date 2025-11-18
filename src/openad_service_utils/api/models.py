@@ -51,3 +51,10 @@ class ServiceRequest(BaseModel):
 
     class Config:
         validate_by_name = True
+
+
+class JobListResponse(BaseModel):
+    """
+    Pydantic model for a list of job IDs.
+    """
+    job_ids: List[str] = Field(..., description="A list of job IDs.")
