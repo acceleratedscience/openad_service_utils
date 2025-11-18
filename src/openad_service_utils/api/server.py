@@ -145,6 +145,12 @@ os.makedirs(settings.ASYNC_JOB_PATH, exist_ok=True)
 async def service(
     restful_request: ServiceRequest, job_manager: JobManager = Depends(get_job_manager)
 ):
+    # @dummy: trigger selective error
+    # if restful_request.file_keys[0] == "IBMAI24_002R003_003_s01/some_big_file_2.vtk":
+    #     raise HTTPException(status_code=501, detail="This is a test error.")
+
+    # @dummy: faill all
+    # raise HTTPException(status_code=501, detail="This is a test error.")
 
     original_request = restful_request.model_dump(by_alias=True)
     service_type = original_request.get("service_type")

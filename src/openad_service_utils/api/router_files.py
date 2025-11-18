@@ -3,15 +3,14 @@
 
 # UPLOAD_STORAGE_DIR = ~/.openad_models/collection_uploads
 
-# NOTE: Fetch files/results endpoints loads all items without sorting or
-# pagination, which is instead handled by the frontend table component.
-# This is not scalable for large numbers of files. If this ever becomes
-# unmanageable, the table component can be updated to defer to server-side
-# pagination, sorting, and filtering, and this endpoint should be updated
-# accordingly. Documentation for this lives in the frontend repo.
+# NOTE: Fetch endpoints load all items without sorting or pagination,
+# which is instead handled by the frontend table component. This is
+# not scalable for large numbers of files. If this ever becomes unmanageable,
+# the table component can be updated to defer to server-side pagination,
+# sorting, and filtering, and this endpoint should be updated accordingly.
+# Documentation for this lives in the frontend repo.
 
 # Std
-import os
 import re
 import time
 import uuid
@@ -28,14 +27,13 @@ from contextlib import asynccontextmanager
 
 # 3rd Party
 import redis.asyncio as redis
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 from starlette.concurrency import run_in_threadpool
 from fastapi.responses import FileResponse, JSONResponse
-from fastapi import APIRouter, Depends, HTTPException, Request, FastAPI, Body
+from fastapi import APIRouter, Depends, HTTPException, Request, FastAPI
 
 
 # Internal
-from openad_service_utils.api.models import JobListResponse, ServiceRequest
 from openad_service_utils.api.job_manager import JobManager
 from openad_service_utils.api.config import get_config_instance
 from openad_service_utils.utils.logging_config import setup_logging
@@ -47,6 +45,66 @@ setup_logging()
 # Get configuration and logger
 settings = get_config_instance()
 logger = logging.getLogger(__name__)
+
+# endregion
+# ----------------------------
+# region --- Pydantic models
+
+# --- Files endpoint ---
+
+
+class FileObject(BaseModel):
+    """Individual file model, as consumed by the frontend table component."""
+
+    collection_name: str
+    filename: str
+    file_key: str
+    file_extension: str
+    size_bytes: int
+    created_at: datetime
+
+
+class FileListResponse(BaseModel):
+    """Return for files endpoint."""
+
+    files: List[FileObject]
+    all_collections: List[str]
+
+
+# --- Jobs & File Results endpoints ---
+
+
+class JobDetails(BaseModel):
+    """
+    Individual job model, as consumed by the frontend table component.
+
+    Shared between /all-jobs and file results endpoints.
+    """
+
+    job_id: str
+    filename: str
+    collection_name: str
+    model_version: str
+    checkpoint: str
+    size_bytes: int
+    submission_time: datetime
+    completion_time: datetime | None = None
+    inference_time: float | None = None
+    status: Literal[
+        "Submitted", "In Progress", "completed", "error", "failed", "Requeued"
+    ]
+
+
+class AllJobsResponse(BaseModel):
+    """Return for the /all-jobs endpoint."""
+
+    jobs: List[JobDetails]
+
+
+class ResultListResponse(BaseModel):
+    """Return for the file results endpoint."""
+
+    results: List[JobDetails]
 
 
 # endregion
@@ -121,271 +179,194 @@ files_router = APIRouter(
 # region --- DUMMY: Data
 
 
-model_versions = ["v1", "v2", "v3"]
-checkpoints = ["cp-001", "cp-002", "cp-003", "cp-004"]
-dummy_file_results = []
-dummy_job_names = [
-    "informal_stingray",
-    "noble_otter",
-    "thoughtless_crocodile",
-    "aggregate_wombat",
-    "chilly_gecko",
-    "inappropriate_gerbil",
-    "working_caribou",
-    "oral_guineafowl",
-    "urban_tarantula",
-    "heavy_canidae",
-    "identical_impala",
-    "juicy_cuckoo",
-    "middle_wallaby",
-    "preferred_catfish",
-    "chemical_otter",
-    "mass_lynx",
-    "principal_parrotfish",
-    "mute_ladybug",
-    "parental_hare",
-    "kind_jellyfish",
-    "mere_dog",
-    "watery_badger",
-    "advanced_primate",
-    "ethnic_emu",
-    "primary_anaconda",
-    "deep_platypus",
-    "previous_rhinoceros",
-    "wittering_cattle",
-    "vocal_gazelle",
-    "redundant_bug",
-    "prospective_smelt",
-    "evil_carp",
-    "cruel_alligator",
-    "preferred_scorpion",
-    "democratic_salmon",
-    "mathematical_wolverine",
-    "fashionable_giraffe",
-    "lucky_koala",
-    "young_mollusk",
-    "classical_rhinoceros",
-    "shared_sturgeon",
-    "modern_smelt",
-    "welcome_llama",
-    "wee_gorilla",
-    "revolutionary_donkey",
-    "vocal_worm",
-    "dead_ox",
-    "mad_pinniped",
-    "cognitive_silkworm",
-    "puny_dolphin",
-    "head_anaconda",
-    "notable_termite",
-]
+# @dummy
+def _add_dummy_jobs(
+    results: List[JobDetails], filename: str = None, count: int = 6
+) -> List[JobDetails]:
+    """Mutate some values for demo purposes."""
+
+    job_id = str(uuid.uuid4())
+    filename = (filename + " (dummy)") if filename else "some_big_dummy_file.vtk"
+    collection_name = results[0].collection_name if results else "demo_collection"
+    model_version = "get mesh mesh-pressure-shear"
+    checkpoint = "cp-001"
+
+    statuses = [
+        "Submitted",
+        "In Progress",
+        "completed",
+        "error",
+        "failed",
+        "Requeued",
+    ]
+
+    for i in range(count):
+        _status_index = i % len(statuses)
+        status = statuses[_status_index]
+        size_bytes = (
+            random.randint(999999999, 9999999999) if status == "completed" else 0
+        )
+        submission_time = datetime.now() - timedelta(minutes=random.randint(10, 5000))
+        completion_time = (
+            submission_time + timedelta(minutes=random.randint(5, 3000))
+            if status in ["completed", "error", "failed"]
+            else None
+        )
+        # Substract completion from submission to get inference time
+        if completion_time and submission_time:
+            delta = completion_time - submission_time
+            inference_time = (
+                delta.total_seconds() if isinstance(delta, timedelta) else float(delta)
+            )
+        else:
+            inference_time = None
+
+        results.insert(
+            0,
+            JobDetails(
+                job_id=job_id,
+                filename=filename,
+                collection_name=collection_name,
+                model_version=model_version,
+                checkpoint=checkpoint,
+                size_bytes=size_bytes,
+                submission_time=submission_time,
+                completion_time=completion_time,
+                inference_time=inference_time,
+                status=status,
+            ),
+        )
 
 
 # endregion
 # ----------------------------
-# region --- DUMMY: Fetch: Jobs for table
+# region --- Download
 
 
-class Meta(BaseModel):
-    error: str | None = None
-    note: str | None = None
-    data: dict | None = None
-
-
-# Job Item model
-class JobItem(BaseModel):
-    index_: int
-    id: int  # Hidden field
-    icon: str
-    jobName: str
-    fileCount: int
-    completedDate: datetime | None
-    duration: int | None
-    status: str
-    download: bool
-
-    overflow: List[dict] | None
-    meta_: Meta = Meta()
-
-
-# Generate dummy jobs
-NOW = datetime.now()
-job_statuses = [
-    "running",
-    "completed",
-    "failed",
-]
-dummy_jobs = []
-# fmt: off
-for i in range(1, 51):
-    status=random.choice(job_statuses)
-    rd_starttime_secago = random.randint(1, 300000)
-    rd_duration = int(rd_starttime_secago) if status == "completed" else None
-    rd_duration_pretty = str(timedelta(seconds=rd_starttime_secago)) if status == "completed" else '-'
-    rd_upload_date = NOW - timedelta(seconds=rd_starttime_secago) if status == "completed" else None
-    rd_upload_date_pretty = rd_upload_date.strftime("%b %d, %Y at %H:%M") if status == "completed" else '-'
-    dummy_jobs.append(
-        JobItem(
-            index_=i,
-            id=random.randint(0,10000000),
-            icon="icn-yes-full" if status == "completed" else "icn-no-full" if status == "failed" else "icn-progress",
-            jobName=dummy_job_names[i % len(dummy_job_names)],
-            fileCount=random.randint(2, 8),
-            completedDate=rd_upload_date,
-            duration=rd_duration,
-            status=status,
-            download=True,
-            overflow= [{
-                "value": "delete-job",
-                "label": "Delete job",
-                "action": "(row) => { row.callback('delete-job', row) }",
-            }],
-            meta_=Meta(
-                error="Something went wrong" if status == "failed" else None,
-                # note="This is a note." if random.randint(1, 1) == 1 else None,
-                data={"Started on": rd_upload_date_pretty, "Completed on": rd_upload_date_pretty, "Duration": rd_duration_pretty, "Created by": "billy@ibm.com"},
-
-            ),
-        )
-    )
-# fmt: on
-
-
-class JobItemsResponse(BaseModel):
-    total: int
-    totalPages: int
-    resultIndices: List[int]
-    page: int
-    pageSize: int
-    items: List[JobItem]
-
-
-@files_router.get("/jobs-page", tags=["Jobs (dummy)"])
-async def get_jobs_page(
-    status_filter: str = None,  # Filter by status
-    page: int = 1,  # Page number
-    page_size: int = 1,  # Page size
-    sort: str = None,  # Sort key
-    limit: str = None,  # Limit results to list of indices, eg. ?limit=1,7,12
-    query: str = None,  # Filter results by query string
+@files_router.get(
+    "/download-file/{collection_name}/{filename}",
+    summary="Download single file from collection",
+    tags=["Collections / Download"],
+)
+async def download_file_from_collection(
+    collection_name: str,
+    filename: str,
+    redis_client: redis.Redis = Depends(get_redis_client),
 ):
-    # time.sleep(1)
+    """Downloads a file from a specific collection."""
+    validate_collection_name(collection_name)
+    validate_filename(filename)
+    try:
+        file_key = str(Path(collection_name) / filename)
+        file_path_str = await redis_client.get(f"file_map:{file_key}")
 
-    # Store the types per key
-    # - - -
-    # We cycle through the first 50 rows to determine the type
-    # of each key while proritizing str > int/float/datetime > bool > NoneType.
-    # This is required for sorting.
-    sort_key_type_map = {}
-    for item in dummy_jobs[:50]:
-        for key, val in dict(item).items():
-            if key in sort_key_type_map:
-                prev_key_type = sort_key_type_map[key]
-                new_key_type = type(val)
-                if new_key_type == str:
-                    sort_key_type_map[key] = new_key_type
-                elif (
-                    new_key_type == int
-                    or new_key_type == float
-                    or new_key_type == datetime
-                ):
-                    if prev_key_type == bool or prev_key_type == type(None):
-                        sort_key_type_map[key] = new_key_type
-            else:
-                sort_key_type_map[key] = type(val)
-    # print("- - -\n\n", sort_key_type_map, "\n\n")
+        if not file_path_str:
+            raise HTTPException(status_code=404, detail="File not found.")
 
-    # Filter items by status
-    if status_filter:
-        items_by_status = [item for item in dummy_jobs if item.status == status_filter]
-    else:
-        items_by_status = dummy_jobs
+        file_path = Path(file_path_str)
+        if not await run_in_threadpool(file_path.exists):
+            raise HTTPException(status_code=404, detail="File not found.")
 
-    # Filter items by list of indices
-    if limit:
-        limit = [int(i) for i in limit.split(",")]
-        items_limited = [
-            item for [i, item] in enumerate(items_by_status) if i + 1 in limit
-        ]
-    else:
-        items_limited = items_by_status
-
-    # Filter items by query string
-    if query:
-        results = []
-        for item in items_limited:
-            for key in item.dict():
-                value_str = str(item.dict().get(key, ""))
-                if query.lower() in value_str.lower():
-                    results.append(item)
-                    break
-        items_filtered = results
-    else:
-        items_filtered = items_limited
-
-    # Sort items
-    def _sort(item):
-        fallback = (
-            0
-            if sort_key_type_map.get(sort) in [int, float]
-            else (
-                datetime.now()
-                if sort_key_type_map.get(sort) in [datetime]
-                else "" if sort_key_type_map.get(sort) == str else False
+        # Security check: ensure the file is within the upload storage directory
+        storage_path = Path(settings.UPLOAD_STORAGE_DIR).resolve()
+        if not file_path.resolve().is_relative_to(storage_path):
+            raise HTTPException(
+                status_code=403, detail="Access to this file is forbidden."
             )
+
+        return FileResponse(
+            path=str(file_path),
+            media_type="application/octet-stream",
+            filename=filename,
         )
-        value = dict(item).get(sort, fallback)
-        value = fallback if value is None else value
-        return value
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Error downloading file: {str(e)}"
+        ) from e
 
-    reverse = sort.startswith("-") if sort else False
-    sort = sort[1:] if reverse else sort
-    items_sorted = sorted(items_filtered, key=_sort, reverse=reverse)
 
-    # Paginate items
-    skip = (page - 1) * page_size
-    items_page = items_sorted[skip : skip + page_size]
+@files_router.get(
+    "/download-result/{job_id}",
+    summary="Download result file",
+    tags=["Collections / Download"],
+)
+async def download_result(
+    job_id: str,
+    redis_client: redis.Redis = Depends(get_redis_client),
+):
+    """Downloads the result file associated with a job."""
+    try:
+        # @brian: Need to implement lookup of result file
+        result_path_str = await redis_client.get(f"file_map:{job_id}")  # @placholder
+        filename = "placeholder"
 
-    # List of filtered indices
-    result_indices = (
-        [item.index_ for item in items_sorted]
-        if len(items_sorted) < len(dummy_jobs)
-        else []
+        if not result_path_str:
+            raise HTTPException(status_code=404, detail="Result file not found.")
+
+        result_path = Path(result_path_str)
+        if not await run_in_threadpool(result_path.exists):
+            raise HTTPException(status_code=404, detail="Result file not found.")
+
+        # Security check: ensure the file is within the upload storage directory
+        storage_path = Path(settings.UPLOAD_STORAGE_DIR).resolve()
+        if not result_path.resolve().is_relative_to(storage_path):
+            raise HTTPException(
+                status_code=403, detail="Access to this file is forbidden."
+            )
+
+        return FileResponse(
+            path=str(result_path),
+            media_type="application/octet-stream",
+            filename=filename,
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Error downloading file: {str(e)}"
+        ) from e
+
+
+# endregion
+# ----------------------------
+# region --- Fetch: Data for UI
+
+
+@files_router.get(
+    "/model-versions", summary="Get available model versions for dropdown", tags=["UI"]
+)
+async def get_model_versions():
+    model_versions = [
+        "get mesh mesh-pressure-shear",
+        "get mesh mesh-friction",
+        "get mesh this-is-dummy-data",
+    ]
+    return JSONResponse(content={"model_versions": model_versions})
+
+
+@files_router.get(
+    "/job-statuses", summary="Get job status options for dropdown", tags=["UI"]
+)
+async def get_job_statuses():
+    return JSONResponse(
+        content={
+            "job_statuses": [
+                "Submitted",
+                "In Progress",
+                "completed",
+                "error",
+                "failed",
+                "Requeued",
+            ]
+        }
     )
-
-    # Assemble result
-    result = JobItemsResponse(
-        total=len(items_sorted),
-        totalPages=(len(items_sorted) + page_size - 1) // page_size,
-        resultIndices=result_indices,
-        page=page,
-        pageSize=page_size,
-        items=items_page,
-    )
-
-    return result
 
 
 # endregion
 # ----------------------------
 # region --- Fetch: Files for table
-
-
-class FileObject(BaseModel):
-    """Individual file model, as consumed by the frontend table component"""
-
-    collection_name: str
-    filename: str
-    file_key: str
-    file_extension: str
-    size_bytes: int
-    created_at: datetime
-
-
-class FileListResponse(BaseModel):
-    """Files list endpoint response model"""
-
-    files: List[FileObject]
-    all_collections: List[str]
 
 
 @files_router.get(
@@ -411,6 +392,10 @@ async def get_files(
     Returns:
         FileListResponse: List of files and all collection names
     """
+
+    # @dummy test error
+    # raise HTTPException(status_code=418, detail="This is a test.")
+
     if collection_name:
         validate_collection_name(collection_name)
         validate_collection_exists(collection_name)
@@ -505,38 +490,6 @@ async def _get_all_collections(redis_client: redis.Redis) -> list[str]:
 # region --- Fetch: File results for table
 
 
-# @dummy
-result_statuses = [
-    "uploading",
-    "completed",
-    "completed",
-    "completed",
-    "completed",
-    "completed",
-    "failed",
-]
-
-
-class Job(BaseModel):
-    """Individual job model, as consumed by the frontend table component"""
-
-    filename: str
-    collection_name: str
-    model_version: str
-    checkpoint: str
-    size_bytes: int
-    submission_time: datetime
-    completion_time: datetime | None = None
-    inference_time: float | None = None
-    status: Literal["Submitted", "In Progress", "completed", "error", "failed", "Requeued"]
-
-
-class ResultListResponse(BaseModel):
-    """File results endpoint response model"""
-
-    results: List[Job]
-
-
 @files_router.get("/{collection_name}/{filename}", tags=["Job Results"])
 async def get_file_results_page(
     collection_name: str,
@@ -560,9 +513,10 @@ async def get_file_results_page(
 
     try:
         file_key = f"{collection_name}/{filename}"
-        results = []
         job_keys = [key async for key in redis_client.scan_iter("job:*")]
 
+        # Filter jobs associated with the file key
+        results = []
         for job_key in job_keys:
             job_info_str = await redis_client.get(job_key)
             if not job_info_str:
@@ -575,59 +529,12 @@ async def get_file_results_page(
                 continue
 
             # This job is associated with the file. Now create a Job object.
-            size_bytes = 0
-            if (
-                job_info.get("result")
-                and isinstance(job_info["result"], dict)
-                and job_info["result"].get("file_path")
-            ):
-                result_path = Path(job_info["result"]["file_path"])
-                if await run_in_threadpool(result_path.exists):
-                    stat_info = await run_in_threadpool(result_path.stat)
-                    size_bytes = stat_info.st_size
+            job = await _assemble_job_details(collection_name, filename, job_info)
+            if job:
+                results.append(job)
 
-            model_version = "unknown"
-            if (
-                job_info.get("args")
-                and isinstance(job_info["args"], dict)
-                and job_info["args"].get("service_name")
-            ):
-                model_version = job_info["args"]["service_name"]
-
-            submission_time = (
-                datetime.fromtimestamp(job_info["submission_time"])
-                if job_info.get("submission_time")
-                else None
-            )
-            completion_time = (
-                datetime.fromtimestamp(job_info["completion_time"])
-                if job_info.get("completion_time")
-                else None
-            )
-
-            if not submission_time:
-                logger.warning(f"Job {job_info.get('job_id')} has no submission time, skipping.")
-                continue
-
-            job = Job(
-                filename=filename,
-                collection_name=collection_name,
-                model_version=model_version,
-                checkpoint="cp-001",  # Still a placeholder
-                size_bytes=size_bytes,
-                submission_time=submission_time,
-                completion_time=completion_time,
-                inference_time=job_info.get("inference_time"),
-                status=job_info["status"],
-            )
-            results.append(job)
-
-        # Handle empty results
-        if not results:
-            return ResultListResponse(results=[])
-
-        # @dummy - sort is handled by frontend, just for demo purposes here
-        results = sorted(results, key=lambda x: x.submission_time, reverse=True)
+        # @dummy - Add some jobs with different statuses for UI demo purposes
+        _add_dummy_jobs(results, filename)
 
         # Success response
         return ResultListResponse(results=results)
@@ -636,45 +543,71 @@ async def get_file_results_page(
         raise
     except Exception as e:
         error_msg = "Error retrieving file results"
-        logger.error(f"{error_msg}: {str(e)}", exc_info=True)
+        logger.error("%s: %s", error_msg, str(e), exc_info=True)
         raise HTTPException(status_code=500, detail=f"{error_msg}: {str(e)}") from e
 
 
-async def _assemble_result_info(filename: str, result_path_str: str | None) -> Job:
+async def _assemble_job_details(
+    collection_name: str, filename: str, job_info: dict
+) -> JobDetails:
     """
     Assemble result info for frontend consumption.
 
     Args:
+        collection_name: The name of the collection
         filename: The name of the file
-        result_path_str: The file path string from Redis
+        job_info: The job info dictionary from Redis
     """
 
-    model_version = "v1"  # Placeholder @brian
-    checkpoint = "cp-001"  # Placeholder @brian
-    status = "completed"  # Placeholder @brian
+    job_id = job_info.get("job_id", "Missing job ID")
 
-    result_size = 0
-    created_at = None
-    submission_time = datetime.now()  # Placeholder
-    if result_path_str:
-        result_path = Path(result_path_str)
+    size_bytes = 0
+    if (
+        job_info.get("result")
+        and isinstance(job_info["result"], dict)
+        and job_info["result"].get("file_path")
+    ):
+        result_path = Path(job_info["result"]["file_path"])
         if await run_in_threadpool(result_path.exists):
             stat_info = await run_in_threadpool(result_path.stat)
-            result_size = stat_info.st_size
-            created_at = datetime.fromtimestamp(stat_info.st_ctime)
-            submission_time = created_at - timedelta(
-                seconds=random.randint(5, 60)
-            )  # Fake submission time
+            size_bytes = stat_info.st_size
 
-    return Job(
+    model_version = "unknown"
+    if (
+        job_info.get("args")
+        and isinstance(job_info["args"], dict)
+        and job_info["args"].get("service_name")
+    ):
+        model_version = job_info["args"]["service_name"]
+
+    submission_time = (
+        datetime.fromtimestamp(job_info["submission_time"])
+        if job_info.get("submission_time")
+        else None
+    )
+    completion_time = (
+        datetime.fromtimestamp(job_info["completion_time"])
+        if job_info.get("completion_time")
+        else None
+    )
+
+    if not submission_time:
+        logger.warning(
+            "Job %s has no submission time, skipping.", job_info.get("job_id")
+        )
+        return None
+
+    return JobDetails(
+        job_id=job_id,
         filename=filename,
-        collection_name="unknown",  # Placeholder
+        collection_name=collection_name,
         model_version=model_version,
-        checkpoint=checkpoint,
-        size_bytes=result_size,
+        checkpoint="cp-001",  # @placeholder
+        size_bytes=size_bytes,
         submission_time=submission_time,
-        completion_time=created_at,
-        status=status,
+        completion_time=completion_time,
+        inference_time=job_info.get("inference_time"),
+        status=job_info["status"],
     )
 
 
@@ -683,21 +616,42 @@ async def _assemble_result_info(filename: str, result_path_str: str | None) -> J
 # region --- Fetch: Jobs for table
 
 
-@files_router.get("/all-jobs", response_model=JobListResponse, tags=["Job Results"])
+@files_router.get("/all-jobs", response_model=AllJobsResponse, tags=["Job Results"])
 async def get_all_jobs(
     redis_client: redis.Redis = Depends(get_redis_client),
-) -> JobListResponse:
+) -> AllJobsResponse:
     """
     Returns all job IDs.
     Returns:
         A list of all job IDs.
     """
     try:
-        job_ids = [
-            key.split(":")[1]
-            async for key in redis_client.scan_iter("job:*")
-        ]
-        return JobListResponse(job_ids=job_ids)
+        # @dummy test error
+        # raise HTTPException(status_code=418, detail="This is a test.")
+
+        job_keys = [key async for key in redis_client.scan_iter("job:*")]
+
+        all_jobs = []
+        for job_key in job_keys:
+            job_info_str = await redis_client.get(job_key)
+            if not job_info_str:
+                continue
+            job_info = json.loads(job_info_str)
+            # results.append(job_info)
+
+            # fmt: off
+            file_keys = job_info.get("file_keys", [])
+            collection_name = (file_keys[0].split("/")[0] if file_keys else "Missing collection name")
+            filename = file_keys[0].split("/")[1] if file_keys else "Missing filename"
+            job = await _assemble_job_details(collection_name, filename, job_info)
+            if job:
+                all_jobs.append(job)
+            # fmt: on
+
+        # @dummy - Add some jobs with different statuses for UI demo purposes
+        _add_dummy_jobs(all_jobs, count=20)
+
+        return AllJobsResponse(jobs=all_jobs)
     except Exception as e:
         logger.error("Error retrieving job IDs: %s", str(e))
         raise HTTPException(
@@ -1145,55 +1099,6 @@ async def cleanup_upload_session(redis_client: redis.Redis, upload_id: str):
 
 # endregion
 # ----------------------------
-# region --- Download
-
-
-@files_router.get(
-    "/download/{collection_name}/{filename}",
-    summary="Download single file from collection",
-    tags=["Collections / Download"],
-)
-async def download_file_from_collection(
-    collection_name: str,
-    filename: str,
-    redis_client: redis.Redis = Depends(get_redis_client),
-):
-    """Downloads a file from a specific collection."""
-    validate_collection_name(collection_name)
-    validate_filename(filename)
-    try:
-        file_key = str(Path(collection_name) / filename)
-        file_path_str = await redis_client.get(f"file_map:{file_key}")
-
-        if not file_path_str:
-            raise HTTPException(status_code=404, detail="File not found.")
-
-        file_path = Path(file_path_str)
-        if not await run_in_threadpool(file_path.exists):
-            raise HTTPException(status_code=404, detail="File not found.")
-
-        # Security check: ensure the file is within the upload storage directory
-        storage_path = Path(settings.UPLOAD_STORAGE_DIR).resolve()
-        if not file_path.resolve().is_relative_to(storage_path):
-            raise HTTPException(
-                status_code=403, detail="Access to this file is forbidden."
-            )
-
-        return FileResponse(
-            path=str(file_path),
-            media_type="application/octet-stream",
-            filename=filename,
-        )
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=500, detail=f"Error downloading file: {str(e)}"
-        ) from e
-
-
-# endregion
-# ----------------------------
 # region --- Delete
 
 
@@ -1354,6 +1259,8 @@ async def sync_files_to_redis(redis_client: redis.Redis):
                     if file.is_file():
                         try:
                             validate_filename(file.name)
+                            if file.name in [".DS_Store"]:  # Skip system files
+                                continue
                             file_key = collection.name + "/" + file.name
                             disk_files.add(file_key)
                         except HTTPException:
