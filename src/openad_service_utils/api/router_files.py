@@ -640,6 +640,10 @@ async def start_chunked_upload(
 ):
     """Start a chunked upload session."""
 
+    # # @dummy test error
+    # if random.random() < 0.5:
+    #     raise HTTPException(status_code=418, detail="This is a test.")
+
     # Validate inputs
     validate_collection_name(collection_name)
     validate_filename(filename)
@@ -742,6 +746,11 @@ async def upload_chunk(
     redis_client: redis.Redis = Depends(get_redis_client),
 ):
     """Upload a chunk using Content-Range header."""
+
+    # # @dummy test error
+    # if random.random() < 0.5:
+    #     raise HTTPException(status_code=418, detail="This is a test.")
+
     # print("upload_chunk!")
     validate_collection_name(collection_name)
 
@@ -976,6 +985,11 @@ async def _assemble_file_from_chunks(
 ):
     """Assemble the final file from chunks in the background."""
     try:
+
+        # # @dummy test error
+        # if random.random() < 0.5:
+        #     raise HTTPException(status_code=418, detail="This is a test.")
+
         collection_name = metadata["collection_name"]
         filename = metadata["filename"]
 
