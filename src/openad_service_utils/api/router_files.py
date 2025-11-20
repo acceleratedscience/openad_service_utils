@@ -18,6 +18,7 @@ import json
 import random
 import shutil
 import asyncio
+import hashlib
 import logging
 from pathlib import Path
 from typing import List, Literal
@@ -169,17 +170,17 @@ async def files_router_lifespan(app: FastAPI):
 
 # CREATE ROUTER
 files_router = APIRouter(
-    prefix="/service/ui/files",
+    prefix="/service/files",
     dependencies=[Depends(files_enabled_dependency)],
     # tags=["ALL FILE ROUTES"],
 )
 
 # endregion
 # ----------------------------
-# region --- DUMMY: Data
+# region --- Dummy data
 
 
-# @dummy
+# @dummy jobs for UI demo purposes
 def _add_dummy_jobs(
     results: List[JobDetails], filename: str = None, count: int = 6
 ) -> List[JobDetails]:
@@ -244,7 +245,7 @@ def _add_dummy_jobs(
 
 
 @files_router.get(
-    "/download-file/{collection_name}/{filename}",
+    "/download/{collection_name}/{filename}",
     summary="Download single file from collection",
     tags=["Collections / Download"],
 )
@@ -276,48 +277,6 @@ async def download_file_from_collection(
 
         return FileResponse(
             path=str(file_path),
-            media_type="application/octet-stream",
-            filename=filename,
-        )
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=500, detail=f"Error downloading file: {str(e)}"
-        ) from e
-
-
-@files_router.get(
-    "/download-result/{job_id}",
-    summary="Download result file",
-    tags=["Collections / Download"],
-)
-async def download_result(
-    job_id: str,
-    redis_client: redis.Redis = Depends(get_redis_client),
-):
-    """Downloads the result file associated with a job."""
-    try:
-        # @brian: Need to implement lookup of result file
-        result_path_str = await redis_client.get(f"file_map:{job_id}")  # @placholder
-        filename = "placeholder"
-
-        if not result_path_str:
-            raise HTTPException(status_code=404, detail="Result file not found.")
-
-        result_path = Path(result_path_str)
-        if not await run_in_threadpool(result_path.exists):
-            raise HTTPException(status_code=404, detail="Result file not found.")
-
-        # Security check: ensure the file is within the upload storage directory
-        storage_path = Path(settings.UPLOAD_STORAGE_DIR).resolve()
-        if not result_path.resolve().is_relative_to(storage_path):
-            raise HTTPException(
-                status_code=403, detail="Access to this file is forbidden."
-            )
-
-        return FileResponse(
-            path=str(result_path),
             media_type="application/octet-stream",
             filename=filename,
         )
@@ -1002,6 +961,7 @@ async def _build_upload_status_response(
                 "file_key": completion_info.get("file_key"),
                 "final_filename": completion_info.get("final_filename"),
                 "file_size": completion_info.get("file_size"),
+                "checksum": completion_info.get("checksum"),
             }
         )
     else:
@@ -1032,16 +992,22 @@ async def _assemble_file_from_chunks(
 
         sorted_chunks.sort(key=lambda x: x[0])
 
-        # Assemble file
+        # Assemble file & return sha256 hash as checksum
         # Note: this will overwrite existing file if present
         # Logic to prevent this lives under start_chunked_upload() -> replace/rename
         def write_assembled_file():
+            sha256_hash = hashlib.sha256()
             with file_path.open("wb") as final_file:
                 for start_byte, end_byte, chunk_info in sorted_chunks:
                     chunk_path = Path(metadata["temp_dir"]) / chunk_info["chunk_file"]
                     final_file.write(chunk_path.read_bytes())
+                    sha256_hash.update(chunk_path.read_bytes())
+            return sha256_hash.hexdigest()
 
-        await run_in_threadpool(write_assembled_file)
+        checksum = await run_in_threadpool(write_assembled_file)
+
+        # @dummy checksum fail
+        # checksum = "dummy_checksum_fail"
 
         # Update Redis file mapping
         file_key = str(Path(collection_name) / filename)
@@ -1055,6 +1021,7 @@ async def _assemble_file_from_chunks(
             "final_filename": filename,
             "completed_at": time.time(),
             "file_size": file_path.stat().st_size,
+            "checksum": checksum,
         }
         await redis_client.set(
             f"upload:{upload_id}:completion", json.dumps(completion_info)
@@ -1150,6 +1117,11 @@ async def delete_file_from_collection(
     redis_client: redis.Redis = Depends(get_redis_client),
 ):
     """Deletes a file from a specific collection."""
+
+    # @dummy test error
+    # if random.random() < 0.5:
+    #     raise HTTPException(status_code=418, detail="This is a test.")
+
     validate_collection_name(collection_name)
     validate_filename(filename)
     try:
