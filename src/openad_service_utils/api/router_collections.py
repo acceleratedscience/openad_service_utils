@@ -28,8 +28,8 @@ import shutil
 import asyncio
 import hashlib
 import logging
+from typing import List
 from pathlib import Path
-from typing import List, Literal
 from datetime import datetime, timedelta
 from contextlib import asynccontextmanager
 
@@ -43,6 +43,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, FastAPI
 
 
 # Internal
+from openad_service_utils.api.models import JobStatus
 from openad_service_utils.api.job_manager import JobManager
 from openad_service_utils.api.config import get_config_instance
 from openad_service_utils.utils.logging_config import setup_logging
@@ -99,9 +100,7 @@ class JobDetails(BaseModel):
     submission_time: datetime
     completion_time: datetime | None = None
     inference_time: float | None = None
-    status: Literal[
-        "Submitted", "In Progress", "completed", "error", "failed", "Requeued"
-    ]
+    status: JobStatus
 
 
 class AllJobsResponse(BaseModel):
@@ -122,12 +121,14 @@ class ResultListResponse(BaseModel):
 
 
 # Duplicate from server.py to avoid circular import
+# TODO: externalize in dependency module
 async def get_redis_client(request: Request) -> redis.Redis:
     """Dependency to get Redis client from app state."""
     return request.app.state.redis
 
 
 # Duplicate from server.py to avoid circular import
+# TODO: externalize in dependency module
 async def get_job_manager(
     redis_client: redis.Redis = Depends(get_redis_client),
 ) -> JobManager:
@@ -250,105 +251,17 @@ def _add_dummy_jobs(
 
 # endregion
 # ----------------------------
-# region --- Download
+# region --- Files: Fetch
 
 
 @collections_router.get(
-    "/download/{collection_name}/{filename}",
-    summary="Download single file from collection",
-    tags=["Collections / Download"],
-)
-async def download_file_from_collection(
-    collection_name: str,
-    filename: str,
-    redis_client: redis.Redis = Depends(get_redis_client),
-):
-    """Downloads a file from a specific collection."""
-    validate_collection_name(collection_name)
-    validate_filename(filename)
-    try:
-        file_key = str(Path(collection_name) / filename)
-        file_path_str = await redis_client.get(f"file_map:{file_key}")
-
-        if not file_path_str:
-            raise HTTPException(status_code=404, detail="File not found.")
-
-        file_path = Path(file_path_str)
-        if not await run_in_threadpool(file_path.exists):
-            raise HTTPException(status_code=404, detail="File not found.")
-
-        # Security check: ensure the file is within the upload storage directory
-        storage_path = Path(settings.UPLOAD_STORAGE_DIR).resolve()
-        if not file_path.resolve().is_relative_to(storage_path):
-            raise HTTPException(
-                status_code=403, detail="Access to this file is forbidden."
-            )
-
-        return FileResponse(
-            path=str(file_path),
-            media_type="application/octet-stream",
-            filename=filename,
-        )
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=500, detail=f"Error downloading file: {str(e)}"
-        ) from e
-
-
-# endregion
-# ----------------------------
-# region --- Fetch: Data for UI
-
-
-@collections_router.get(
-    "/model-versions",
-    summary="Get available model versions for dropdown",
-    tags=["Collections / UI"],
-)
-async def get_model_versions():
-    model_versions = [
-        "v1.0",
-        "v1.1",
-        "v2.0",
-    ]
-    return JSONResponse(content={"model_versions": model_versions})
-
-
-@collections_router.get(
-    "/job-statuses",
-    summary="Get job status options for dropdown",
-    tags=["Collections / UI"],
-)
-async def get_job_statuses():
-    return JSONResponse(
-        content={
-            "job_statuses": [
-                "Submitted",
-                "In Progress",
-                "completed",
-                "error",
-                "failed",
-                "Requeued",
-            ]
-        }
-    )
-
-
-# endregion
-# ----------------------------
-# region --- Fetch: Files for table
-
-
-@collections_router.get(
-    "",
-    summary="Get all files",
+    "/{collection_name}/files",
+    summary="Get files by collection",
     tags=["Collections / Files"],
 )
 @collections_router.get(
-    "/collection/{collection_name}",
-    summary="Get files by collection",
+    "/files",
+    summary="Get all files",
     tags=["Collections / Files"],
 )
 async def get_files(
@@ -357,6 +270,8 @@ async def get_files(
 ):
     """
     Returns all files, or files from a given collection.
+
+    Note: download by collection name not currently used, filtering is handled by the frontend.
 
     Args:
         collection_name: Optional collection name. If None, returns files from all collections
@@ -459,10 +374,197 @@ async def _get_all_collections(redis_client: redis.Redis) -> list[str]:
 
 # endregion
 # ----------------------------
-# region --- Fetch: File results for table
+# region --- Files: Download
 
 
-@collections_router.get("/{collection_name}/{filename}", tags=["Job Results"])
+@collections_router.get(
+    "/{collection_name}/{filename}/download",
+    summary="Download single file from collection",
+    tags=["Collections / Files"],
+)
+async def download_file_from_collection(
+    collection_name: str,
+    filename: str,
+    redis_client: redis.Redis = Depends(get_redis_client),
+):
+    """Downloads a file from a specific collection."""
+    validate_collection_name(collection_name)
+    validate_filename(filename)
+    try:
+        file_key = str(Path(collection_name) / filename)
+        file_path_str = await redis_client.get(f"file_map:{file_key}")
+
+        if not file_path_str:
+            raise HTTPException(status_code=404, detail="File not found.")
+
+        file_path = Path(file_path_str)
+        if not await run_in_threadpool(file_path.exists):
+            raise HTTPException(status_code=404, detail="File not found.")
+
+        # Security check: ensure the file is within the upload storage directory
+        storage_path = Path(settings.UPLOAD_STORAGE_DIR).resolve()
+        if not file_path.resolve().is_relative_to(storage_path):
+            raise HTTPException(
+                status_code=403, detail="Access to this file is forbidden."
+            )
+
+        return FileResponse(
+            path=str(file_path),
+            media_type="application/octet-stream",
+            filename=filename,
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Error downloading file: {str(e)}"
+        ) from e
+
+
+# endregion
+# ----------------------------
+# region --- Files: Delete
+
+
+@collections_router.delete(
+    "/{collection_name}",
+    summary="Delete collection and all its files",
+    tags=["Collections / Files"],
+)
+async def delete_collection(
+    collection_name: str, redis_client: redis.Redis = Depends(get_redis_client)
+):
+    """Deletes an entire collection and all of its files."""
+    validate_collection_name(collection_name)
+    try:
+        collection_dir = Path(settings.UPLOAD_STORAGE_DIR) / collection_name
+        if not collection_dir.is_dir():
+            raise HTTPException(status_code=404, detail="Collection not found.")
+
+        # Remove all files in the collection from Redis
+        file_keys = [
+            key async for key in redis_client.scan_iter(f"file_map:{collection_name}/*")
+        ]
+
+        if file_keys:
+            await redis_client.delete(*file_keys)
+
+        # Remove the collection directory from the filesystem
+        shutil.rmtree(str(collection_dir))
+
+        return JSONResponse(
+            {"message": f"Collection '{collection_name}' deleted successfully."}
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Error deleting collection: {str(e)}"
+        ) from e
+
+
+@collections_router.delete(
+    "/{collection_name}/{filename}",
+    summary="Delete file",
+    tags=["Collections / Files"],
+)
+async def delete_file_from_collection(
+    collection_name: str,
+    filename: str,
+    redis_client: redis.Redis = Depends(get_redis_client),
+):
+    """Deletes a file from a specific collection."""
+
+    # @dummy test error
+    # if random.random() < 0.5:
+    #     raise HTTPException(status_code=418, detail="This is a test.")
+
+    validate_collection_name(collection_name)
+    validate_filename(filename)
+    try:
+        file_key = str(Path(collection_name) / filename)
+        file_path_str = await redis_client.get(f"file_map:{file_key}")
+
+        if not file_path_str:
+            raise HTTPException(status_code=404, detail="File not found.")
+
+        file_path = Path(file_path_str)
+        if not file_path.exists():
+            raise HTTPException(status_code=404, detail="File not found.")
+
+        file_path.unlink()
+        await redis_client.delete(f"file_map:{file_key}")
+
+        return JSONResponse({"message": "File deleted successfully."})
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Error deleting file: {str(e)}"
+        ) from e
+
+
+# endregion
+# ----------------------------
+# region --- Jobs: Fetch all
+
+
+@collections_router.get(
+    "/jobs",
+    response_model=AllJobsResponse,
+    tags=["Collections / Job Results"],
+    summary="Get all job results",
+)
+async def get_all_jobs(
+    redis_client: redis.Redis = Depends(get_redis_client),
+) -> AllJobsResponse:
+    """
+    Returns a list of job dictionaries.
+    """
+    try:
+        # @dummy test error
+        # raise HTTPException(status_code=418, detail="This is a test.")
+
+        job_keys = [key async for key in redis_client.scan_iter("job:*")]
+
+        all_jobs = []
+        for job_key in job_keys:
+            job_info_str = await redis_client.get(job_key)
+            if not job_info_str:
+                continue
+            job_info = json.loads(job_info_str)
+            # results.append(job_info)
+
+            # fmt: off
+            file_keys = job_info.get("file_keys", [])
+            collection_name = (file_keys[0].split("/")[0] if file_keys else "Missing collection name")
+            filename = file_keys[0].split("/")[1] if file_keys else "Missing filename"
+            job = await _assemble_job_details(collection_name, filename, job_info)
+            if job:
+                all_jobs.append(job)
+            # fmt: on
+
+        # @dummy - Add some jobs with different statuses for UI demo purposes
+        # _add_dummy_jobs(all_jobs, count=20)
+
+        return AllJobsResponse(jobs=all_jobs)
+    except Exception as e:
+        logger.error("Error retrieving job IDs: %s", str(e))
+        raise HTTPException(
+            status_code=500, detail=f"Error retrieving job IDs: {str(e)}"
+        ) from e
+
+
+# endregion
+# ----------------------------
+# region --- Jobs: Fetch by file
+
+
+@collections_router.get(
+    "/{collection_name}/{filename}/jobs",
+    tags=["Collections / Job Results"],
+    summary="Get job results for a specific file",
+)
 async def get_file_results_page(
     collection_name: str,
     filename: str,
@@ -583,59 +685,52 @@ async def _assemble_job_details(
     )
 
 
-# endregion
-# ----------------------------
-# region --- Fetch: Jobs for table
-
-
 @collections_router.get(
-    "/all-jobs", response_model=AllJobsResponse, tags=["Job Results"]
+    "/{job_id}/download",
+    tags=["Collections / Job Results"],
+    summary="Download job result file",
 )
-async def get_all_jobs(
-    redis_client: redis.Redis = Depends(get_redis_client),
-) -> AllJobsResponse:
+async def download_job_result(
+    job_id: str, job_manager: JobManager = Depends(get_job_manager)
+):
     """
-    Returns all job IDs.
-    Returns:
-        A list of all job IDs.
+    Downloads the file result of a completed asynchronous job.
     """
-    try:
-        # @dummy test error
-        # raise HTTPException(status_code=418, detail="This is a test.")
+    job_info = await job_manager._get_job_info_by_id(job_id)
 
-        job_keys = [key async for key in redis_client.scan_iter("job:*")]
+    if not job_info:
+        raise HTTPException(status_code=404, detail="Job not found.")
 
-        all_jobs = []
-        for job_key in job_keys:
-            job_info_str = await redis_client.get(job_key)
-            if not job_info_str:
-                continue
-            job_info = json.loads(job_info_str)
-            # results.append(job_info)
+    if job_info["status"] != "completed":
+        raise HTTPException(status_code=400, detail="Job is not yet complete.")
 
-            # fmt: off
-            file_keys = job_info.get("file_keys", [])
-            collection_name = (file_keys[0].split("/")[0] if file_keys else "Missing collection name")
-            filename = file_keys[0].split("/")[1] if file_keys else "Missing filename"
-            job = await _assemble_job_details(collection_name, filename, job_info)
-            if job:
-                all_jobs.append(job)
-            # fmt: on
+    result = job_info.get("result")
+    file_path = Path(result["file_path"])
+    filename = result.get("filename", file_path.name)
 
-        # @dummy - Add some jobs with different statuses for UI demo purposes
-        # _add_dummy_jobs(all_jobs, count=20)
-
-        return AllJobsResponse(jobs=all_jobs)
-    except Exception as e:
-        logger.error("Error retrieving job IDs: %s", str(e))
+    if (
+        not isinstance(result, dict)
+        or "file_path" not in result
+        or not file_path.exists()
+    ):
         raise HTTPException(
-            status_code=500, detail=f"Error retrieving job IDs: {str(e)}"
-        ) from e
+            status_code=404, detail="Result file not found for this job."
+        )
+
+    # Security check: ensure the file is within the async path
+    if not file_path.is_relative_to(settings.ASYNC_JOB_PATH):
+        raise HTTPException(status_code=403, detail="Access to this file is forbidden.")
+
+    return FileResponse(
+        path=file_path,
+        media_type="application/octet-stream",
+        filename=filename,
+    )
 
 
 # endregion
 # ----------------------------
-# region --- Chunked Upload
+# region --- Upload
 
 
 @collections_router.post(
@@ -1111,100 +1206,37 @@ async def cleanup_upload_session(
 
 # endregion
 # ----------------------------
-# region --- Delete
+# region --- Data for UI
 
 
-@collections_router.delete(
-    "/{collection_name}",
-    summary="Delete collection and all its files",
-    tags=["Collections / Delete"],
+@collections_router.get(
+    "/model-versions",
+    summary="Get available model versions for dropdown",
+    tags=["Collections / UI Data"],
 )
-async def delete_collection(
-    collection_name: str, redis_client: redis.Redis = Depends(get_redis_client)
-):
-    """Deletes an entire collection and all of its files."""
-    validate_collection_name(collection_name)
-    try:
-        collection_dir = Path(settings.UPLOAD_STORAGE_DIR) / collection_name
-        if not collection_dir.is_dir():
-            raise HTTPException(status_code=404, detail="Collection not found.")
-
-        # Remove all files in the collection from Redis
-        file_keys = [
-            key async for key in redis_client.scan_iter(f"file_map:{collection_name}/*")
-        ]
-
-        if file_keys:
-            await redis_client.delete(*file_keys)
-
-        # Remove the collection directory from the filesystem
-        shutil.rmtree(str(collection_dir))
-
-        return JSONResponse(
-            {"message": f"Collection '{collection_name}' deleted successfully."}
-        )
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=500, detail=f"Error deleting collection: {str(e)}"
-        ) from e
+async def get_model_versions():
+    # @brian - Replace with actual model versions
+    model_versions = [
+        "v1.0",
+        "v1.1",
+        "v2.0",
+    ]
+    return JSONResponse(content={"model_versions": model_versions})
 
 
-@collections_router.delete(
-    "/{collection_name}/{filename}",
-    summary="Delete file",
-    tags=["Collections / Delete"],
+@collections_router.get(
+    "/job-statuses",
+    summary="Get job status options for dropdown",
+    tags=["Collections / UI Data"],
 )
-async def delete_file_from_collection(
-    collection_name: str,
-    filename: str,
-    redis_client: redis.Redis = Depends(get_redis_client),
-):
-    """Deletes a file from a specific collection."""
-
-    # @dummy test error
-    # if random.random() < 0.5:
-    #     raise HTTPException(status_code=418, detail="This is a test.")
-
-    validate_collection_name(collection_name)
-    validate_filename(filename)
-    try:
-        file_key = str(Path(collection_name) / filename)
-        file_path_str = await redis_client.get(f"file_map:{file_key}")
-
-        if not file_path_str:
-            raise HTTPException(status_code=404, detail="File not found.")
-
-        file_path = Path(file_path_str)
-        if not file_path.exists():
-            raise HTTPException(status_code=404, detail="File not found.")
-
-        file_path.unlink()
-        await redis_client.delete(f"file_map:{file_key}")
-
-        return JSONResponse({"message": "File deleted successfully."})
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=500, detail=f"Error deleting file: {str(e)}"
-        ) from e
+async def get_job_statuses():
+    job_statuses = [member.value for member in JobStatus]
+    return JSONResponse(content={"job_statuses": job_statuses})
 
 
 # endregion
 # ----------------------------
 # region --- Utility: Validators
-
-
-def validate_jobset_name(jobset_name: str):
-    """Validates the collection name for prohibited characters."""
-    if not re.match(r"^[a-zA-Z0-9_-]+$", jobset_name):
-        raise HTTPException(
-            status_code=400,
-            detail="Invalid job name, only alphanumeric characters, underscores and hyphens allowed.",
-        )
-    # TODO: this should also check for existing jobset names to ensure uniqueness
 
 
 def validate_collection_name(collection_name: str):

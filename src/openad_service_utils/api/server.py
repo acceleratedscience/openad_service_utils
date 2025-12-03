@@ -52,7 +52,10 @@ from openad_service_utils.common.models import FileResponse as CustomFileRespons
 from openad_service_utils.common.properties.property_factory import PropertyFactory
 
 # Routers
-from openad_service_utils.api.router_collections import collections_router, files_router_lifespan
+from openad_service_utils.api.router_collections import (
+    collections_router,
+    files_router_lifespan,
+)
 
 # Utils
 from openad_service_utils.utils.logging_config import setup_logging
@@ -344,47 +347,6 @@ def server_details():
     """return server details"""
     logger.info("Retrieving server details")
     return JSONResponse(settings.model_dump())
-
-
-@app.get("/service/download/{job_id}/{filename}")
-async def download_file(
-    job_id: str, filename: str, job_manager: JobManager = Depends(get_job_manager)
-):
-    """
-    Downloads the file result of a completed asynchronous job.
-    """
-    job_info = await job_manager._get_job_info_by_id(job_id)
-
-    if not job_info:
-        raise HTTPException(status_code=404, detail="Job not found.")
-
-    if job_info["status"] != "completed":
-        raise HTTPException(status_code=400, detail="Job is not yet complete.")
-
-    result = job_info.get("result")
-    if (
-        not isinstance(result, dict)
-        or "file_path" not in result
-        or not os.path.exists(result["file_path"])
-    ):
-        raise HTTPException(
-            status_code=404, detail="Result file not found for this job."
-        )
-
-    file_path = result["file_path"]
-    filename = result.get("filename", os.path.basename(file_path))
-
-    # Security check: ensure the file is within the async path
-    if not os.path.abspath(file_path).startswith(
-        os.path.abspath(settings.ASYNC_JOB_PATH)
-    ):
-        raise HTTPException(status_code=403, detail="Access to this file is forbidden.")
-
-    return FileResponse(
-        path=file_path,
-        media_type="application/octet-stream",
-        filename=filename,
-    )
 
 
 # Function to run the main service

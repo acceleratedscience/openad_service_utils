@@ -56,3 +56,15 @@ class ServiceRequest(BaseModel):
 
     class Config:
         validate_by_name = True
+
+
+class JobStatus(str, Enum):
+    """Enumeration of possible job statuses."""
+
+    # Note: inconsistent casing for historical reasons
+    SUBMITTED = "Submitted"
+    IN_PROGRESS = "In Progress"
+    COMPLETED = "completed"
+    ERROR = "error"
+    FAILED = "failed"
+    REQUEUED = "Requeued"
