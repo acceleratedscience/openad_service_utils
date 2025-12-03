@@ -31,7 +31,7 @@ GET /health
 <hr>
 
 <details>
-<summary><pre><code>GET /health</code></pre></summary>
+<summary><code><b>GET /health</b></code></summary>
 
 > <br>
 >
