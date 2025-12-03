@@ -13,16 +13,11 @@ class ServiceType(str, Enum):
 
 
 class Parameters(BaseModel):
-    property_type: list[str] = Field(
-        ..., description="The type of property to be predicted."
-    )
-    subjects: Optional[list[str]] = Field(
-        None, description="The subjects to be predicted."
-    )
-    max_samples: Optional[int] = Field(
-        None,
-        description="The maximum number of samples to generate for `generate_data` service.",
-    )
+    # fmt: off
+    property_type: list[str] = Field(..., description="The type of property to be predicted.")
+    subjects: Optional[list[str]] = Field(None, description="The subjects to be predicted.")
+    max_samples: Optional[int] = Field(None,description="The maximum number of samples to generate for `generate_data` service.")
+    # fmt: on
 
     class Config:
         extra = "allow"
@@ -33,24 +28,14 @@ class ServiceRequest(BaseModel):
     Pydantic model for the service request body.
     """
 
-    service_type: ServiceType = Field(
-        ..., description="The type of service to be called."
-    )
-    service_name: Optional[str] = Field(
-        None, description="The name of the model to be used."
-    )
-    parameters: Optional[Parameters] = Field(
-        None, description="An object containing the parameters for the model."
-    )
-    async_job: Optional[bool] = Field(
-        False, description="Whether to run the job asynchronously.", alias="async"
-    )
-    url: Optional[str] = Field(
-        None, description="The job id to retrieve the results from."
-    )
-    file_keys: Optional[List[str]] = Field(
-        None, description="List of file paths for uploaded subjects."
-    )
+    # fmt: off
+    service_type: ServiceType = Field(..., description="The type of service to be called.")
+    service_name: Optional[str] = Field(None, description="The name of the model to be used.")
+    parameters: Optional[Parameters] = Field(None, description="An object containing the parameters for the model.")
+    async_job: Optional[bool] = Field(False, description="Whether to run the job asynchronously.", alias="async")
+    url: Optional[str] = Field(None, description="The job id to retrieve the results from.")
+    file_keys: Optional[List[str]] = Field(None, description="List of file paths for uploaded subjects.")
+    # fmt: on
 
     @model_validator(mode="before")
     def check_service_type(cls, values):

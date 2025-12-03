@@ -52,7 +52,7 @@ from openad_service_utils.common.models import FileResponse as CustomFileRespons
 from openad_service_utils.common.properties.property_factory import PropertyFactory
 
 # Routers
-from src.openad_service_utils.api.router_collections import collections_router, files_router_lifespan
+from openad_service_utils.api.router_collections import collections_router, files_router_lifespan
 
 # Utils
 from openad_service_utils.utils.logging_config import setup_logging
