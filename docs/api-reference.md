@@ -6,6 +6,8 @@ This document provides a detailed reference for the model wrapper API.
 
 ### Health & Admin
 
+Checks the health of the service.
+
 <!---------------------------->
 
 <details>
@@ -125,109 +127,224 @@ Submits a job to the model wrapper for processing. The structure of the request 
 
 <!---------------------------->
 
+<br>
+
+### File Collections
+
+<!---------------------------->
+
+**Note:** The file collection endpoints are only available if the service is configured with a property predictor that supports file collections (i.e., `get_mesh_property`). If not available, these endpoints will return a `404 Not Found` error.
+
 <details>
-<summary><code><b>XXXXXXXXXXXXX</b></code></summary>
+<summary><code><b>GET /service/collections</b></code></summary>
 
 <br>
+
+Retrieves a list of all available collections.
 
 > **Request:**
 >
 > -   **Method:** `GET`
-> -   **Endpoint:** `/health`
+> -   **Endpoint:** `/service/collections`
 > -   **Body:** None
 >
 > **Response:**
 >
-> -   **Content-Type:** `text/html`
-> -   **Body:** "UP"
+> -   **Content-Type:** `application/json`
+> -   **Body:** A JSON object containing a list of collection names.
+>     ```json
+>     {
+>     	"collections": ["collection1", "collection2"]
+>     }
+>     ```
 
 </details>
 
 <!---------------------------->
 
 <details>
-<summary><code><b>XXXXXXXXXXXXX</b></code></summary>
+<summary><code><b>POST /service/collections/{collection_name}</b></code></summary>
 
 <br>
 
+Uploads a file to a specific collection.
+
 > **Request:**
 >
-> -   **Method:** `GET`
-> -   **Endpoint:** `/health`
-> -   **Body:** None
+> -   **Method:** `POST`
+> -   **Endpoint:** `/service/collections/{collection_name}`
+> -   **Path Parameters:**
+>     -   `collection_name` (string, required): The name of the collection.
+> -   **Content-Type:** `multipart/form-data`
+> -   **Body:**
+>     -   `file`: The file to be uploaded.
 >
 > **Response:**
 >
-> -   **Content-Type:** `text/html`
-> -   **Body:** "UP"
+> -   **Content-Type:** `application/json`
+> -   **Body:** A JSON object containing the `file_key` and a success message.
+>     ```json
+>     {
+>     	"file_key": "collection_name/filename.ext",
+>     	"message": "File uploaded successfully."
+>     }
+>     ```
 
 </details>
 
 <!---------------------------->
 
 <details>
-<summary><code><b>XXXXXXXXXXXXX</b></code></summary>
+<summary><code><b>GET /service/collections/{collection_name}</b></code></summary>
 
 <br>
+
+Retrieves a list of all files within a specific collection.
 
 > **Request:**
 >
 > -   **Method:** `GET`
-> -   **Endpoint:** `/health`
-> -   **Body:** None
+> -   **Endpoint:** `/service/collections/{collection_name}`
+> -   **Path Parameters:**
+>     -   `collection_name` (string, required): The name of the collection.
 >
 > **Response:**
 >
-> -   **Content-Type:** `text/html`
-> -   **Body:** "UP"
+> -   **Content-Type:** `application/json`
+> -   **Body:** A JSON object containing a list of file objects, each with a `file_key`, `filename`, and `size_bytes`.
+>     ```json
+>     {
+>     	"files": [
+>     		{
+>     			"file_key": "collection_name/file1.txt",
+>     			"filename": "file1.txt",
+>     			"size_bytes": 1024
+>     		},
+>     		{
+>     			"file_key": "collection_name/file2.txt",
+>     			"filename": "file2.txt",
+>     			"size_bytes": 2048
+>     		}
+>     	]
+>     }
+>     ```
 
 </details>
 
 <!---------------------------->
 
 <details>
-<summary><code><b>XXXXXXXXXXXXX</b></code></summary>
+<summary><code><b>GET /service/collections/{collection_name}/{filename}</b></code></summary>
 
 <br>
+
+Downloads a file from a specific collection.
 
 > **Request:**
 >
 > -   **Method:** `GET`
-> -   **Endpoint:** `/health`
-> -   **Body:** None
+> -   **Endpoint:** `/service/collections/{collection_name}/{filename}`
+> -   **Path Parameters:**
+>     -   `collection_name` (string, required): The name of the collection.
+>     -   `filename` (string, required): The name of the file to download.
 >
 > **Response:**
 >
-> -   **Content-Type:** `text/html`
-> -   **Body:** "UP"
+> -   The binary content of the file.
 
 </details>
 
 <!---------------------------->
 
 <details>
-<summary><code><b>XXXXXXXXXXXXX</b></code></summary>
+<summary><code><b>DELETE /service/collections/{collection_name}</b></code></summary>
 
 <br>
 
+Deletes an entire collection and all of its files.
+
 > **Request:**
 >
-> -   **Method:** `GET`
-> -   **Endpoint:** `/health`
-> -   **Body:** None
+> -   **Method:** `DELETE`
+> -   **Endpoint:** `/service/collections/{collection_name}`
+> -   **Path Parameters:**
+>     -   `collection_name` (string, required): The name of the collection to be deleted.
 >
 > **Response:**
 >
-> -   **Content-Type:** `text/html`
-> -   **Body:** "UP"
+> -   **Content-Type:** `application/json`
+> -   **Body:** A JSON object with a success message.
+>     ```json
+>     {
+>     	"message": "Collection 'collection_name' deleted successfully."
+>     }
+>     ```
+
+---
 
 </details>
 
 <!---------------------------->
 
-## Health & Admin
+<details>
+<summary><code><b>DELETE /service/collections/{collection_name}/{filename}</b></code></summary>
 
-Checks the health of the service.
+<br>
+
+Deletes a specific file from a collection.
+
+> **Request:**
+>
+> -   **Method:** `DELETE`
+> -   **Endpoint:** `/service/collections/{collection_name}/{filename}`
+> -   **Path Parameters:**
+>     -   `collection_name` (string, required): The name of the collection.
+>     -   `filename` (string, required): The name of the file to be deleted.
+>
+> **Response:**
+>
+> -   **Content-Type:** `application/json`
+> -   **Body:** A JSON object with a success message.
+>     ```json
+>     {
+>     	"message": "File deleted successfully."
+>     }
+>     ```
+
+</details>
+
+<!---------------------------->
+
+<br>
+
+### Asynchronous Job Results
+
+<!---------------------------->
+
+<details>
+<summary><code><b>GET /service/download/{job_id}/{filename}</b></code></summary>
+
+<br>
+
+Downloads the file result of a completed asynchronous job.
+
+> **Request:**
+>
+> -   **Method:** `GET`
+> -   **Endpoint:** `/service/download/{job_id}/{filename}`
+> -   **Path Parameters:**
+>     -   `job_id` (string, required): The ID of the completed asynchronous job.
+>     -   `filename` (string, required): The name of the file to download.
+>
+> **Response:**
+>
+> -   The binary content of the result file.
+
+</details>
+
+<!-- ## Health & Admin -->
+
+<!-- Checks the health of the service. -->
 
 <!-- ### `GET /health`
 
@@ -322,35 +439,6 @@ Used for retrieving the results of a previously submitted asynchronous job.
 
 --- -->
 
-### File Collections
-
-**Note:** The file collection endpoints are only available if the service is configured with a property predictor that supports file collections (i.e., `get_mesh_property`). If not available, these endpoints will return a `404 Not Found` error.
-
-<details>
-<summary><code><b>GET /service/collections</b></code></summary>
-
-<br>
-
-Retrieves a list of all available collections.
-
-> **Request:**
->
-> -   **Method:** `GET`
-> -   **Endpoint:** `/service/collections`
-> -   **Body:** None
->
-> **Response:**
->
-> -   **Content-Type:** `application/json`
-> -   **Body:** A JSON object containing a list of collection names.
->     ```json
->     {
->     	"collections": ["collection1", "collection2"]
->     }
->     ```
-
-</details>
-
 <!-- ### `GET /service/collections`
 
 Retrieves a list of all available collections.
@@ -373,7 +461,7 @@ Retrieves a list of all available collections.
 
 --- -->
 
-### `POST /service/collections/{collection_name}`
+<!-- ### `POST /service/collections/{collection_name}`
 
 Uploads a file to a specific collection.
 
@@ -398,9 +486,9 @@ Uploads a file to a specific collection.
     }
     ```
 
----
+--- -->
 
-### `GET /service/collections/{collection_name}`
+<!-- ### `GET /service/collections/{collection_name}`
 
 Retrieves a list of all files within a specific collection.
 
@@ -432,9 +520,9 @@ Retrieves a list of all files within a specific collection.
     }
     ```
 
----
+--- -->
 
-### `GET /service/collections/{collection_name}/{filename}`
+<!-- ### `GET /service/collections/{collection_name}/{filename}`
 
 Downloads a file from a specific collection.
 
@@ -450,9 +538,9 @@ Downloads a file from a specific collection.
 
 -   The binary content of the file.
 
----
+--- -->
 
-### `DELETE /service/collections/{collection_name}`
+<!-- ### `DELETE /service/collections/{collection_name}`
 
 Deletes an entire collection and all of its files.
 
@@ -473,9 +561,9 @@ Deletes an entire collection and all of its files.
     }
     ```
 
----
+--- -->
 
-### `DELETE /service/collections/{collection_name}/{filename}`
+<!-- ### `DELETE /service/collections/{collection_name}/{filename}`
 
 Deletes a specific file from a collection.
 
@@ -497,9 +585,9 @@ Deletes a specific file from a collection.
     }
     ```
 
----
+--- -->
 
-## Asynchronous Job Results
+<!-- ## Asynchronous Job Results
 
 ### `GET /service/download/{job_id}/{filename}`
 
@@ -515,4 +603,4 @@ Downloads the file result of a completed asynchronous job.
 
 **Response:**
 
--   The binary content of the result file.
+-   The binary content of the result file. -->
