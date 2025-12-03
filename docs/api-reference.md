@@ -129,6 +129,35 @@ Submits a job to the model wrapper for processing. The structure of the request 
 
 <br>
 
+### Asynchronous Job Results
+
+<!---------------------------->
+
+<details>
+<summary><code><b>GET /service/download/{job_id}/{filename}</b></code></summary>
+
+<br>
+
+Downloads the file result of a completed asynchronous job.
+
+> **Request:**
+>
+> -   **Method:** `GET`
+> -   **Endpoint:** `/service/download/{job_id}/{filename}`
+> -   **Path Parameters:**
+>     -   `job_id` (string, required): The ID of the completed asynchronous job.
+>     -   `filename` (string, required): The name of the file to download.
+>
+> **Response:**
+>
+> -   The binary content of the result file.
+
+</details>
+
+<!---------------------------->
+
+<br>
+
 ### File Collections
 
 <!---------------------------->
@@ -310,35 +339,6 @@ Deletes a specific file from a collection.
 >     	"message": "File deleted successfully."
 >     }
 >     ```
-
-</details>
-
-<!---------------------------->
-
-<br>
-
-### Asynchronous Job Results
-
-<!---------------------------->
-
-<details>
-<summary><code><b>GET /service/download/{job_id}/{filename}</b></code></summary>
-
-<br>
-
-Downloads the file result of a completed asynchronous job.
-
-> **Request:**
->
-> -   **Method:** `GET`
-> -   **Endpoint:** `/service/download/{job_id}/{filename}`
-> -   **Path Parameters:**
->     -   `job_id` (string, required): The ID of the completed asynchronous job.
->     -   `filename` (string, required): The name of the file to download.
->
-> **Response:**
->
-> -   The binary content of the result file.
 
 </details>
 
