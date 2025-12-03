@@ -322,11 +322,36 @@ Used for retrieving the results of a previously submitted asynchronous job.
 
 --- -->
 
-## File Collections
+### File Collections
 
 **Note:** The file collection endpoints are only available if the service is configured with a property predictor that supports file collections (i.e., `get_mesh_property`). If not available, these endpoints will return a `404 Not Found` error.
 
-### `GET /service/collections`
+<details>
+<summary><code><b>GET /service/collections</b></code></summary>
+
+<br>
+
+Retrieves a list of all available collections.
+
+> **Request:**
+>
+> -   **Method:** `GET`
+> -   **Endpoint:** `/service/collections`
+> -   **Body:** None
+>
+> **Response:**
+>
+> -   **Content-Type:** `application/json`
+> -   **Body:** A JSON object containing a list of collection names.
+>     ```json
+>     {
+>     	"collections": ["collection1", "collection2"]
+>     }
+>     ```
+
+</details>
+
+<!-- ### `GET /service/collections`
 
 Retrieves a list of all available collections.
 
@@ -346,7 +371,7 @@ Retrieves a list of all available collections.
     }
     ```
 
----
+--- -->
 
 ### `POST /service/collections/{collection_name}`
 
