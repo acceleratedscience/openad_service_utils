@@ -33,8 +33,8 @@ This document provides a detailed reference for the model wrapper API.
 
 <br>
 
-> Retrieves server configuration details.
->
+Retrieves server configuration details.
+
 > **Request:**
 >
 > -   **Method:** `GET`
@@ -61,8 +61,8 @@ This document provides a detailed reference for the model wrapper API.
 
 <br>
 
-> Retrieves the service definitions for all registered models. This is useful for discovering the available models and their parameters.
->
+Retrieves the service definitions for all registered models. This is useful for discovering the available models and their parameters.
+
 > **Request:**
 >
 > -   **Method:** `GET`
@@ -83,9 +83,9 @@ This document provides a detailed reference for the model wrapper API.
 
 <br>
 
-> Submits a job to the model wrapper for processing. The structure of the request body depends on the `service_type`.
->
-> #### Property Prediction and Data Generation
+Submits a job to the model wrapper for processing. The structure of the request body depends on the `service_type`.
+
+> #### A: Property Prediction and Data Generation
 >
 > Used for submitting synchronous or asynchronous jobs for property prediction or data generation.
 >
@@ -103,8 +103,8 @@ This document provides a detailed reference for the model wrapper API.
 >
 > -   **Synchronous:** A JSON object containing the results of the request. See the [Input/Output Schema Examples](./input-output.md) for examples.
 > -   **Asynchronous:** A JSON object containing the `job_id`.
->
-> #### Asynchronous Job Retrieval
+
+> #### B: Asynchronous Job Retrieval
 >
 > Used for retrieving the results of a previously submitted asynchronous job.
 >
