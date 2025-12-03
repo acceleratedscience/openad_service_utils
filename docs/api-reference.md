@@ -7,6 +7,8 @@ This document provides a detailed reference for the model wrapper API.
 <details>
 <summary>`GET /health`</summary>
 
+<br>
+
 **Request:**
 
 -   **Method:** `GET`
