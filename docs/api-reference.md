@@ -165,9 +165,7 @@ Downloads the file result of a completed asynchronous job.
 > [!NOTE]
 > The file collection endpoints are only available if the service is configured with a property predictor that supports file collections (i.e., `get_mesh_property`). If not available, these endpoints will return a `404 Not Found` error.
 
-<br>
-
-#### Collections / Files
+#### Files
 
 <!---------------------------->
 
@@ -268,7 +266,7 @@ Download single file from collection.
 
 <br>
 
-#### Collections / Job Results
+#### Job Results
 
 <!---------------------------->
 
@@ -375,7 +373,7 @@ Download job result file.
 
 <br>
 
-#### Collections / Upload
+#### Upload
 
 <!---------------------------->
 
@@ -515,7 +513,7 @@ Cancel upload.
 
 <br>
 
-#### Collections / Delete
+#### Delete
 
 <!---------------------------->
 
@@ -576,7 +574,7 @@ Delete file.
 
 <br>
 
-#### Collections / UI
+#### UI
 
 <!---------------------------->
 
