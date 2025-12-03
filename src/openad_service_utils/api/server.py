@@ -52,12 +52,10 @@ from openad_service_utils.common.models import FileResponse as CustomFileRespons
 from openad_service_utils.common.properties.property_factory import PropertyFactory
 
 # Routers
-from openad_service_utils.api.router_files import files_router, files_router_lifespan
+from src.openad_service_utils.api.router_collections import collections_router, files_router_lifespan
 
 # Utils
 from openad_service_utils.utils.logging_config import setup_logging
-
-# from openad_service_utils.api.router_files import sync_files_periodically
 
 # Set up logging configuration
 setup_logging()
@@ -116,7 +114,7 @@ app.add_middleware(
 )
 
 # Add optional routers for UI
-app.include_router(files_router)
+app.include_router(collections_router)
 
 
 @kube_probe.get("/health", response_class=HTMLResponse)
