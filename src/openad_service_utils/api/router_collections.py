@@ -303,7 +303,9 @@ async def download_file_from_collection(
 
 
 @collections_router.get(
-    "/model-versions", summary="Get available model versions for dropdown", tags=["UI"]
+    "/model-versions",
+    summary="Get available model versions for dropdown",
+    tags=["Collections / UI"],
 )
 async def get_model_versions():
     model_versions = [
@@ -315,7 +317,9 @@ async def get_model_versions():
 
 
 @collections_router.get(
-    "/job-statuses", summary="Get job status options for dropdown", tags=["UI"]
+    "/job-statuses",
+    summary="Get job status options for dropdown",
+    tags=["Collections / UI"],
 )
 async def get_job_statuses():
     return JSONResponse(
@@ -584,7 +588,9 @@ async def _assemble_job_details(
 # region --- Fetch: Jobs for table
 
 
-@collections_router.get("/all-jobs", response_model=AllJobsResponse, tags=["Job Results"])
+@collections_router.get(
+    "/all-jobs", response_model=AllJobsResponse, tags=["Job Results"]
+)
 async def get_all_jobs(
     redis_client: redis.Redis = Depends(get_redis_client),
 ) -> AllJobsResponse:
@@ -682,7 +688,11 @@ async def start_chunked_upload(
         final_dir.mkdir(parents=True, exist_ok=True)
 
         # Create temp directory for chunks
-        temp_dir = Path(settings.UPLOAD_STORAGE_DIR) / settings.UPLOAD_STORAGE_CHUNK_TEMP_DIR / upload_id
+        temp_dir = (
+            Path(settings.UPLOAD_STORAGE_DIR)
+            / settings.UPLOAD_STORAGE_CHUNK_TEMP_DIR
+            / upload_id
+        )
         temp_dir.mkdir(parents=True, exist_ok=True)
 
         # Calculate expected number of chunks
@@ -735,7 +745,11 @@ async def start_chunked_upload(
 
     except Exception as e:
         # Clean up on error
-        temp_dir = Path(settings.UPLOAD_STORAGE_DIR) / settings.UPLOAD_STORAGE_CHUNK_TEMP_DIR / upload_id
+        temp_dir = (
+            Path(settings.UPLOAD_STORAGE_DIR)
+            / settings.UPLOAD_STORAGE_CHUNK_TEMP_DIR
+            / upload_id
+        )
         if temp_dir.exists():
             shutil.rmtree(temp_dir, ignore_errors=True)
         raise HTTPException(
@@ -1065,7 +1079,9 @@ async def _assemble_file_from_chunks(
         logger.error("Failed to assemble file from upload %s: %s", upload_id, str(e))
 
 
-async def cleanup_upload_session(redis_client: redis.Redis, upload_id: str, bg_task: bool = False):
+async def cleanup_upload_session(
+    redis_client: redis.Redis, upload_id: str, bg_task: bool = False
+):
     """Clean up an upload session completely."""
     # Remove Redis keys
     keys_to_delete = [
@@ -1082,13 +1098,15 @@ async def cleanup_upload_session(redis_client: redis.Redis, upload_id: str, bg_t
         await redis_client.delete(*existing_keys)
 
     # Remove temp directory
-    temp_dir = Path(settings.UPLOAD_STORAGE_DIR) / settings.UPLOAD_STORAGE_CHUNK_TEMP_DIR / upload_id
+    temp_dir = (
+        Path(settings.UPLOAD_STORAGE_DIR)
+        / settings.UPLOAD_STORAGE_CHUNK_TEMP_DIR
+        / upload_id
+    )
     if temp_dir.exists():
         _prefix = "\x1b[33mBG:Cleanup\x1b[0m " if bg_task else ""
         logger.debug(f"{_prefix}\x1b[31mRemoving temp dir: \x1b[0m%s", temp_dir)
         await run_in_threadpool(shutil.rmtree, temp_dir, ignore_errors=True)
-
-
 
 
 # endregion
@@ -1265,7 +1283,9 @@ async def sync_files_to_redis(redis_client: redis.Redis):
         if collection.is_dir():
             try:
                 validate_collection_name(collection.name)
-                if collection.name in [settings.UPLOAD_STORAGE_CHUNK_TEMP_DIR]:  # Skip _temp folder
+                if collection.name in [
+                    settings.UPLOAD_STORAGE_CHUNK_TEMP_DIR
+                ]:  # Skip _temp folder
                     continue
                 for file in collection.iterdir():
                     if file.is_file():
@@ -1292,7 +1312,10 @@ async def sync_files_to_redis(redis_client: redis.Redis):
     for file_key in new_files:
         full_path = (root_dir / file_key).as_posix()
         await redis_client.set(f"file_map:{file_key}", full_path)
-        logger.debug("\x1b[33mBG:Sync\x1b[0m \x1b[32m[+] Added new file to Redis:\x1b[0m %s", file_key)
+        logger.debug(
+            "\x1b[33mBG:Sync\x1b[0m \x1b[32m[+] Added new file to Redis:\x1b[0m %s",
+            file_key,
+        )
 
     # Remove deleted files from Redis
     deleted_files = redis_file_keys - disk_files
@@ -1300,12 +1323,16 @@ async def sync_files_to_redis(redis_client: redis.Redis):
         await redis_client.delete(*[f"file_map:{key}" for key in deleted_files])
         for key in deleted_files:
             logger.debug(
-                "\x1b[33mBG:Sync\x1b[0m \x1b[31m[-] Removed deleted file from Redis:\x1b[0m %s", key
+                "\x1b[33mBG:Sync\x1b[0m \x1b[31m[-] Removed deleted file from Redis:\x1b[0m %s",
+                key,
             )
+
 
 async def cleanup_expired_uploads(redis_client: redis.Redis):
     """Background task: Cleans up expired upload sessions."""
-    logger.debug("\x1b[33mBG:Cleanup START\x1b[0m -- Clean up expired uploads ever 10 minutes...")
+    logger.debug(
+        "\x1b[33mBG:Cleanup START\x1b[0m -- Clean up expired uploads ever 10 minutes..."
+    )
     while True:
         try:
             logger.debug("\x1b[33mBG:Cleanup\x1b[0m Cleaning up expired uploads...")
@@ -1323,7 +1350,10 @@ async def cleanup_expired_uploads(redis_client: redis.Redis):
                 if current_time > expiry_time:
                     # Extract upload_id from key
                     upload_id = ttl_key.split(":")[1]
-                    logger.debug("\x1b[33mBG:Cleanup\x1b[0m \x1b[31mRemoving temp files for upload \x1b[0m%s", upload_id)
+                    logger.debug(
+                        "\x1b[33mBG:Cleanup\x1b[0m \x1b[31mRemoving temp files for upload \x1b[0m%s",
+                        upload_id,
+                    )
                     await cleanup_upload_session(redis_client, upload_id, bg_task=True)
 
             # Sleep for the configured interval before next check
@@ -1332,7 +1362,6 @@ async def cleanup_expired_uploads(redis_client: redis.Redis):
         except Exception as e:
             logger.error("Error during expired upload cleanup: %s", str(e))
             await asyncio.sleep(settings.UPLOAD_STORAGE_INTERVAL_CLEANUP)
-
 
 
 # endregion
