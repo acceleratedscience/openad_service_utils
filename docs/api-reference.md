@@ -2,7 +2,7 @@
 
 This document provides a detailed reference for the model wrapper API.
 
-## Health & Admin
+### Health & Admin
 
 <details>
 <summary>`GET /health`</summary>
@@ -21,6 +21,30 @@ This document provides a detailed reference for the model wrapper API.
 -   **Body:** "UP"
 
 </details>
+
+<hr>
+
+<details>
+<summary>`GET /health`</summary>
+
+<br>
+
+**Request:**
+
+-   **Method:** `GET`
+-   **Endpoint:** `/health`
+-   **Body:** None
+
+**Response:**
+
+-   **Content-Type:** `text/html`
+-   **Body:** "UP"
+
+</details>
+
+<!--  -->
+
+## Health & Admin
 
 Checks the health of the service.
 
