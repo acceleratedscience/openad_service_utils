@@ -33,8 +33,8 @@ GET /health
 <details>
 <summary><code><b>GET /health</b></code></summary>
 
-> <br>
->
+<br>
+
 > **Request:**
 >
 > -   **Method:** `GET`
