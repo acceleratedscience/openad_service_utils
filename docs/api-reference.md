@@ -4,31 +4,7 @@ This document provides a detailed reference for the model wrapper API.
 
 ### Health & Admin
 
-<details>
-<summary>
-
-```
-GET /health
-```
-
-</summary>
-
-<br>
-
-**Request:**
-
--   **Method:** `GET`
--   **Endpoint:** `/health`
--   **Body:** None
-
-**Response:**
-
--   **Content-Type:** `text/html`
--   **Body:** "UP"
-
-</details>
-
-<hr>
+<!---------------------------->
 
 <details>
 <summary><code><b>GET /health</b></code></summary>
@@ -48,13 +24,181 @@ GET /health
 
 </details>
 
-<!--  -->
+<!---------------------------->
+
+<details>
+<summary><code><b>GET /admin/details</b></code></summary>
+
+<br>
+
+> Retrieves server configuration details.
+>
+> **Request:**
+>
+> -   **Method:** `GET`
+> -   **Endpoint:** `/admin/details`
+> -   **Body:** None
+>
+> **Response:**
+>
+> -   **Content-Type:** `application/json`
+> -   **Body:** A JSON object containing the server settings.
+
+</details>
+
+<!---------------------------->
+
+### Service Definition & Execution
+
+<!---------------------------->
+
+<details>
+<summary><code><b>GET /service</b></code></summary>
+
+<br>
+
+> Retrieves the service definitions for all registered models. This is useful for discovering the available models and their parameters.
+>
+> **Request:**
+>
+> -   **Method:** `GET`
+> -   **Endpoint:** `/service`
+> -   **Body:** None
+>
+> **Response:**
+>
+> -   **Content-Type:** `application/json`
+> -   **Body:** A JSON array of service definition objects. Each object contains information about a registered model, including its `service_name`, `service_type`, and the parameters it accepts.
+
+</details>
+
+<!---------------------------->
+
+<details>
+<summary><code><b>XXXXXXXXXXXXX</b></code></summary>
+
+<br>
+
+> **Request:**
+>
+> -   **Method:** `GET`
+> -   **Endpoint:** `/health`
+> -   **Body:** None
+>
+> **Response:**
+>
+> -   **Content-Type:** `text/html`
+> -   **Body:** "UP"
+
+</details>
+
+<!---------------------------->
+
+<details>
+<summary><code><b>XXXXXXXXXXXXX</b></code></summary>
+
+<br>
+
+> **Request:**
+>
+> -   **Method:** `GET`
+> -   **Endpoint:** `/health`
+> -   **Body:** None
+>
+> **Response:**
+>
+> -   **Content-Type:** `text/html`
+> -   **Body:** "UP"
+
+</details>
+
+<!---------------------------->
+
+<details>
+<summary><code><b>XXXXXXXXXXXXX</b></code></summary>
+
+<br>
+
+> **Request:**
+>
+> -   **Method:** `GET`
+> -   **Endpoint:** `/health`
+> -   **Body:** None
+>
+> **Response:**
+>
+> -   **Content-Type:** `text/html`
+> -   **Body:** "UP"
+
+</details>
+
+<!---------------------------->
+
+<details>
+<summary><code><b>XXXXXXXXXXXXX</b></code></summary>
+
+<br>
+
+> **Request:**
+>
+> -   **Method:** `GET`
+> -   **Endpoint:** `/health`
+> -   **Body:** None
+>
+> **Response:**
+>
+> -   **Content-Type:** `text/html`
+> -   **Body:** "UP"
+
+</details>
+
+<!---------------------------->
+
+<details>
+<summary><code><b>XXXXXXXXXXXXX</b></code></summary>
+
+<br>
+
+> **Request:**
+>
+> -   **Method:** `GET`
+> -   **Endpoint:** `/health`
+> -   **Body:** None
+>
+> **Response:**
+>
+> -   **Content-Type:** `text/html`
+> -   **Body:** "UP"
+
+</details>
+
+<!---------------------------->
+
+<details>
+<summary><code><b>XXXXXXXXXXXXX</b></code></summary>
+
+<br>
+
+> **Request:**
+>
+> -   **Method:** `GET`
+> -   **Endpoint:** `/health`
+> -   **Body:** None
+>
+> **Response:**
+>
+> -   **Content-Type:** `text/html`
+> -   **Body:** "UP"
+
+</details>
+
+<!---------------------------->
 
 ## Health & Admin
 
 Checks the health of the service.
 
-### `GET /health`
+<!-- ### `GET /health`
 
 Checks the health of the service.
 
@@ -69,9 +213,9 @@ Checks the health of the service.
 -   **Content-Type:** `text/html`
 -   **Body:** "UP"
 
----
+--- -->
 
-### `GET /admin/details`
+<!-- ### `GET /admin/details`
 
 Retrieves server configuration details.
 
@@ -86,9 +230,9 @@ Retrieves server configuration details.
 -   **Content-Type:** `application/json`
 -   **Body:** A JSON object containing the server settings.
 
----
+--- -->
 
-## Service Definition & Execution
+<!-- ## Service Definition & Execution
 
 ### `GET /service`
 
@@ -105,7 +249,7 @@ Retrieves the service definitions for all registered models. This is useful for 
 -   **Content-Type:** `application/json`
 -   **Body:** A JSON array of service definition objects. Each object contains information about a registered model, including its `service_name`, `service_type`, and the parameters it accepts.
 
----
+--- -->
 
 ### `POST /service`
 
