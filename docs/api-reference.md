@@ -104,6 +104,8 @@ Submits a job to the model wrapper for processing. The structure of the request 
 > -   **Synchronous:** A JSON object containing the results of the request. See the [Input/Output Schema Examples](./input-output.md) for examples.
 > -   **Asynchronous:** A JSON object containing the `job_id`.
 
+<br>
+
 #### B: Asynchronous Job Retrieval
 
 > Used for retrieving the results of a previously submitted asynchronous job.
