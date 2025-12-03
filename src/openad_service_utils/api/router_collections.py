@@ -1,7 +1,9 @@
+# Optional endpoints for the file collections UI,
+# loaded only with files_enabled() returning True.
 # ----------------------------
-# region --- Imports & Config
-
-# UPLOAD_STORAGE_DIR = ~/.openad_models/collection_uploads
+# - Managing file collections
+# - Chunked file upload
+# - File download
 
 # NOTE: Fetch endpoints load all items without sorting or pagination,
 # which is instead handled by the frontend table component. This is
@@ -9,6 +11,12 @@
 # the table component can be updated to defer to server-side pagination,
 # sorting, and filtering, and this endpoint should be updated accordingly.
 # Documentation for this lives in the frontend repo.
+
+
+# ----------------------------
+# region --- Imports & Config
+
+# UPLOAD_STORAGE_DIR = ~/.openad_models/collection_uploads
 
 # Std
 import re
