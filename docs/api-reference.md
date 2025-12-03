@@ -33,18 +33,18 @@ GET /health
 <details>
 <summary><code>GET /health</code></summary>
 
-<br>
-
-**Request:**
-
--   **Method:** `GET`
--   **Endpoint:** `/health`
--   **Body:** None
-
-**Response:**
-
--   **Content-Type:** `text/html`
--   **Body:** "UP"
+> <br>
+>
+> **Request:**
+>
+> -   **Method:** `GET`
+> -   **Endpoint:** `/health`
+> -   **Body:** None
+>
+> **Response:**
+>
+> -   **Content-Type:** `text/html`
+> -   **Body:** "UP"
 
 </details>
 
