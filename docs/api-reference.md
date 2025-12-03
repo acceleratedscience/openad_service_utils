@@ -5,7 +5,7 @@ This document provides a detailed reference for the model wrapper API.
 ### Health & Admin
 
 <details>
-<summary markdown>
+<summary>
 
 `GET /health`
 
