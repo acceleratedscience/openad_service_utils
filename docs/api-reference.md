@@ -387,7 +387,7 @@ Get job results for a specific file.
 > -   **Body:** A JSON object containing a list of job details.
 >     ```json
 >     {
->     	"results": [
+>     	"jobs": [
 >     		{
 >     			"job_id": "string",
 >     			"filename": "string",
@@ -447,7 +447,7 @@ Start chunked upload.
 > -   **Endpoint:** `/service/collections/{collection_name}/upload/start`
 > -   **Path Parameters:**
 >     -   `collection_name` (string, required): The name of the collection.
-> -   **Body Parameters:**
+> -   **Query Parameters:**
 >     -   `filename` (string, required): The name of the file.
 >     -   `total_size` (integer, required): Total size of the file in bytes.
 >     -   `chunk_size` (integer, optional): Size of each chunk (default: 5MB).

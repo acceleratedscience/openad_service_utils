@@ -103,16 +103,10 @@ class JobDetails(BaseModel):
     status: JobStatus
 
 
-class AllJobsResponse(BaseModel):
+class JobsResponse(BaseModel):
     """Return for the /all-jobs endpoint."""
 
     jobs: List[JobDetails]
-
-
-class ResultListResponse(BaseModel):
-    """Return for the file results endpoint."""
-
-    results: List[JobDetails]
 
 
 # endregion
@@ -511,13 +505,13 @@ async def delete_file_from_collection(
 
 @collections_router.get(
     "/jobs",
-    response_model=AllJobsResponse,
+    response_model=JobsResponse,
     tags=["Collections / Job Results"],
     summary="Get all job results",
 )
 async def get_all_jobs(
     redis_client: redis.Redis = Depends(get_redis_client),
-) -> AllJobsResponse:
+) -> JobsResponse:
     """
     Returns a list of job dictionaries.
     """
@@ -547,7 +541,7 @@ async def get_all_jobs(
         # @dummy - Add some jobs with different statuses for UI demo purposes
         # _add_dummy_jobs(all_jobs, count=20)
 
-        return AllJobsResponse(jobs=all_jobs)
+        return JobsResponse(jobs=all_jobs)
     except Exception as e:
         logger.error("Error retrieving job IDs: %s", str(e))
         raise HTTPException(
@@ -578,7 +572,7 @@ async def get_file_results_page(
         filename: name of the file
 
     Returns:
-        ResultListResponse
+        JobsResponse
     """
     validate_collection_name(collection_name)
     validate_filename(filename)
@@ -611,7 +605,7 @@ async def get_file_results_page(
         _add_dummy_jobs(results, filename)
 
         # Success response
-        return ResultListResponse(results=results)
+        return JobsResponse(jobs=results)
 
     except HTTPException:
         raise
