@@ -2,6 +2,8 @@
 
 This document provides a detailed reference for the model wrapper API.
 
+<br>
+
 ### Health & Admin
 
 <!---------------------------->
@@ -48,6 +50,8 @@ This document provides a detailed reference for the model wrapper API.
 
 <!---------------------------->
 
+<br>
+
 ### Service Definition & Execution
 
 <!---------------------------->
@@ -75,20 +79,45 @@ This document provides a detailed reference for the model wrapper API.
 <!---------------------------->
 
 <details>
-<summary><code><b>XXXXXXXXXXXXX</b></code></summary>
+<summary><code><b>POST /service</b></code></summary>
 
 <br>
 
-> **Request:**
+> Submits a job to the model wrapper for processing. The structure of the request body depends on the `service_type`.
 >
-> -   **Method:** `GET`
-> -   **Endpoint:** `/health`
-> -   **Body:** None
+> #### Property Prediction and Data Generation
+>
+> Used for submitting synchronous or asynchronous jobs for property prediction or data generation.
+>
+> **Request Body:**
+>
+> | Field          | Type             | Required | Description                                                                                                                                     |
+> | -------------- | ---------------- | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+> | `service_type` | string           | Yes      | One of `get_protein_property`, `get_molecule_property`, `get_crystal_property`, `get_mesh_property`, or `generate_data`.                        |
+> | `service_name` | string           | Yes      | The name of the model to be used.                                                                                                               |
+> | `parameters`   | object           | Yes      | An object containing the parameters for the model.                                                                                              |
+> | `async`        | boolean          | No       | Set to `true` to submit the job for asynchronous processing. See [Execution Workflows](./architecture.md#execution-workflows) for more details. |
+> | `file_keys`    | array of strings | No       | A list of file keys in the format `collection_name/filename.ext`, referencing uploaded subject files.                                           |
 >
 > **Response:**
 >
-> -   **Content-Type:** `text/html`
-> -   **Body:** "UP"
+> -   **Synchronous:** A JSON object containing the results of the request. See the [Input/Output Schema Examples](./input-output.md) for examples.
+> -   **Asynchronous:** A JSON object containing the `job_id`.
+>
+> #### Asynchronous Job Retrieval
+>
+> Used for retrieving the results of a previously submitted asynchronous job.
+>
+> **Request Body:**
+>
+> | Field          | Type   | Required | Description                                       |
+> | -------------- | ------ | -------- | ------------------------------------------------- |
+> | `service_type` | string | Yes      | Must be `get_result`.                             |
+> | `url`          | string | Yes      | The `job_id` of the asynchronous job to retrieve. |
+>
+> **Response:**
+>
+> -   A JSON object containing the status of the job. If the job is complete and the result is a file, the response will include a `download_url`. Otherwise, for JSON-based results, it will contain the result data directly.
 
 </details>
 
@@ -251,7 +280,7 @@ Retrieves the service definitions for all registered models. This is useful for 
 
 --- -->
 
-### `POST /service`
+<!-- ### `POST /service`
 
 Submits a job to the model wrapper for processing. The structure of the request body depends on the `service_type`.
 
@@ -289,7 +318,7 @@ Used for retrieving the results of a previously submitted asynchronous job.
 
 -   A JSON object containing the status of the job. If the job is complete and the result is a file, the response will include a `download_url`. Otherwise, for JSON-based results, it will contain the result data directly.
 
----
+--- -->
 
 ## File Collections
 
