@@ -71,7 +71,7 @@ class FileObject(BaseModel):
     file_key: str
     file_extension: str
     size_bytes: int
-    created_at: datetime
+    created_at: datetime | float | None
 
 
 class FileListResponse(BaseModel):
@@ -279,7 +279,7 @@ async def get_files(
 
     if collection_name:
         validate_collection_name(collection_name)
-        validate_collection_exists(collection_name)
+        await validate_collection_exists(collection_name)
 
     # Fetch list of all collections, used to populate
     # dropdown which should be in sync at all times
@@ -318,7 +318,7 @@ async def get_files(
         raise HTTPException(status_code=500, detail=f"{error_msg}: {str(e)}") from e
 
 
-async def _assemble_file_info(file_key: str, file_path_str: str | None) -> dict:
+async def _assemble_file_info(file_key: str, file_path_str: str | None) -> FileObject:
     """
     Assemble file info for frontend consumption.
 
@@ -529,14 +529,12 @@ async def get_all_jobs(
             job_info = json.loads(job_info_str)
             # results.append(job_info)
 
-            # fmt: off
             file_keys = job_info.get("file_keys", [])
             collection_name = (file_keys[0].split("/")[0] if file_keys else "Missing collection name")
             filename = file_keys[0].split("/")[1] if file_keys else "Missing filename"
             job = await _assemble_job_details(collection_name, filename, job_info)
             if job:
                 all_jobs.append(job)
-            # fmt: on
 
         # @dummy - Add some jobs with different statuses for UI demo purposes
         # _add_dummy_jobs(all_jobs, count=20)
@@ -617,7 +615,7 @@ async def get_file_results_page(
 
 async def _assemble_job_details(
     collection_name: str, filename: str, job_info: dict
-) -> JobDetails:
+) -> JobDetails | None:
     """
     Assemble result info for frontend consumption.
 
@@ -699,17 +697,15 @@ async def download_job_result(
         raise HTTPException(status_code=400, detail="Job is not yet complete.")
 
     result = job_info.get("result")
-    file_path = Path(result["file_path"])
-    filename = result.get("filename", file_path.name)
 
-    if (
-        not isinstance(result, dict)
-        or "file_path" not in result
-        or not file_path.exists()
-    ):
-        raise HTTPException(
-            status_code=404, detail="Result file not found for this job."
-        )
+    if not isinstance(result, dict) or "file_path" not in result:
+        raise HTTPException(status_code=404, detail="Result file not found for this job.")
+
+    file_path = Path(result["file_path"])
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail="Result file not found for this job.")
+
+    filename = result.get("filename", file_path.name)
 
     # Security check: ensure the file is within the async path
     if not file_path.is_relative_to(settings.ASYNC_JOB_PATH):
@@ -766,9 +762,9 @@ async def start_chunked_upload(
     if not replace and not rename:
         await validate_filename_collision(redis_client, collection_name, filename)
 
+    # Generate unique upload ID
+    upload_id = str(uuid.uuid4())
     try:
-        # Generate unique upload ID
-        upload_id = str(uuid.uuid4())
 
         # Create final collection directory if not exists
         # This is needed so we can open the collection page
@@ -900,26 +896,38 @@ async def upload_chunk(
         if total_size != metadata["total_size"]:
             raise HTTPException(status_code=400, detail="Total size mismatch")
 
-        chunk_data = await request.body()
         expected_chunk_size = end_byte - start_byte + 1
 
-        if len(chunk_data) != expected_chunk_size:
-            raise HTTPException(
-                status_code=400, detail="Chunk size doesn't match Content-Range"
-            )
-
-        # Store chunk to temp file
+        # Stream body to a temporary file to avoid loading entire chunk into memory,
+        # then atomically rename it to the final chunk path.
         chunk_filename = f"chunk_{start_byte}_{end_byte}"
         chunk_path = Path(metadata["temp_dir"]) / chunk_filename
+        temp_path = chunk_path.with_suffix(f".tmp.{uuid.uuid4()}")
+        bytes_written = 0
+        try:
+            with temp_path.open("wb") as f:
+                async for chunk in request.stream():
+                    await run_in_threadpool(f.write, chunk)
+                    bytes_written += len(chunk)
 
-        await run_in_threadpool(lambda: chunk_path.write_bytes(chunk_data))
+            if bytes_written != expected_chunk_size:
+                raise HTTPException(
+                    status_code=400, detail="Chunk size doesn't match Content-Range"
+                )
+
+            await run_in_threadpool(temp_path.rename, chunk_path)
+
+        except Exception:
+            if await run_in_threadpool(temp_path.exists):
+                await run_in_threadpool(temp_path.unlink)
+            raise
 
         # Update received chunks tracking
         chunks_str = await redis_client.get(f"upload:{upload_id}:chunks")
         chunks_received = json.loads(chunks_str) if chunks_str else {}
         chunks_received[f"{start_byte}-{end_byte}"] = {
             "received_at": time.time(),
-            "size": len(chunk_data),
+            "size": bytes_written,
             "chunk_file": chunk_filename,
         }
 

@@ -35,7 +35,7 @@ class ServerConfig(BaseSettings):
 
     # Directory to store uploaded files / collections
     UPLOAD_STORAGE_DIR: str = os.path.join(os.path.expanduser("~"), ".openad_models", "collection_uploads")
-    UPLOAD_STORAGE_CHUNK_TEMP_DIR: str = "_temp"
+    UPLOAD_STORAGE_CHUNK_TEMP_DIR: str = "/tmp/openad_upload_chunks"
     UPLOAD_STORAGE_EXPIRATION: int = Field(default=(24 * 60 * 60), ge=0)     # seconds (24 hrs) - Expiration time for incomplete uploads
     UPLOAD_STORAGE_EXPIRATION_COMPLETE: int = Field(default=(60 * 10), ge=0) # seconds (10 min) - Expiration time for completed uploads
     UPLOAD_STORAGE_INTERVAL_SYNC: int = Field(default=60, ge=0)              # seconds  (1 min) - How often to run bg task: Sync upload progress to Redis
