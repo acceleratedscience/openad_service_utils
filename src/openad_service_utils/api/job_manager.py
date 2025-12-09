@@ -338,7 +338,7 @@ def run_cleanup():
 
 def slave_thread(worker_id):
     """create a slave thread and starte it for Daemon Workers"""
-    logger.info(f"Started job worker {worker_id} with process with PID: {os.getpid()}")
+    logger.debug(f"Started job worker {worker_id} with process with PID: {os.getpid()}")
     redis_client = Redis(host=settings.REDIS_HOST, port=settings.REDIS_PORT, db=settings.REDIS_DB, password=settings.REDIS_PASSWORD)
     daemon = JobManager(redis_client, f"worker-{worker_id}")
     asyncio.run(daemon.process_jobs())

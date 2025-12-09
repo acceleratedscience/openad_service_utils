@@ -121,7 +121,6 @@ app.add_middleware(
 
 # Add optional routers for UI
 if settings.COLLECTIONS_API_ENABLED:
-    logger.info("Collections API enabled.")
     app.include_router(collections_router)
 
 
@@ -355,14 +354,15 @@ def server_details():
 
 
 # Function to run the main service
-def run_main_service(host, port, log_level, workers):
+def run_main_service(host, port, log_level, workers: int=1, reload: bool=False):
+    logger.info(f"Swagger UI is available at http://0.0.0.0:{port}/docs")
     uvicorn.run(
         "openad_service_utils.api.server:app",
         host=host,
         port=port,
         log_level=log_level,
         workers=workers,
-        reload=True,
+        reload=reload,
     )
 
 
@@ -400,6 +400,7 @@ def start_server(
     log_level=settings.UVICORN_LOG_LEVEL,
     max_workers=settings.SERVE_MAX_WORKERS,
     worker_gpu_min=settings.SERVE_WORKER_GPU_MIN,
+    reload: bool = False,
 ):
     """
     Starts the FastAPI server with configurable options.
@@ -444,7 +445,7 @@ def start_server(
     config_settings = GT4SDConfiguration().model_dump(
         include={"OPENAD_S3_HOST", "OPENAD_S3_HOST_HUB"}
     )
-    logger.info(f"S3 Config: {config_settings}")
+    logger.debug(f"S3 Config: {config_settings}")
     # logger.info(f"Total workers: {max_workers}")
 
     multiprocessing.set_start_method("spawn", force=True)
@@ -456,15 +457,15 @@ def start_server(
             worker_process = multiprocessing.Process(target=slave_thread, args=(i + 1,))
             processes.append(worker_process)
             worker_process.start()
-            logger.info(f"Started worker process {i+1} with PID: {worker_process.pid}")
+            logger.debug(f"Started worker process {i+1} with PID: {worker_process.pid}")
 
         # Start Uvicorn main service
         main_service_process = multiprocessing.Process(
-            target=run_main_service, args=(host, port, log_level, 1)
+            target=run_main_service, args=(host, port, log_level, 1, reload)
         )
         processes.append(main_service_process)
         main_service_process.start()
-        logger.info(
+        logger.debug(
             f"Uvicorn main service started on {host}:{port} with PID: {main_service_process.pid}"
         )
 
@@ -476,7 +477,7 @@ def start_server(
             )
             processes.append(health_service_process)
             health_service_process.start()
-            logger.info(
+            logger.debug(
                 f"Kubernetes health probe started on {host}:{settings.PROBE_PORT}."
             )
 
