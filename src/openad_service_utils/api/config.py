@@ -34,6 +34,7 @@ class ServerConfig(BaseSettings):
     JOB_COMPLETION_TIMEOUT: int = Field(default=3600, ge=0) # Timeout for waiting for a syncrounous job to complete (seconds)
 
     # Directory to store uploaded files / collections
+    COLLECTIONS_API_ENABLED: bool = False
     UPLOAD_STORAGE_DIR: str = os.path.join(os.path.expanduser("~"), ".openad_models", "collection_uploads")
     UPLOAD_STORAGE_CHUNK_TEMP_DIR: str = "/tmp/openad_upload_chunks"
     UPLOAD_STORAGE_EXPIRATION: int = Field(default=(24 * 60 * 60), ge=0)     # seconds (24 hrs) - Expiration time for incomplete uploads

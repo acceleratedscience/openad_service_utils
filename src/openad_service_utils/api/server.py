@@ -95,7 +95,10 @@ async def lifespan(app: FastAPI):
     await clear_job_queues(app.state.redis)
 
     # Router files handle their own background tasks
-    async with files_router_lifespan(app):
+    if settings.COLLECTIONS_API_ENABLED:
+        async with files_router_lifespan(app):
+            yield
+    else:
         yield
 
     # Close Redis connection
@@ -117,7 +120,9 @@ app.add_middleware(
 )
 
 # Add optional routers for UI
-app.include_router(collections_router)
+if settings.COLLECTIONS_API_ENABLED:
+    logger.info("Collections API enabled.")
+    app.include_router(collections_router)
 
 
 @kube_probe.get("/health", response_class=HTMLResponse)
