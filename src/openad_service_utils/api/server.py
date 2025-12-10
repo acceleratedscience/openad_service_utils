@@ -354,7 +354,7 @@ def server_details():
 
 
 # Function to run the main service
-def run_main_service(host, port, log_level, workers: int=1, reload: bool=False):
+def run_main_service(host, port, log_level, workers: int = 1, reload: bool = False):
     logger.info(f"Swagger UI is available at http://0.0.0.0:{port}/docs")
     uvicorn.run(
         "openad_service_utils.api.server:app",
@@ -507,4 +507,7 @@ def start_server(
 
 
 if __name__ == "__main__":
-    start_server()
+    if "--reload" in sys.argv:
+        start_server(reload=True)
+    else:
+        start_server()

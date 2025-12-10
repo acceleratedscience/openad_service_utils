@@ -530,7 +530,9 @@ async def get_all_jobs(
             # results.append(job_info)
 
             file_keys = job_info.get("file_keys", [])
-            collection_name = (file_keys[0].split("/")[0] if file_keys else "Missing collection name")
+            collection_name = (
+                file_keys[0].split("/")[0] if file_keys else "Missing collection name"
+            )
             filename = file_keys[0].split("/")[1] if file_keys else "Missing filename"
             job = await _assemble_job_details(collection_name, filename, job_info)
             if job:
@@ -600,7 +602,7 @@ async def get_file_results_page(
                 results.append(job)
 
         # @dummy - Add some jobs with different statuses for UI demo purposes
-        _add_dummy_jobs(results, filename)
+        # _add_dummy_jobs(results, filename)
 
         # Success response
         return JobsResponse(jobs=results)
@@ -699,11 +701,15 @@ async def download_job_result(
     result = job_info.get("result")
 
     if not isinstance(result, dict) or "file_path" not in result:
-        raise HTTPException(status_code=404, detail="Result file not found for this job.")
+        raise HTTPException(
+            status_code=404, detail="Result file not found for this job."
+        )
 
     file_path = Path(result["file_path"])
     if not file_path.exists():
-        raise HTTPException(status_code=404, detail="Result file not found for this job.")
+        raise HTTPException(
+            status_code=404, detail="Result file not found for this job."
+        )
 
     filename = result.get("filename", file_path.name)
 
@@ -721,6 +727,40 @@ async def download_job_result(
 # endregion
 # ----------------------------
 # region --- Upload
+
+# Chunked file upload process:
+# ----------------------------
+# 1. Start Upload (POST /start):
+#    - Validates inputs and creates a unique `upload_id`.
+#    - Creates a temporary directory for chunks.
+#    - Sets Redis keys:
+#      - `upload:{id}:metadata`: Stores file info (filename, size, etc.).
+#      - `upload:{id}:chunks`: Tracks received chunks.
+#      - `upload:{id}:ttl`: Expiration timestamp for the session.
+#
+# 2. Upload Chunk (PUT /{upload_id}):
+#    - Receives a binary chunk and validates Content-Range.
+#    - Writes chunk to temp file.
+#    - Updates `upload:{id}:chunks` with chunk info.
+#    - If all chunks received:
+#      - Triggers background assembly.
+#      - Returns status "completing".
+#
+# 3. Background Assembly (`_assemble_file_from_chunks`):
+#    - Concatenates chunks in order.
+#    - Calculates SHA256 checksum.
+#    - Moves final file to collection directory.
+#    - Sets `upload:{id}:completion` with status "completed" and file info.
+#    - Updates `upload:{id}:ttl` for short-term retention of completion status.
+#
+# 4. Get Status (GET /status):
+#    - Returns progress based on `upload:{id}:chunks`.
+#    - Checks `upload:{id}:completion` for final status (completed/failed).
+#    - Used by frontend to poll for completion after last chunk.
+#
+# 5. Cleanup:
+#    - `cleanup_expired_uploads` background task runs periodically.
+#    - Removes Redis keys and temp directories for expired sessions (based on `:ttl`).
 
 
 @collections_router.post(
@@ -1162,6 +1202,11 @@ async def _assemble_file_from_chunks(
         )
 
         # Schedule cleanup after 10 minutes
+        # - - -
+        # We can't immediately run cleanup_upload_session() because the completion
+        # signal is detected from the get_upload_status endpoint which is called
+        # every second by the frontend, after the last chunk was uploaded, until
+        # the file is assembled and the upload id is marked as completed.
         cleanup_time = time.time() + settings.UPLOAD_STORAGE_EXPIRATION_COMPLETE
         await redis_client.set(f"upload:{upload_id}:ttl", str(cleanup_time))
 
@@ -1169,8 +1214,8 @@ async def _assemble_file_from_chunks(
             "Successfully assembled file %s from chunked upload %s", filename, upload_id
         )
 
+    # Mark as failed
     except Exception as e:
-        # Mark as failed
         error_info = {"status": "failed", "error": str(e), "failed_at": time.time()}
         await redis_client.set(f"upload:{upload_id}:completion", json.dumps(error_info))
         logger.error("Failed to assemble file from upload %s: %s", upload_id, str(e))
@@ -1182,6 +1227,7 @@ async def cleanup_upload_session(
     """Clean up an upload session completely."""
     # Remove Redis keys
     keys_to_delete = [
+        f"upload:{upload_id}:completion",
         f"upload:{upload_id}:metadata",
         f"upload:{upload_id}:chunks",
         f"upload:{upload_id}:ttl",
