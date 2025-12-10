@@ -530,9 +530,7 @@ async def get_all_jobs(
             # results.append(job_info)
 
             file_keys = job_info.get("file_keys", [])
-            collection_name = (
-                file_keys[0].split("/")[0] if file_keys else "Missing collection name"
-            )
+            collection_name = (file_keys[0].split("/")[0] if file_keys else "Missing collection name")
             filename = file_keys[0].split("/")[1] if file_keys else "Missing filename"
             job = await _assemble_job_details(collection_name, filename, job_info)
             if job:
@@ -701,15 +699,11 @@ async def download_job_result(
     result = job_info.get("result")
 
     if not isinstance(result, dict) or "file_path" not in result:
-        raise HTTPException(
-            status_code=404, detail="Result file not found for this job."
-        )
+        raise HTTPException(status_code=404, detail="Result file not found for this job.")
 
     file_path = Path(result["file_path"])
     if not file_path.exists():
-        raise HTTPException(
-            status_code=404, detail="Result file not found for this job."
-        )
+        raise HTTPException(status_code=404, detail="Result file not found for this job.")
 
     filename = result.get("filename", file_path.name)
 

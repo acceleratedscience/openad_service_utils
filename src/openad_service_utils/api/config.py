@@ -42,11 +42,6 @@ class ServerConfig(BaseSettings):
     UPLOAD_STORAGE_INTERVAL_SYNC: int = Field(default=60, ge=0)              # seconds  (1 min) - How often to run bg task: Sync upload progress to Redis
     UPLOAD_STORAGE_INTERVAL_CLEANUP: int = Field(default=(60 * 10), ge=0)    # seconds (10 min) - How often to run bg task: Cleanup of expired uploads
 
-    # For testing
-    UPLOAD_STORAGE_EXPIRATION: int = Field(default=(60), ge=0)               # seconds (1 min) - Expiration time for incomplete uploads
-    UPLOAD_STORAGE_EXPIRATION_COMPLETE: int = Field(default=(60), ge=0)      # seconds (1 min) - Expiration time for completed uploads
-    UPLOAD_STORAGE_INTERVAL_CLEANUP: int = Field(default=(60), ge=0)         # seconds (1 min) - How often to run bg task: Cleanup of expired uploads
-
     # uvicorn settings
     HOST: str = "0.0.0.0"
     PORT: int = 8080
