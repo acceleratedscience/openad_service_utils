@@ -1409,7 +1409,14 @@ async def sync_files_to_redis(redis_client: redis.Redis):
 
 
 async def cleanup_expired_uploads(redis_client: redis.Redis):
-    """Background task: Cleans up expired upload sessions."""
+    """
+    Background task: Cleans up expired upload sessions.
+
+    Cleans up:
+    - Chunk files from abandoned uploads after (24h)
+    - Chunk files from completed upload metadata after (10m)
+    - Redis keys associated with expired uploads
+    """
     logger.debug(
         "\x1b[33mBG:Cleanup START\x1b[0m -- Clean up expired uploads ever 10 minutes..."
     )
