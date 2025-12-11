@@ -1273,7 +1273,7 @@ async def sync_files_periodically(redis_client: redis.Redis):
 
 async def sync_files_to_redis(redis_client: redis.Redis):
     """Scans the upload directory and syncs the file index with Redis."""
-    logger.debug("\x1b[33mBG:Sync\x1b[0m Syncing file system with Redis...")
+    # logger.debug("\x1b[33mBG:Sync\x1b[0m Syncing file system with Redis...")
 
     # Get all file keys from Redis
     redis_keys = [key async for key in redis_client.scan_iter("file_map:*")]
@@ -1341,11 +1341,11 @@ async def cleanup_expired_uploads(redis_client: redis.Redis):
     - Redis keys associated with expired uploads
     """
     logger.debug(
-        "\x1b[33mBG:Cleanup START\x1b[0m -- Clean up expired uploads ever 10 minutes..."
+        f"\x1b[33mBG:Cleanup START\x1b[0m -- Clean up expired uploads every {settings.UPLOAD_STORAGE_INTERVAL_CLEANUP} seconds..."
     )
     while True:
         try:
-            logger.debug("\x1b[33mBG:Cleanup\x1b[0m Cleaning up expired uploads...")
+            # logger.debug("\x1b[33mBG:Cleanup\x1b[0m Cleaning up expired uploads...")
             current_time = time.time()
             upload_ttl_keys = [
                 key async for key in redis_client.scan_iter("upload:*:ttl")
