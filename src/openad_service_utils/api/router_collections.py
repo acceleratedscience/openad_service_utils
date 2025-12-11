@@ -142,8 +142,6 @@ def files_enabled_dependency():
             status_code=404,
             detail="File collection endpoints are not available for this service configuration.",
         )
-    else:
-        logger.debug("File collection endpoints are enabled")
 
 
 # endregion
