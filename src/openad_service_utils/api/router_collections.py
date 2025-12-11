@@ -179,68 +179,8 @@ collections_router = APIRouter(
     # tags=["ALL FILE ROUTES"],
 )
 
-# endregion
-# ----------------------------
-# region --- Dummy data
 
 
-# @dummy jobs for UI demo purposes
-def _add_dummy_jobs(
-    results: List[JobDetails], filename: str = None, count: int = 6
-) -> List[JobDetails]:
-    """Mutate some values for demo purposes."""
-
-    job_id = str(uuid.uuid4())
-    filename = (filename + " (dummy)") if filename else "some_big_dummy_file.vtk"
-    collection_name = results[0].collection_name if results else "demo_collection"
-    model_version = "get mesh mesh-pressure-shear"
-    checkpoint = "cp-001"
-
-    statuses = [
-        "Submitted",
-        "In Progress",
-        "completed",
-        "error",
-        "failed",
-        "Requeued",
-    ]
-
-    for i in range(count):
-        _status_index = i % len(statuses)
-        status = statuses[_status_index]
-        size_bytes = (
-            random.randint(999999999, 9999999999) if status == "completed" else 0
-        )
-        submission_time = datetime.now() - timedelta(minutes=random.randint(10, 5000))
-        completion_time = (
-            submission_time + timedelta(minutes=random.randint(5, 3000))
-            if status in ["completed", "error", "failed"]
-            else None
-        )
-        # Substract completion from submission to get inference time
-        if completion_time and submission_time:
-            delta = completion_time - submission_time
-            inference_time = (
-                delta.total_seconds() if isinstance(delta, timedelta) else float(delta)
-            )
-        else:
-            inference_time = None
-
-        results.insert(
-            0,
-            JobDetails(
-                job_id=job_id,
-                filename=filename,
-                collection_name=collection_name,
-                model_version=model_version,
-                checkpoint=checkpoint,
-                size_bytes=size_bytes,
-                submission_time=submission_time,
-                completion_time=completion_time,
-                inference_time=inference_time,
-                status=status,
-            ),
-        )
 
 
 # endregion
@@ -536,9 +476,6 @@ async def get_all_jobs(
             if job:
                 all_jobs.append(job)
 
-        # @dummy - Add some jobs with different statuses for UI demo purposes
-        # _add_dummy_jobs(all_jobs, count=20)
-
         return JobsResponse(jobs=all_jobs)
     except Exception as e:
         logger.error("Error retrieving job IDs: %s", str(e))
@@ -599,9 +536,6 @@ async def get_file_results_page(
             if job:
                 results.append(job)
 
-        # @dummy - Add some jobs with different statuses for UI demo purposes
-        # _add_dummy_jobs(results, filename)
-
         # Success response
         return JobsResponse(jobs=results)
 
@@ -642,9 +576,10 @@ async def _assemble_job_details(
     if (
         job_info.get("args")
         and isinstance(job_info["args"], dict)
-        and job_info["args"].get("service_name")
+        and job_info["args"].get("parameters", {}).get("algorithm_version")
     ):
-        model_version = job_info["args"]["service_name"]
+        # TODO: Version to be implemented, not currently available in job args
+        model_version = job_info["args"].get("parameters", {}).get("algorithm_version")
 
     submission_time = (
         datetime.fromtimestamp(job_info["submission_time"])
@@ -667,8 +602,8 @@ async def _assemble_job_details(
         job_id=job_id,
         filename=filename,
         collection_name=collection_name,
-        model_version=model_version,
-        checkpoint="cp-001",  # @placeholder
+        checkpoint="cp-001",  # TODO: Replace with actual checkpoint
+        model_version=model_version, # TODO: Model version not yet implemented, see above
         size_bytes=size_bytes,
         submission_time=submission_time,
         completion_time=completion_time,
@@ -1257,12 +1192,8 @@ async def cleanup_upload_session(
     tags=["Collections / UI Data"],
 )
 async def get_model_versions():
-    # @brian - Replace with actual model versions
-    model_versions = [
-        "v1.0",
-        "v1.1",
-        "v2.0",
-    ]
+    # TODO: Replace with actual model versions
+    model_versions = ["v1"]
     return JSONResponse(content={"model_versions": model_versions})
 
 
