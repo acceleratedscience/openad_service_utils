@@ -28,6 +28,7 @@ from starlette.background import BackgroundTask
 
 # Core
 from openad_service_utils.api.config import get_config_instance
+from openad_service_utils.api.dependencies import get_job_manager, get_redis_client
 from openad_service_utils.api.generation.call_generation_services import (
     get_services as get_generation_services,
 )
@@ -68,18 +69,6 @@ settings = get_config_instance()
 
 # Create a logger
 logger = logging.getLogger(__name__)
-
-
-# Dependency: Redis client
-async def get_redis_client(request: Request) -> redis.Redis:
-    return request.app.state.redis
-
-
-# Dependency: Job Manager
-async def get_job_manager(
-    redis_client: redis.Redis = Depends(get_redis_client),
-) -> JobManager:
-    return JobManager(redis_client, "Master Queue")
 
 
 @asynccontextmanager

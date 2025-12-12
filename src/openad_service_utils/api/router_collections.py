@@ -16,38 +16,37 @@
 # ----------------------------
 # region --- Imports & Config
 
-# UPLOAD_STORAGE_DIR = ~/.openad_models/collection_uploads
-
 # Std
-import re
-import time
-import uuid
-import json
-import random
-import shutil
 import asyncio
 import hashlib
+import json
 import logging
-from typing import List
-from pathlib import Path
-from datetime import datetime, timedelta
+import random
+import re
+import shutil
+import time
+import uuid
 from contextlib import asynccontextmanager
-
+from datetime import datetime, timedelta
+from pathlib import Path
+from typing import List
 
 # 3rd Party
 import redis.asyncio as redis
-from pydantic import BaseModel
-from starlette.concurrency import run_in_threadpool
+from fastapi import APIRouter, Depends, FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse
-from fastapi import APIRouter, Depends, HTTPException, Request, FastAPI
+from pydantic import BaseModel
+from redis.exceptions import RedisError
+from starlette.concurrency import run_in_threadpool
 
+from openad_service_utils.api.config import get_config_instance
+from openad_service_utils.api.dependencies import get_job_manager, get_redis_client
+from openad_service_utils.api.job_manager import JobManager
 
 # Internal
 from openad_service_utils.api.models import JobStatus
-from openad_service_utils.api.job_manager import JobManager
-from openad_service_utils.api.config import get_config_instance
-from openad_service_utils.utils.logging_config import setup_logging
 from openad_service_utils.common.properties.property_factory import PropertyFactory
+from openad_service_utils.utils.logging_config import setup_logging
 
 # Set up logging configuration
 setup_logging()
@@ -114,20 +113,6 @@ class JobsResponse(BaseModel):
 # region --- Dependencies
 
 
-# Duplicate from server.py to avoid circular import
-# TODO: externalize in dependency module
-async def get_redis_client(request: Request) -> redis.Redis:
-    """Dependency to get Redis client from app state."""
-    return request.app.state.redis
-
-
-# Duplicate from server.py to avoid circular import
-# TODO: externalize in dependency module
-async def get_job_manager(
-    redis_client: redis.Redis = Depends(get_redis_client),
-) -> JobManager:
-    """Dependency to get JobManager instance."""
-    return JobManager(redis_client, "Master Queue")
 
 
 def files_enabled() -> bool:
@@ -368,31 +353,32 @@ async def delete_collection(
 ):
     """Deletes an entire collection and all of its files."""
     validate_collection_name(collection_name)
+    collection_dir = Path(settings.UPLOAD_STORAGE_DIR) / collection_name
+    if not await run_in_threadpool(collection_dir.is_dir):
+        raise HTTPException(status_code=404, detail="Collection not found.")
     try:
-        collection_dir = Path(settings.UPLOAD_STORAGE_DIR) / collection_name
-        if not collection_dir.is_dir():
-            raise HTTPException(status_code=404, detail="Collection not found.")
-
         # Remove all files in the collection from Redis
         file_keys = [
-            key async for key in redis_client.scan_iter(f"file_map:{collection_name}/*")
+            key
+            async for key in redis_client.scan_iter(f"file_map:{collection_name}/*")
         ]
-
         if file_keys:
             await redis_client.delete(*file_keys)
-
-        # Remove the collection directory from the filesystem
-        shutil.rmtree(str(collection_dir))
-
-        return JSONResponse(
-            {"message": f"Collection '{collection_name}' deleted successfully."}
-        )
-    except HTTPException:
-        raise
-    except Exception as e:
+    except RedisError as e:
         raise HTTPException(
-            status_code=500, detail=f"Error deleting collection: {str(e)}"
+            status_code=500, detail=f"Error deleting collection from Redis: {str(e)}"
         ) from e
+    try:
+        # Remove the collection directory from the filesystem
+        await run_in_threadpool(shutil.rmtree, str(collection_dir))
+    except OSError as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error deleting collection directory from filesystem: {str(e)}",
+        ) from e
+    return JSONResponse(
+        {"message": f"Collection '{collection_name}' deleted successfully."}
+    )
 
 
 @collections_router.delete(
@@ -406,27 +392,25 @@ async def delete_file_from_collection(
     redis_client: redis.Redis = Depends(get_redis_client),
 ):
     """Deletes a file from a specific collection."""
-
     # @dummy test error
     # if random.random() < 0.5:
     #     raise HTTPException(status_code=418, detail="This is a test.")
-
     validate_collection_name(collection_name)
     validate_filename(filename)
     try:
         file_key = str(Path(collection_name) / filename)
         file_path_str = await redis_client.get(f"file_map:{file_key}")
-
         if not file_path_str:
-            raise HTTPException(status_code=404, detail="File not found.")
-
+            raise HTTPException(status_code=404, detail="File not found in Redis.")
         file_path = Path(file_path_str)
-        if not file_path.exists():
-            raise HTTPException(status_code=404, detail="File not found.")
-
-        file_path.unlink()
+        try:
+            await run_in_threadpool(file_path.unlink)
+        except FileNotFoundError:
+            logger.warning(
+                "File %s not found on disk but was present in Redis. Deleting Redis entry.",
+                file_path,
+            )
         await redis_client.delete(f"file_map:{file_key}")
-
         return JSONResponse({"message": "File deleted successfully."})
     except HTTPException:
         raise
@@ -1014,7 +998,7 @@ async def _build_upload_status_response(
     metadata: dict,
     chunks_received: dict,
     redis_client: redis.Redis,
-    completion_info: dict = None,
+    completion_info: dict | None = None,
 ) -> dict:
     """Build a consistent upload status response for both chunk uploads and status checks."""
 
@@ -1212,10 +1196,10 @@ async def get_job_statuses():
 
 def validate_collection_name(collection_name: str):
     """Validates the collection name for prohibited characters."""
-    if not re.match(r"^[a-zA-Z0-9_-]+$", collection_name):
+    if not re.match(r"^[a-zA-Z0-9_][a-zA-Z0-9_-]*$", collection_name):
         raise HTTPException(
             status_code=400,
-            detail="Invalid collection name, only alphanumeric characters, underscores and hyphens allowed.",
+            detail="Invalid collection name. Must start with alphanumeric or underscore, and can contain hyphens.",
         )
 
 
@@ -1228,6 +1212,12 @@ async def validate_collection_exists(collection_name: str):
 
 def validate_filename(filename: str):
     """Validates the filename for problematic characters."""
+    if ".." in filename or "/" in filename or "\\" in filename:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid filename. Directory traversal characters are not allowed.",
+        )
+
     sanitized_filename = re.sub(r'[<>:"/\\|?*]', "-", filename)
     if filename != sanitized_filename:
         raise HTTPException(status_code=422, detail="Invalid filename.")
