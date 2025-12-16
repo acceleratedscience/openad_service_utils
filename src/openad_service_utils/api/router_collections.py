@@ -36,7 +36,7 @@ import redis.asyncio as redis
 from fastapi import APIRouter, Depends, FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel
-from redis.exceptions import RedisError
+from redis.exceptions import RedisError, LockError
 from starlette.concurrency import run_in_threadpool
 
 from openad_service_utils.api.config import get_config_instance
@@ -399,19 +399,28 @@ async def delete_file_from_collection(
     validate_filename(filename)
     try:
         file_key = str(Path(collection_name) / filename)
-        file_path_str = await redis_client.get(f"file_map:{file_key}")
-        if not file_path_str:
-            raise HTTPException(status_code=404, detail="File not found in Redis.")
-        file_path = Path(file_path_str)
-        try:
-            await run_in_threadpool(file_path.unlink)
-        except FileNotFoundError:
-            logger.warning(
-                "File %s not found on disk but was present in Redis. Deleting Redis entry.",
-                file_path,
-            )
-        await redis_client.delete(f"file_map:{file_key}")
+        lock_key = f"lock:file:{file_key}"
+
+        async with redis_client.lock(lock_key, timeout=60, blocking=True, blocking_timeout=5):
+            logger.debug("Acquired lock for deleting file %s", file_key)
+            file_path_str = await redis_client.get(f"file_map:{file_key}")
+            if not file_path_str:
+                raise HTTPException(status_code=404, detail="File not found in Redis.")
+            file_path = Path(file_path_str)
+            try:
+                await run_in_threadpool(file_path.unlink)
+            except FileNotFoundError:
+                logger.warning(
+                    "File %s not found on disk but was present in Redis. Deleting Redis entry.",
+                    file_path,
+                )
+            await redis_client.delete(f"file_map:{file_key}")
+
         return JSONResponse({"message": "File deleted successfully."})
+    except LockError:
+        raise HTTPException(
+            status_code=429, detail="Could not acquire lock for file operation. Please try again."
+        )
     except HTTPException:
         raise
     except Exception as e:

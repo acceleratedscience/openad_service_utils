@@ -152,6 +152,7 @@ async def service(
     if settings.ENABLE_CACHE_RESULTS and service_type != ServiceType.GET_RESULT:
         cached = await app.state.redis.get(cache_key)
         if cached:
+            logger.debug("Returning cached result for request.")
             return json.loads(cached)
 
     # Handle file_keys from the request
