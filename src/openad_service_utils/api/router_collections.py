@@ -400,9 +400,7 @@ async def delete_file_from_collection(
     try:
         file_key = str(Path(collection_name) / filename)
         lock_key = f"lock:file:{file_key}"
-
         async with redis_client.lock(lock_key, timeout=60, blocking=True, blocking_timeout=5):
-            logger.debug("Acquired lock for deleting file %s", file_key)
             file_path_str = await redis_client.get(f"file_map:{file_key}")
             if not file_path_str:
                 raise HTTPException(status_code=404, detail="File not found in Redis.")
