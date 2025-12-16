@@ -15,7 +15,7 @@ class ServiceType(str, Enum):
 class Parameters(BaseModel):
     property_type: list[str] = Field(..., description="The type of property to be predicted.")
     subjects: Optional[list[str]] = Field(None, description="The subjects to be predicted.")
-    max_samples: Optional[int] = Field(None, description="The maximum number of samples to generate for `generate_data` service.")
+    max_samples: Optional[int] = Field(None,description="The maximum number of samples to generate for `generate_data` service.")
 
     class Config:
         extra = "allow"
@@ -25,6 +25,7 @@ class ServiceRequest(BaseModel):
     """
     Pydantic model for the service request body.
     """
+
     service_type: ServiceType = Field(..., description="The type of service to be called.")
     service_name: Optional[str] = Field(None, description="The name of the model to be used.")
     parameters: Optional[Parameters] = Field(None, description="An object containing the parameters for the model.")
@@ -32,22 +33,34 @@ class ServiceRequest(BaseModel):
     url: Optional[str] = Field(None, description="The job id to retrieve the results from.")
     file_keys: Optional[List[str]] = Field(None, description="List of file paths for uploaded subjects.")
 
-    @model_validator(mode='before')
+    @model_validator(mode="before")
     def check_service_type(cls, values):
-        service_type = values.get('service_type')
+        service_type = values.get("service_type")
         if service_type == ServiceType.GET_RESULT:
-            if 'url' not in values:
-                raise ValueError('url is required when service_type is get_result')
+            if "url" not in values:
+                raise ValueError("url is required when service_type is get_result")
             # make other fields optional
-            values['service_name'] = values.get('service_name')
-            values['parameters'] = values.get('parameters')
+            values["service_name"] = values.get("service_name")
+            values["parameters"] = values.get("parameters")
 
         else:
-            if 'service_name' not in values:
-                raise ValueError('service_name is required')
-            if 'parameters' not in values:
-                raise ValueError('parameters is required')
+            if "service_name" not in values:
+                raise ValueError("service_name is required")
+            if "parameters" not in values:
+                raise ValueError("parameters is required")
         return values
 
     class Config:
         validate_by_name = True
+
+
+class JobStatus(str, Enum):
+    """Enumeration of possible job statuses."""
+
+    # Note: inconsistent casing for historical reasons
+    SUBMITTED = "Submitted"
+    IN_PROGRESS = "In Progress"
+    COMPLETED = "completed"
+    ERROR = "error"
+    FAILED = "failed"
+    REQUEUED = "Requeued"

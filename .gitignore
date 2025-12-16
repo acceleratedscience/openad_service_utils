@@ -214,6 +214,9 @@ poetry.toml
 # ruff
 .ruff_cache/
 
+# Redis
+dump.rdb
+
 # LSP config files
 pyrightconfig.json
 

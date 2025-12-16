@@ -2,237 +2,631 @@
 
 This document provides a detailed reference for the model wrapper API.
 
-## Health & Admin
+<!---------------------------->
 
-### `GET /health`
+<br>
 
-Checks the health of the service.
+### Health & Admin
 
-**Request:**
-*   **Method:** `GET`
-*   **Endpoint:** `/health`
-*   **Body:** None
+<!---------------------------->
 
-**Response:**
-*   **Content-Type:** `text/html`
-*   **Body:** "UP"
+<details>
+<summary><code><b>GET /health</b></code></summary>
 
----
+<br>
 
-### `GET /admin/details`
+> **Request:**
+>
+> -   **Method:** `GET`
+> -   **Endpoint:** `/health`
+> -   **Body:** None
+>
+> **Response:**
+>
+> -   **Content-Type:** `text/html`
+> -   **Body:** "UP"
+
+</details>
+
+<!---------------------------->
+
+<details>
+<summary><code><b>GET /admin/details</b></code></summary>
+
+<br>
 
 Retrieves server configuration details.
 
-**Request:**
-*   **Method:** `GET`
-*   **Endpoint:** `/admin/details`
-*   **Body:** None
+> **Request:**
+>
+> -   **Method:** `GET`
+> -   **Endpoint:** `/admin/details`
+> -   **Body:** None
+>
+> **Response:**
+>
+> -   **Content-Type:** `application/json`
+> -   **Body:** A JSON object containing the server settings.
 
-**Response:**
-*   **Content-Type:** `application/json`
-*   **Body:** A JSON object containing the server settings.
+</details>
 
----
+<!---------------------------->
 
-## Service Definition & Execution
+<br>
 
-### `GET /service`
+### Service Definition & Execution
+
+<!---------------------------->
+
+<details>
+<summary><code><b>GET /service</b></code></summary>
+
+<br>
 
 Retrieves the service definitions for all registered models. This is useful for discovering the available models and their parameters.
 
-**Request:**
-*   **Method:** `GET`
-*   **Endpoint:** `/service`
-*   **Body:** None
+> **Request:**
+>
+> -   **Method:** `GET`
+> -   **Endpoint:** `/service`
+> -   **Body:** None
+>
+> **Response:**
+>
+> -   **Content-Type:** `application/json`
+> -   **Body:** A JSON array of service definition objects. Each object contains information about a registered model, including its `service_name`, `service_type`, and the parameters it accepts.
 
-**Response:**
-*   **Content-Type:** `application/json`
-*   **Body:** A JSON array of service definition objects. Each object contains information about a registered model, including its `service_name`, `service_type`, and the parameters it accepts.
+</details>
 
----
+<!---------------------------->
 
-### `POST /service`
+<details>
+<summary><code><b>POST /service</b></code></summary>
+
+<br>
 
 Submits a job to the model wrapper for processing. The structure of the request body depends on the `service_type`.
 
-#### Property Prediction and Data Generation
+#### A: Property Prediction and Data Generation
 
-Used for submitting synchronous or asynchronous jobs for property prediction or data generation.
+> Used for submitting synchronous or asynchronous jobs for property prediction or data generation.
+>
+> **Request Body:**
+>
+> | Field          | Type             | Required | Description                                                                                                                                     |
+> | -------------- | ---------------- | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+> | `service_type` | string           | Yes      | One of `get_protein_property`, `get_molecule_property`, `get_crystal_property`, `get_mesh_property`, or `generate_data`.                        |
+> | `service_name` | string           | Yes      | The name of the model to be used.                                                                                                               |
+> | `parameters`   | object           | Yes      | An object containing the parameters for the model.                                                                                              |
+> | `async`        | boolean          | No       | Set to `true` to submit the job for asynchronous processing. See [Execution Workflows](./architecture.md#execution-workflows) for more details. |
+> | `file_keys`    | array of strings | No       | A list of file keys in the format `collection_name/filename.ext`, referencing uploaded subject files.                                           |
+>
+> **Response:**
+>
+> -   **Synchronous:** A JSON object containing the results of the request. See the [Input/Output Schema Examples](./input-output.md) for examples.
+> -   **Asynchronous:** A JSON object containing the `job_id`.
 
-**Request Body:**
+<br>
 
-| Field | Type | Required | Description |
-| --- | --- | --- | --- |
-| `service_type` | string | Yes | One of `get_protein_property`, `get_molecule_property`, `get_crystal_property`, `get_mesh_property`, or `generate_data`. |
-| `service_name` | string | Yes | The name of the model to be used. |
-| `parameters` | object | Yes | An object containing the parameters for the model. |
-| `async` | boolean | No | Set to `true` to submit the job for asynchronous processing. See [Execution Workflows](./architecture.md#execution-workflows) for more details. |
-| `file_keys` | array of strings | No | A list of file keys in the format `collection_name/filename.ext`, referencing uploaded subject files. |
+#### B: Asynchronous Job Retrieval
 
-**Response:**
-*   **Synchronous:** A JSON object containing the results of the request. See the [Input/Output Schema Examples](./input-output.md) for examples.
-*   **Asynchronous:** A JSON object containing the `job_id`.
+> Used for retrieving the results of a previously submitted asynchronous job.
+>
+> **Request Body:**
+>
+> | Field          | Type   | Required | Description                                       |
+> | -------------- | ------ | -------- | ------------------------------------------------- |
+> | `service_type` | string | Yes      | Must be `get_result`.                             |
+> | `url`          | string | Yes      | The `job_id` of the asynchronous job to retrieve. |
+>
+> **Response:**
+>
+> -   A JSON object containing the status of the job. If the job is complete and the result is a file, the response will include a `download_url`. Otherwise, for JSON-based results, it will contain the result data directly.
 
-#### Asynchronous Job Retrieval
+</details>
 
-Used for retrieving the results of a previously submitted asynchronous job.
+<!---------------------------->
 
-**Request Body:**
+<br>
 
-| Field | Type | Required | Description |
-| --- | --- | --- | --- |
-| `service_type` | string | Yes | Must be `get_result`. |
-| `url` | string | Yes | The `job_id` of the asynchronous job to retrieve. |
+### Asynchronous Job Results
 
-**Response:**
-*   A JSON object containing the status of the job. If the job is complete and the result is a file, the response will include a `download_url`. Otherwise, for JSON-based results, it will contain the result data directly.
+<!---------------------------->
 
----
+<details>
+<summary><code><b>GET /service/download/{job_id}/{filename}</b></code></summary>
 
-## File Collections
-
-**Note:** The file collection endpoints are only available if the service is configured with a property predictor that supports file collections (i.e., `get_mesh_property`). If not available, these endpoints will return a `404 Not Found` error.
-
-### `GET /service/collections`
-
-Retrieves a list of all available collections.
-
-**Request:**
-*   **Method:** `GET`
-*   **Endpoint:** `/service/collections`
-*   **Body:** None
-
-**Response:**
-*   **Content-Type:** `application/json`
-*   **Body:** A JSON object containing a list of collection names.
-    ```json
-    {
-      "collections": ["collection1", "collection2"]
-    }
-    ```
-
----
-
-### `POST /service/collections/{collection_name}`
-
-Uploads a file to a specific collection.
-
-**Request:**
-*   **Method:** `POST`
-*   **Endpoint:** `/service/collections/{collection_name}`
-*   **Path Parameters:**
-    *   `collection_name` (string, required): The name of the collection.
-*   **Content-Type:** `multipart/form-data`
-*   **Body:**
-    *   `file`: The file to be uploaded.
-
-**Response:**
-*   **Content-Type:** `application/json`
-*   **Body:** A JSON object containing the `file_key` and a success message.
-    ```json
-    {
-      "file_key": "collection_name/filename.ext",
-      "message": "File uploaded successfully."
-    }
-    ```
-
----
-
-### `GET /service/collections/{collection_name}`
-
-Retrieves a list of all files within a specific collection.
-
-**Request:**
-*   **Method:** `GET`
-*   **Endpoint:** `/service/collections/{collection_name}`
-*   **Path Parameters:**
-    *   `collection_name` (string, required): The name of the collection.
-
-**Response:**
-*   **Content-Type:** `application/json`
-*   **Body:** A JSON object containing a list of file objects, each with a `file_key`, `filename`, and `size_bytes`.
-    ```json
-    {
-      "files": [
-        {"file_key": "collection_name/file1.txt", "filename": "file1.txt", "size_bytes": 1024},
-        {"file_key": "collection_name/file2.txt", "filename": "file2.txt", "size_bytes": 2048}
-      ]
-    }
-    ```
-
----
-
-### `GET /service/collections/{collection_name}/{filename}`
-
-Downloads a file from a specific collection.
-
-**Request:**
-*   **Method:** `GET`
-*   **Endpoint:** `/service/collections/{collection_name}/{filename}`
-*   **Path Parameters:**
-    *   `collection_name` (string, required): The name of the collection.
-    *   `filename` (string, required): The name of the file to download.
-
-**Response:**
-*   The binary content of the file.
-
----
-
-### `DELETE /service/collections/{collection_name}`
-
-Deletes an entire collection and all of its files.
-
-**Request:**
-*   **Method:** `DELETE`
-*   **Endpoint:** `/service/collections/{collection_name}`
-*   **Path Parameters:**
-    *   `collection_name` (string, required): The name of the collection to be deleted.
-
-**Response:**
-*   **Content-Type:** `application/json`
-*   **Body:** A JSON object with a success message.
-    ```json
-    {
-      "message": "Collection 'collection_name' deleted successfully."
-    }
-    ```
-
----
-
-### `DELETE /service/collections/{collection_name}/{filename}`
-
-Deletes a specific file from a collection.
-
-**Request:**
-*   **Method:** `DELETE`
-*   **Endpoint:** `/service/collections/{collection_name}/{filename}`
-*   **Path Parameters:**
-    *   `collection_name` (string, required): The name of the collection.
-    *   `filename` (string, required): The name of the file to be deleted.
-
-**Response:**
-*   **Content-Type:** `application/json`
-*   **Body:** A JSON object with a success message.
-    ```json
-    {
-      "message": "File deleted successfully."
-    }
-    ```
-
----
-
-## Asynchronous Job Results
-
-### `GET /service/download/{job_id}/{filename}`
+<br>
 
 Downloads the file result of a completed asynchronous job.
 
-**Request:**
-*   **Method:** `GET`
-*   **Endpoint:** `/service/download/{job_id}/{filename}`
-*   **Path Parameters:**
-    *   `job_id` (string, required): The ID of the completed asynchronous job.
-    *   `filename` (string, required): The name of the file to download.
+> **Request:**
+>
+> -   **Method:** `GET`
+> -   **Endpoint:** `/service/download/{job_id}/{filename}`
+> -   **Path Parameters:**
+>     -   `job_id` (string, required): The ID of the completed asynchronous job.
+>     -   `filename` (string, required): The name of the file to download.
+>
+> **Response:**
+>
+> -   The binary content of the result file.
 
-**Response:**
-*   The binary content of the result file.
+</details>
+
+<!---------------------------->
+
+<br>
+
+### Optional: File Collections
+
+<!---------------------------->
+
+> [!NOTE]
+> The file collection endpoints are only available if the service is configured with a property predictor that supports file collections (i.e., `get_mesh_property`). If not available, these endpoints will return a `404 Not Found` error.
+
+#### Files
+
+<!---------------------------->
+
+<details>
+<summary><code><b>GET /service/collections/files</b></code></summary>
+
+<br>
+
+Get all files.
+
+> **Request:**
+>
+> -   **Method:** `GET`
+> -   **Endpoint:** `/service/collections/files`
+>
+> **Response:**
+>
+> -   **Content-Type:** `application/json`
+> -   **Body:** A JSON object containing a list of file objects and all available collections.
+>     ```json
+>     {
+>     	"files": [
+>     		{
+>     			"collection_name": "string",
+>     			"filename": "string",
+>     			"file_key": "string",
+>     			"file_extension": "string",
+>     			"size_bytes": 0,
+>     			"created_at": "2023-10-26T12:00:00Z"
+>     		}
+>     	],
+>     	"all_collections": ["string"]
+>     }
+>     ```
+
+</details>
+
+<!---------------------------->
+
+<details>
+<summary><code><b>GET /service/collections/{collection_name}/files</b></code></summary>
+
+<br>
+
+Get files by collection.
+
+> **Request:**
+>
+> -   **Method:** `GET`
+> -   **Endpoint:** `/service/collections/{collection_name}/files`
+> -   **Path Parameters:**
+>     -   `collection_name` (string, required): The name of the collection.
+>
+> **Response:**
+>
+> -   **Content-Type:** `application/json`
+> -   **Body:** A JSON object containing a list of file objects and all available collections.
+>     ```json
+>     {
+>     	"files": [
+>     		{
+>     			"collection_name": "string",
+>     			"filename": "string",
+>     			"file_key": "string",
+>     			"file_extension": "string",
+>     			"size_bytes": 0,
+>     			"created_at": "2023-10-26T12:00:00Z"
+>     		}
+>     	],
+>     	"all_collections": ["string"]
+>     }
+>     ```
+
+</details>
+
+<!---------------------------->
+
+<details>
+<summary><code><b>GET /service/collections/{collection_name}/{filename}/download</b></code></summary>
+
+<br>
+
+Download single file from collection.
+
+> **Request:**
+>
+> -   **Method:** `GET`
+> -   **Endpoint:** `/service/collections/{collection_name}/{filename}/download`
+> -   **Path Parameters:**
+>     -   `collection_name` (string, required): The name of the collection.
+>     -   `filename` (string, required): The name of the file.
+>
+> **Response:**
+>
+> -   The binary content of the file.
+
+</details>
+
+<!---------------------------->
+
+<details>
+<summary><code><b>DELETE /service/collections/{collection_name}</b></code></summary>
+
+<br>
+
+Delete collection and all its files.
+
+> **Request:**
+>
+> -   **Method:** `DELETE`
+> -   **Endpoint:** `/service/collections/{collection_name}`
+> -   **Path Parameters:**
+>     -   `collection_name` (string, required): The name of the collection.
+>
+> **Response:**
+>
+> -   **Content-Type:** `application/json`
+> -   **Body:**
+>     ```json
+>     {
+>     	"message": "Collection 'collection_name' deleted successfully."
+>     }
+>     ```
+
+</details>
+
+<!---------------------------->
+
+<details>
+<summary><code><b>DELETE /service/collections/{collection_name}/{filename}</b></code></summary>
+
+<br>
+
+Delete file.
+
+> **Request:**
+>
+> -   **Method:** `DELETE`
+> -   **Endpoint:** `/service/collections/{collection_name}/{filename}`
+> -   **Path Parameters:**
+>     -   `collection_name` (string, required): The name of the collection.
+>     -   `filename` (string, required): The name of the file.
+>
+> **Response:**
+>
+> -   **Content-Type:** `application/json`
+> -   **Body:**
+>     ```json
+>     {
+>     	"message": "File deleted successfully."
+>     }
+>     ```
+
+</details>
+
+<br>
+
+#### Job Results
+
+<!---------------------------->
+
+<details>
+<summary><code><b>GET /service/collections/jobs</b></code></summary>
+
+<br>
+
+Get all job results.
+
+> **Request:**
+>
+> -   **Method:** `GET`
+> -   **Endpoint:** `/service/collections/jobs`
+>
+> **Response:**
+>
+> -   **Content-Type:** `application/json`
+> -   **Body:** A JSON object containing a list of job details.
+>     ```json
+>     {
+>     	"jobs": [
+>     		{
+>     			"job_id": "string",
+>     			"filename": "string",
+>     			"collection_name": "string",
+>     			"model_version": "string",
+>     			"checkpoint": "string",
+>     			"size_bytes": 0,
+>     			"submission_time": "2023-10-26T12:00:00Z",
+>     			"completion_time": "2023-10-26T12:05:00Z",
+>     			"inference_time": 0.5,
+>     			"status": "completed"
+>     		}
+>     	]
+>     }
+>     ```
+
+</details>
+
+<!---------------------------->
+
+<details>
+<summary><code><b>GET /service/collections/{collection_name}/{filename}/jobs</b></code></summary>
+
+<br>
+
+Get job results for a specific file.
+
+> **Request:**
+>
+> -   **Method:** `GET`
+> -   **Endpoint:** `/service/collections/{collection_name}/{filename}/jobs`
+> -   **Path Parameters:**
+>     -   `collection_name` (string, required): The name of the collection.
+>     -   `filename` (string, required): The name of the file.
+>
+> **Response:**
+>
+> -   **Content-Type:** `application/json`
+> -   **Body:** A JSON object containing a list of job details.
+>     ```json
+>     {
+>     	"jobs": [
+>     		{
+>     			"job_id": "string",
+>     			"filename": "string",
+>     			"collection_name": "string",
+>     			"model_version": "string",
+>     			"checkpoint": "string",
+>     			"size_bytes": 0,
+>     			"submission_time": "2023-10-26T12:00:00Z",
+>     			"completion_time": "2023-10-26T12:05:00Z",
+>     			"inference_time": 0.5,
+>     			"status": "completed"
+>     		}
+>     	]
+>     }
+>     ```
+
+</details>
+
+<!---------------------------->
+
+<details>
+<summary><code><b>GET /service/collections/{job_id}/download</b></code></summary>
+
+<br>
+
+Download job result file.
+
+> **Request:**
+>
+> -   **Method:** `GET`
+> -   **Endpoint:** `/service/collections/{job_id}/download`
+> -   **Path Parameters:**
+>     -   `job_id` (string, required): The ID of the job.
+>
+> **Response:**
+>
+> -   The binary content of the result file.
+
+</details>
+
+<br>
+
+#### Upload
+
+<!---------------------------->
+
+<details>
+<summary><code><b>POST /service/collections/{collection_name}/upload/start</b></code></summary>
+
+<br>
+
+Start chunked upload.
+
+> **Request:**
+>
+> -   **Method:** `POST`
+> -   **Endpoint:** `/service/collections/{collection_name}/upload/start`
+> -   **Path Parameters:**
+>     -   `collection_name` (string, required): The name of the collection.
+> -   **Query Parameters:**
+>     -   `filename` (string, required): The name of the file.
+>     -   `total_size` (integer, required): Total size of the file in bytes.
+>     -   `chunk_size` (integer, optional): Size of each chunk (default: 5MB).
+>     -   `replace` (boolean, optional): If true, replace existing file.
+>     -   `rename` (boolean, optional): If true, rename file if exists.
+>
+> **Response:**
+>
+> -   **Content-Type:** `application/json`
+> -   **Body:**
+>     ```json
+>     {
+>     	"upload_id": "string",
+>     	"chunk_size": 5242880,
+>     	"total_chunks": 10,
+>     	"expires_at": 1698321600.0,
+>     	"message": "Upload session started..."
+>     }
+>     ```
+
+</details>
+
+<!---------------------------->
+
+<details>
+<summary><code><b>PUT /service/collections/{collection_name}/upload/{upload_id}</b></code></summary>
+
+<br>
+
+Upload chunk.
+
+> **Request:**
+>
+> -   **Method:** `PUT`
+> -   **Endpoint:** `/service/collections/{collection_name}/upload/{upload_id}`
+> -   **Path Parameters:**
+>     -   `collection_name` (string, required): The name of the collection.
+>     -   `upload_id` (string, required): The upload session ID.
+> -   **Headers:**
+>     -   `Content-Range` (string, required): e.g., "bytes 0-5242879/10485760"
+> -   **Body:** Binary chunk data.
+>
+> **Response:**
+>
+> -   **Content-Type:** `application/json`
+> -   **Body:**
+>     ```json
+>     {
+>     	"upload_id": "string",
+>     	"filename": "string",
+>     	"collection_name": "string",
+>     	"bytes_received": 5242880,
+>     	"bytes_total": 10485760,
+>     	"progress_percent": 50.0,
+>     	"chunks_received": 1,
+>     	"chunks_total": 2,
+>     	"expires_at": 1698321600.0,
+>     	"created_at": 1698318000.0,
+>     	"status": "uploading",
+>     	"chunk_range": "0-5242879",
+>     	"message": "Chunk received successfully"
+>     }
+>     ```
+
+</details>
+
+<!---------------------------->
+
+<details>
+<summary><code><b>GET /service/collections/{collection_name}/upload/{upload_id}/status</b></code></summary>
+
+<br>
+
+Get upload status.
+
+> **Request:**
+>
+> -   **Method:** `GET`
+> -   **Endpoint:** `/service/collections/{collection_name}/upload/{upload_id}/status`
+> -   **Path Parameters:**
+>     -   `collection_name` (string, required): The name of the collection.
+>     -   `upload_id` (string, required): The upload session ID.
+>
+> **Response:**
+>
+> -   **Content-Type:** `application/json`
+> -   **Body:** Same structure as upload chunk response.
+
+</details>
+
+<!---------------------------->
+
+<details>
+<summary><code><b>DELETE /service/collections/{collection_name}/upload/{upload_id}</b></code></summary>
+
+<br>
+
+Cancel upload.
+
+> **Request:**
+>
+> -   **Method:** `DELETE`
+> -   **Endpoint:** `/service/collections/{collection_name}/upload/{upload_id}`
+> -   **Path Parameters:**
+>     -   `collection_name` (string, required): The name of the collection.
+>     -   `upload_id` (string, required): The upload session ID.
+>
+> **Response:**
+>
+> -   **Content-Type:** `application/json`
+> -   **Body:**
+>     ```json
+>     {
+>     	"upload_id": "string",
+>     	"message": "Upload session cancelled and cleaned up"
+>     }
+>     ```
+
+</details>
+
+<br>
+
+#### UI
+
+<!---------------------------->
+
+<details>
+<summary><code><b>GET /service/collections/model-versions</b></code></summary>
+
+<br>
+
+Get available model versions for dropdown.
+
+> **Request:**
+>
+> -   **Method:** `GET`
+> -   **Endpoint:** `/service/collections/model-versions`
+>
+> **Response:**
+>
+> -   **Content-Type:** `application/json`
+> -   **Body:**
+>     ```json
+>     {
+>     	"model_versions": ["v1.0", "v1.1"]
+>     }
+>     ```
+
+</details>
+
+<!---------------------------->
+
+<details>
+<summary><code><b>GET /service/collections/job-statuses</b></code></summary>
+
+<br>
+
+Get job status options for dropdown.
+
+> **Request:**
+>
+> -   **Method:** `GET`
+> -   **Endpoint:** `/service/collections/job-statuses`
+>
+> **Response:**
+>
+> -   **Content-Type:** `application/json`
+> -   **Body:**
+>     ```json
+>     {
+>     	"job_statuses": [
+>     		"Submitted",
+>     		"In Progress",
+>     		"completed",
+>     		"error",
+>     		"failed",
+>     		"Requeued"
+>     	]
+>     }
+>     ```
+
+</details>
