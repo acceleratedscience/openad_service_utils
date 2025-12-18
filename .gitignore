@@ -237,3 +237,4 @@ pip-selfcheck.json
 # other
 dev/
 tutorials/protein_solubility_implementation.py
+testfile.dat

@@ -32,7 +32,15 @@ from typing import List
 
 # 3rd Party
 import redis.asyncio as redis
-from fastapi import APIRouter, Depends, FastAPI, HTTPException, Request
+from fastapi import (
+    APIRouter,
+    Depends,
+    FastAPI,
+    HTTPException,
+    Request,
+    UploadFile,
+    File,
+)
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel
 from redis.exceptions import RedisError, LockError
@@ -623,6 +631,40 @@ async def download_job_result(
 # endregion
 # ----------------------------
 # region --- Upload
+
+
+# Single file direct upload
+# Not used by the UI (it uses chunked upload below) but
+# useful for benchmarking the server's upload speed.
+@collections_router.post("/{collection_name}")
+async def upload_file_to_collection(
+    collection_name: str,
+    file: UploadFile = File(...),
+    redis_client: redis.Redis = Depends(get_redis_client),
+):
+    """Uploads a file to a specific collection."""
+    validate_collection_name(collection_name)
+    try:
+        filename = file.filename if file.filename else "uploaded_file"
+        validate_filename(filename)
+
+        collection_dir = Path(settings.UPLOAD_STORAGE_DIR) / collection_name
+        collection_dir.mkdir(parents=True, exist_ok=True)
+        file_path = collection_dir / filename
+
+        await run_in_threadpool(shutil.copyfileobj, file.file, open(file_path, "wb"))
+
+        file_key = f"{collection_name}/{filename}"
+        await redis_client.set(f"file_map:{file_key}", file_path.as_posix())
+
+        return JSONResponse(
+            {"file_key": file_key, "message": "File uploaded successfully."}
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Error uploading file: {str(e)}"
+        ) from e
+
 
 # Chunked file upload process:
 # ----------------------------
