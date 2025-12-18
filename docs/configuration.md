@@ -21,6 +21,7 @@ The model wrapper can be configured using environment variables. The following t
 | `JOB_RETRY_DELAY` | integer | `5` | Seconds to wait before retrying a failed job. |
 | `JOB_TTL` | integer | `86400` | Time to live for job keys in Redis (seconds). |
 | `REQUEST_CACHE_TTL` | integer | `3600` | Time to live for job request in Redis (seconds). |
+| `COLLECTIONS_API_ENABLED` | boolean | `False` | Enable the routes for managing file collections |
 | `UPLOAD_STORAGE_DIR` | string | `~/.openad_models/collection_uploads` | Directory to store uploaded files/collections. |
 | `UPLOAD_STORAGE_SYNC_INTERVAL` | integer | `60` | Interval in seconds to sync uploaded files. |
 | `HOST` | string | `0.0.0.0` | The host to bind the server to. |
