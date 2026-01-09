@@ -1,5 +1,4 @@
-# Optional endpoints for the file collections UI,
-# loaded only with files_enabled() returning True.
+# Optional endpoints for the file collections UI
 # ----------------------------
 # - Managing file collections
 # - Chunked file upload
@@ -27,25 +26,31 @@ import shutil
 import time
 import uuid
 from contextlib import asynccontextmanager
-from datetime import datetime, timedelta
+from datetime import datetime
 from pathlib import Path
 from typing import List
 
 # 3rd Party
 import redis.asyncio as redis
-from fastapi import APIRouter, Depends, FastAPI, HTTPException, Request
+from fastapi import (
+    APIRouter,
+    Depends,
+    FastAPI,
+    HTTPException,
+    Request,
+    UploadFile,
+    File,
+)
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel
 from redis.exceptions import RedisError, LockError
 from starlette.concurrency import run_in_threadpool
 
+# Internal
 from openad_service_utils.api.config import get_config_instance
 from openad_service_utils.api.dependencies import get_job_manager, get_redis_client
 from openad_service_utils.api.job_manager import JobManager
-
-# Internal
 from openad_service_utils.api.models import JobStatus
-from openad_service_utils.common.properties.property_factory import PropertyFactory
 from openad_service_utils.utils.logging_config import setup_logging
 
 # Set up logging configuration
@@ -110,27 +115,6 @@ class JobsResponse(BaseModel):
 
 # endregion
 # ----------------------------
-# region --- Dependencies
-
-
-
-
-def files_enabled() -> bool:
-    return True  # @testing DELETE THIS
-    return "get_mesh_property" in PropertyFactory.AVAILABLE_PROPERTY_PREDICTOR_TYPES()
-
-
-def files_enabled_dependency():
-    """Dependency to check if file collection endpoints are enabled."""
-    if not files_enabled():
-        raise HTTPException(
-            status_code=404,
-            detail="File collection endpoints are not available for this service configuration.",
-        )
-
-
-# endregion
-# ----------------------------
 # region --- Lifespan & Router Creation
 
 
@@ -140,10 +124,8 @@ async def files_router_lifespan(app: FastAPI):
     Lifespan manager for the files router.
     Starts and stops the file sync background task.
     """
-    task = None
-    if files_enabled():
-        task = asyncio.create_task(sync_files_periodically(app.state.redis))
-        task = asyncio.create_task(cleanup_expired_uploads(app.state.redis))
+    task = asyncio.create_task(sync_files_periodically(app.state.redis))
+    task = asyncio.create_task(cleanup_expired_uploads(app.state.redis))
 
     yield
 
@@ -158,12 +140,8 @@ async def files_router_lifespan(app: FastAPI):
 # CREATE ROUTER
 collections_router = APIRouter(
     prefix="/service/collections",
-    dependencies=[Depends(files_enabled_dependency)],
     # tags=["ALL FILE ROUTES"],
 )
-
-
-
 
 
 # endregion
@@ -359,8 +337,7 @@ async def delete_collection(
     try:
         # Remove all files in the collection from Redis
         file_keys = [
-            key
-            async for key in redis_client.scan_iter(f"file_map:{collection_name}/*")
+            key async for key in redis_client.scan_iter(f"file_map:{collection_name}/*")
         ]
         if file_keys:
             await redis_client.delete(*file_keys)
@@ -400,7 +377,9 @@ async def delete_file_from_collection(
     try:
         file_key = str(Path(collection_name) / filename)
         lock_key = f"lock:file:{file_key}"
-        async with redis_client.lock(lock_key, timeout=60, blocking=True, blocking_timeout=5):
+        async with redis_client.lock(
+            lock_key, timeout=60, blocking=True, blocking_timeout=5
+        ):
             file_path_str = await redis_client.get(f"file_map:{file_key}")
             if not file_path_str:
                 raise HTTPException(status_code=404, detail="File not found in Redis.")
@@ -417,7 +396,8 @@ async def delete_file_from_collection(
         return JSONResponse({"message": "File deleted successfully."})
     except LockError:
         raise HTTPException(
-            status_code=429, detail="Could not acquire lock for file operation. Please try again."
+            status_code=429,
+            detail="Could not acquire lock for file operation. Please try again.",
         )
     except HTTPException:
         raise
@@ -459,7 +439,9 @@ async def get_all_jobs(
             # results.append(job_info)
 
             file_keys = job_info.get("file_keys", [])
-            collection_name = (file_keys[0].split("/")[0] if file_keys else "Missing collection name")
+            collection_name = (
+                file_keys[0].split("/")[0] if file_keys else "Missing collection name"
+            )
             filename = file_keys[0].split("/")[1] if file_keys else "Missing filename"
             job = await _assemble_job_details(collection_name, filename, job_info)
             if job:
@@ -592,7 +574,7 @@ async def _assemble_job_details(
         filename=filename,
         collection_name=collection_name,
         checkpoint="cp-001",  # TODO: Replace with actual checkpoint
-        model_version=model_version, # TODO: Model version not yet implemented, see above
+        model_version=model_version,  # TODO: Model version not yet implemented, see above
         size_bytes=size_bytes,
         submission_time=submission_time,
         completion_time=completion_time,
@@ -623,11 +605,15 @@ async def download_job_result(
     result = job_info.get("result")
 
     if not isinstance(result, dict) or "file_path" not in result:
-        raise HTTPException(status_code=404, detail="Result file not found for this job.")
+        raise HTTPException(
+            status_code=404, detail="Result file not found for this job."
+        )
 
     file_path = Path(result["file_path"])
     if not file_path.exists():
-        raise HTTPException(status_code=404, detail="Result file not found for this job.")
+        raise HTTPException(
+            status_code=404, detail="Result file not found for this job."
+        )
 
     filename = result.get("filename", file_path.name)
 
@@ -645,6 +631,40 @@ async def download_job_result(
 # endregion
 # ----------------------------
 # region --- Upload
+
+
+# Single file direct upload
+# Not used by the UI (it uses chunked upload below) but
+# useful for benchmarking the server's upload speed.
+@collections_router.post("/{collection_name}")
+async def upload_file_to_collection(
+    collection_name: str,
+    file: UploadFile = File(...),
+    redis_client: redis.Redis = Depends(get_redis_client),
+):
+    """Uploads a file to a specific collection."""
+    validate_collection_name(collection_name)
+    try:
+        filename = file.filename if file.filename else "uploaded_file"
+        validate_filename(filename)
+
+        collection_dir = Path(settings.UPLOAD_STORAGE_DIR) / collection_name
+        collection_dir.mkdir(parents=True, exist_ok=True)
+        file_path = collection_dir / filename
+
+        await run_in_threadpool(shutil.copyfileobj, file.file, open(file_path, "wb"))
+
+        file_key = f"{collection_name}/{filename}"
+        await redis_client.set(f"file_map:{file_key}", file_path.as_posix())
+
+        return JSONResponse(
+            {"file_key": file_key, "message": "File uploaded successfully."}
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Error uploading file: {str(e)}"
+        ) from e
+
 
 # Chunked file upload process:
 # ----------------------------
