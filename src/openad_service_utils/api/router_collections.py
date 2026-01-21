@@ -791,9 +791,10 @@ async def start_chunked_upload(
         expiry_time = time.time() + settings.UPLOAD_STORAGE_EXPIRATION
 
         await redis_client.set(f"upload:{upload_id}:metadata", json.dumps(metadata))
-        await redis_client.set(
-            f"upload:{upload_id}:chunks", json.dumps({})
-        )  # Track received chunks
+
+        # We don't need to initialize the hash, but we delete any old one in case of ID collision (unlikely)
+        await redis_client.delete(f"upload:{upload_id}:chunks")
+
         await redis_client.set(f"upload:{upload_id}:ttl", str(expiry_time))
 
         return JSONResponse(
@@ -901,23 +902,30 @@ async def upload_chunk(
             raise
 
         # Update received chunks tracking
-        chunks_str = await redis_client.get(f"upload:{upload_id}:chunks")
-        chunks_received = json.loads(chunks_str) if chunks_str else {}
-        chunks_received[f"{start_byte}-{end_byte}"] = {
+        # Use HSET for atomic concurrent updates
+        chunk_info = {
             "received_at": time.time(),
             "size": bytes_written,
             "chunk_file": chunk_filename,
         }
-
-        await redis_client.set(
-            f"upload:{upload_id}:chunks", json.dumps(chunks_received)
+        await redis_client.hset(
+            f"upload:{upload_id}:chunks",
+            f"{start_byte}-{end_byte}",
+            json.dumps(chunk_info),
         )
 
         # Check if upload is complete
+        # Fetch all chunks to calculate total size
+        all_chunks = await redis_client.hgetall(f"upload:{upload_id}:chunks")
+        chunks_received = {
+            k.decode("utf-8") if isinstance(k, bytes) else k: json.loads(v)
+            for k, v in all_chunks.items()
+        }
+
         total_received = sum(chunk["size"] for chunk in chunks_received.values())
         is_complete = total_received == metadata["total_size"]
 
-        # print(f'--- {metadata["total_size"]}/{total_received}')
+        print(f'--- {metadata["total_size"]}/{total_received}')
 
         # Build consistent response using shared function
         response = await _build_upload_status_response(
@@ -979,8 +987,11 @@ async def get_upload_status(
         raise HTTPException(status_code=400, detail="Collection name mismatch")
 
     # Get chunks status
-    chunks_str = await redis_client.get(f"upload:{upload_id}:chunks")
-    chunks_received = json.loads(chunks_str) if chunks_str else {}
+    all_chunks = await redis_client.hgetall(f"upload:{upload_id}:chunks")
+    chunks_received = {
+        k.decode("utf-8") if isinstance(k, bytes) else k: json.loads(v)
+        for k, v in all_chunks.items()
+    }
 
     # Check if completed/failed
     completion_str = await redis_client.get(f"upload:{upload_id}:completion")
@@ -1109,11 +1120,32 @@ async def _assemble_file_from_chunks(
         # Logic to prevent this lives under start_chunked_upload() -> replace/rename
         def write_assembled_file():
             sha256_hash = hashlib.sha256()
-            with file_path.open("wb") as final_file:
-                for start_byte, end_byte, chunk_info in sorted_chunks:
-                    chunk_path = Path(metadata["temp_dir"]) / chunk_info["chunk_file"]
-                    final_file.write(chunk_path.read_bytes())
-                    sha256_hash.update(chunk_path.read_bytes())
+
+            # 1. Write to a temp file first to ensure atomicity
+            # We keep it in the same directory to ensure os.rename is atomic
+            temp_final_path = file_path.with_name(f".{filename}.tmp_assembly")
+
+            try:
+                with temp_final_path.open("wb") as final_file:
+                    for start_byte, end_byte, chunk_info in sorted_chunks:
+                        chunk_path = (
+                            Path(metadata["temp_dir"]) / chunk_info["chunk_file"]
+                        )
+
+                        # 2. Optimization: Read chunk only once
+                        chunk_data = chunk_path.read_bytes()
+                        final_file.write(chunk_data)
+                        sha256_hash.update(chunk_data)
+
+                # 3. Atomic move to final destination
+                temp_final_path.rename(file_path)
+
+            except Exception:
+                # Cleanup partial assembly on failure
+                if temp_final_path.exists():
+                    temp_final_path.unlink()
+                raise
+
             return sha256_hash.hexdigest()
 
         checksum = await run_in_threadpool(write_assembled_file)
