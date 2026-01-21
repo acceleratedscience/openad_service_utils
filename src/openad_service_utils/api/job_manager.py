@@ -374,16 +374,16 @@ async def cleanup_old_files(localRepo=settings.ASYNC_JOB_PATH, age=3):
                 continue # Directory might have been deleted by another process
 
 
-async def retrieve_async_job(url: str, redis_client: Redis) -> Optional[dict]:
+async def retrieve_async_job(job_id: str, redis_client: Redis) -> Optional[dict]:
     """retrieves Async Jobs from Disk"""
     await cleanup_old_files(localRepo=settings.ASYNC_JOB_PATH, age=3)
-    requested = os.path.exists(f"{settings.ASYNC_JOB_PATH}/{url}.request")
-    running = os.path.exists(f"{settings.ASYNC_JOB_PATH}/{url}.running")
-    finished = os.path.exists(f"{settings.ASYNC_JOB_PATH}/{url}.result")
+    requested = os.path.exists(f"{settings.ASYNC_JOB_PATH}/{job_id}.request")
+    running = os.path.exists(f"{settings.ASYNC_JOB_PATH}/{job_id}.running")
+    finished = os.path.exists(f"{settings.ASYNC_JOB_PATH}/{job_id}.result")
     if finished:
         try:
             job_manager = JobManager(redis_client, "async_retriever")
-            job_info = await job_manager._get_job_info_by_id(url)
+            job_info = await job_manager._get_job_info_by_id(job_id)
             if job_info and isinstance(job_info.get("result"), dict) and "file_path" in job_info["result"]:
                 file_path = job_info["result"]["file_path"]
                 size_bytes = 0
@@ -391,28 +391,29 @@ async def retrieve_async_job(url: str, redis_client: Redis) -> Optional[dict]:
                     size_bytes = await asyncio.to_thread(os.path.getsize, file_path)
                 return {
                     "status": "completed",
+                    "job_id": job_id,
                     "submission_time": job_info["submission_time"],
                     "completion_time": job_info["completion_time"],
                     "inference_time": job_info["inference_time"],
                     "result_type": "file",
-                    "download_url": f"/service/download/{url}/{job_info['result']['filename']}",
+                    "download_job_id": f"/service/collections/{job_id}/{job_info['result']['filename']}",
                     "size_bytes": size_bytes,
                 }
 
-            async with aiofiles.open(f"{settings.ASYNC_JOB_PATH}/{url}.result", "r") as fd:
+            async with aiofiles.open(f"{settings.ASYNC_JOB_PATH}/{job_id}.result", "r") as fd:
                 content = await fd.read()
                 if not content:
                     return {"status": "error", "reason": "Result file is empty, which may indicate a file-based job that failed to store its path correctly."}
                 result = json.loads(content)
-                logger.info("Successfully retrieved job: " + url)
+                logger.info("Successfully retrieved job: " + job_id)
                 return result
         except Exception as e:
-            logger.warning(f"Error retrieving job {url}: {e}")
+            logger.warning(f"Error retrieving job {job_id}: {e}")
             return None
     elif running:
         return {"warning": {"reason": "job is still running"}}
     elif requested:
         return {"warning": {"reason": "job is still in the queue"}}
     else:
-        logger.warning("User attempted to retrieve non existing job: " + url)
+        logger.warning("User attempted to retrieve non existing job: " + job_id)
         return None
