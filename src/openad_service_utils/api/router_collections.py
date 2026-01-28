@@ -838,6 +838,9 @@ async def upload_chunk(
     # if random.random() < 0.5:
     #     raise HTTPException(status_code=418, detail="This is a test.")
 
+    # Simulate realistic response time for testing locally
+    await asyncio.sleep(random.uniform(1, 5))
+
     # print("upload_chunk!")
     validate_collection_name(collection_name)
 
