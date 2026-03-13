@@ -49,8 +49,14 @@ from starlette.concurrency import run_in_threadpool
 # Internal
 from openad_service_utils.api.config import get_config_instance
 from openad_service_utils.api.dependencies import get_job_manager, get_redis_client
+from openad_service_utils.api.generation.call_generation_services import (
+    get_services as get_generation_services,
+)
 from openad_service_utils.api.job_manager import JobManager
 from openad_service_utils.api.models import JobStatus
+from openad_service_utils.api.properties.call_property_services import (
+    get_services as get_property_services,
+)
 from openad_service_utils.utils.logging_config import setup_logging
 
 # Set up logging configuration
@@ -1201,9 +1207,40 @@ async def cleanup_upload_session(
     tags=["Collections / UI Data"],
 )
 async def get_model_versions():
-    # TODO: Replace with actual model versions
-    model_versions = ["v1"]
-    return JSONResponse(content={"model_versions": model_versions})
+    try:
+        generation_versions = {
+            version
+            for service in get_generation_services()
+            for version in service.get("algorithm_versions", [])
+            if version
+        }
+
+        property_versions = set()
+        for service in get_property_services():
+            parameters = service.get("parameters", {})
+            if not isinstance(parameters, dict):
+                continue
+
+            algorithm_version = parameters.get("algorithm_version", {})
+            if not isinstance(algorithm_version, dict):
+                continue
+
+            enum_versions = algorithm_version.get("enum", [])
+            if isinstance(enum_versions, list):
+                property_versions.update({version for version in enum_versions if version})
+
+            default_version = algorithm_version.get("default")
+            if isinstance(default_version, str) and default_version:
+                property_versions.add(default_version)
+
+        model_versions = sorted(generation_versions.union(property_versions))
+        return JSONResponse(content={"model_versions": model_versions})
+    except Exception as e:
+        logger.error("Error retrieving model versions: %s", str(e), exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error retrieving model versions: {str(e)}",
+        ) from e
 
 
 @collections_router.get(

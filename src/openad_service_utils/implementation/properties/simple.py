@@ -1,7 +1,20 @@
 import logging
 import os
+import sys
+import typing as typing_module
 from abc import ABC, abstractmethod
-from typing import ClassVar, List, Optional, TypedDict, Dict, Any, Union, Type, cast
+from typing import (
+    ClassVar,
+    List,
+    Optional,
+    TypedDict,
+    Dict,
+    Any,
+    Union,
+    Type,
+    cast,
+    get_type_hints,
+)
 
 from pydantic.v1 import BaseModel, Field
 
@@ -232,15 +245,72 @@ class SimplePredictor(PredictorAlgorithm, BasePredictorParameters):
         raise NotImplementedError("Not implemented in baseclass.")
 
     @classmethod
-    def register(cls, parameters: Optional[PredictorParameters] = None, no_model=False) -> None:
+    def register(cls, parameters: Optional[Type[PredictorParameters]] = None, no_model=False) -> None:
         """**no_model** : defaults to false, so that the model is always retrieved. If on register this is set to true, allows the user to manage loading of checkpoint or
         the ability to run a inference that only uses an API to retrieve a result"""
-        if not parameters:
-            # parameters defined in class
-            class_fields = {k: v for k, v in cls.__dict__.items() if not callable(v) and not k.startswith("__")}
-            class_fields.pop("_abc_impl", "")
+        # parameters defined in class
+        class_fields = {
+            k: v
+            for k, v in cls.__dict__.items()
+            if not callable(v) and not k.startswith("__")
+        }
+        class_fields.pop("_abc_impl", "")
+
+        model_param_class: Type[PredictorParameters]
+        if parameters is not None:
+            if not isinstance(parameters, type) or not issubclass(parameters, PredictorParameters):
+                raise TypeError("parameters must be a PredictorParameters subclass")
+            # Preserve user-provided pydantic typing/annotations (e.g. Literal/Enum)
+            # so schema generation can expose enum choices.
+            model_param_class = parameters
         else:
-            class_fields = {k: v for k, v in vars(parameters).items() if not callable(v) and not k.startswith("__")}
+            # Backward compatibility for class-variable-based registration.
+            # Preserve class annotations so typing constraints (e.g. Literal/Enum)
+            # are reflected in pydantic schema for generated params.
+            class_annotations = {}
+            raw_annotations = dict(getattr(cls, "__annotations__", {}))
+            if raw_annotations:
+                try:
+                    module_obj = sys.modules.get(cls.__module__)
+                    module_globals = (
+                        dict(getattr(module_obj, "__dict__", {}))
+                        if module_obj
+                        else {}
+                    )
+                    # Ensure standard typing symbols are always available.
+                    module_globals.update(vars(typing_module))
+                    class_annotations = get_type_hints(
+                        cls,
+                        globalns=module_globals,
+                        localns=module_globals,
+                    )
+                    allowed_annotation_keys = set(class_fields.keys())
+                    class_annotations = {
+                        key: value
+                        for key, value in class_annotations.items()
+                        if key in allowed_annotation_keys
+                    }
+                except Exception as e:
+                    logger.debug(
+                        "Could not resolve type hints for %s during register fallback: %s",
+                        cls.__name__,
+                        str(e),
+                    )
+            class_namespace = dict(class_fields)
+            if class_annotations:
+                class_namespace["__annotations__"] = class_annotations
+            model_param_class = type(
+                f"{cls.__name__}Parameters", (PredictorParameters,), class_namespace
+            )
+
+        def get_metadata_field(field: str, default: Any = None) -> Any:
+            if field in class_fields:
+                return class_fields[field]
+            model_field = model_param_class.__fields__.get(field)
+            if model_field and not model_field.required:
+                return model_field.default
+            return default
+
         # check if required fields are set
         required = [
             "algorithm_name",
@@ -250,34 +320,38 @@ class SimplePredictor(PredictorAlgorithm, BasePredictorParameters):
             "property_type",
         ]
         for field in required:
-            if field not in class_fields:
+            if get_metadata_field(field, None) is None:
                 raise TypeError(f"Can't instantiate class ({cls.__name__}) without '{field}' class variable")
         # update class name to be `algorithm_application`
         # cls.__name__ = class_fields.get("algorithm_application") # Removed: __name__ is read-only
         cls.__no_model__ = no_model
         # setup s3 class params
         # Ensure algorithm_application is a string before using it in type name
-        app_name = class_fields.get("algorithm_application", cls.__name__)
+        app_name = get_metadata_field("algorithm_application", cls.__name__)
         if not isinstance(app_name, str):
             app_name = str(app_name)
 
         # Initialize variables with explicit types and handle potential None from .get()
-        domain_val: DomainSubmodule = cast(DomainSubmodule, class_fields.get("domain"))
+        domain_val_raw = get_metadata_field("domain")
+        if isinstance(domain_val_raw, str):
+            domain_val_raw = DomainSubmodule(domain_val_raw)
+        domain_val: DomainSubmodule = cast(DomainSubmodule, domain_val_raw)
         if not isinstance(domain_val, DomainSubmodule):
             raise TypeError(f"Domain must be a DomainSubmodule enum, got {type(domain_val)}")
         
-        algo_name_val: str = cast(str, class_fields.get("algorithm_name"))
+        algo_name_val: str = cast(str, get_metadata_field("algorithm_name"))
         if not isinstance(algo_name_val, str):
             raise TypeError(f"Algorithm name must be a string, got {type(algo_name_val)}")
         
-        algo_version_val: str = cast(str, class_fields.get("algorithm_version"))
+        algo_version_raw = get_metadata_field("algorithm_version")
+        if not isinstance(algo_version_raw, str):
+            algo_version_raw = str(algo_version_raw)
+        algo_version_val: str = cast(str, algo_version_raw)
         if not isinstance(algo_version_val, str):
             raise TypeError(f"Algorithm version must be a string, got {type(algo_version_val)}")
 
-        model_param_class: Type[PredictorParameters] = type(f"{app_name}Parameters", (PredictorParameters,), class_fields)
-
-        if class_fields.get("available_properties"):
-            available_props = class_fields.get("available_properties")
+        available_props = get_metadata_field("available_properties")
+        if available_props:
             if not isinstance(available_props, list):
                 raise ValueError("available_properties must be of List[PropertyInfo]")
             # set all property types in PropertyFactory. available_properties -> valid_types
@@ -289,7 +363,10 @@ class SimplePredictor(PredictorAlgorithm, BasePredictorParameters):
                 if not isinstance(predictor_name, str):
                     raise TypeError(f"Predictor name must be a string, got {type(predictor_name)}")
 
-                property_type_val = cast(PredictorTypes, class_fields.get("property_type"))
+                property_type_raw = get_metadata_field("property_type")
+                if isinstance(property_type_raw, str):
+                    property_type_raw = PredictorTypes(property_type_raw)
+                property_type_val = cast(PredictorTypes, property_type_raw)
                 if not isinstance(property_type_val, PredictorTypes):
                     raise TypeError(f"Property type must be a PredictorTypes enum, got {type(property_type_val)}")
 
@@ -300,7 +377,10 @@ class SimplePredictor(PredictorAlgorithm, BasePredictorParameters):
                 )
         else:
             # set class name as property type in PropertyFactory
-            property_type_val = cast(PredictorTypes, class_fields.get("property_type"))
+            property_type_raw = get_metadata_field("property_type")
+            if isinstance(property_type_raw, str):
+                property_type_raw = PredictorTypes(property_type_raw)
+            property_type_val = cast(PredictorTypes, property_type_raw)
             if not isinstance(property_type_val, PredictorTypes):
                 raise TypeError(f"Property type must be a PredictorTypes enum, got {type(property_type_val)}")
 

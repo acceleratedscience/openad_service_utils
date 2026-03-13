@@ -95,23 +95,59 @@ class SimpleGenerator(AlgorithmConfiguration[S, T], ABC):
         for field in required:
             if field not in cls.__dict__:
                 raise TypeError(f"Can't instantiate class ({cls.__name__}) without '{field}' class variable")
+
+        algorithm_name = getattr(cls, "algorithm_name", None)
+        algorithm_type = getattr(cls, "algorithm_type", None)
+        algorithm_version = getattr(cls, "algorithm_version", "")
+        algorithm_application = getattr(cls, "algorithm_application", None)
+
+        if not isinstance(algorithm_name, str) or not algorithm_name:
+            raise TypeError(f"algorithm_name must be a non-empty string, got {type(algorithm_name)}")
+        if not isinstance(algorithm_type, str) or not algorithm_type:
+            raise TypeError(f"algorithm_type must be a non-empty string, got {type(algorithm_type)}")
+
+        app_name = algorithm_application if isinstance(algorithm_application, str) and algorithm_application else cls.__name__
+        if not isinstance(app_name, str):
+            app_name = str(app_name)
+
+        if not isinstance(algorithm_version, str):
+            algorithm_version = str(algorithm_version)
+
         # create during runtime so that user doesnt have to write separate algorithm class
-        algorithm = type(cls.algorithm_name, (BaseAlgorithm,), {})
-        # update class name to application name
-        if cls.algorithm_application:
-            if "OPENAD_MAIN_PROCESS" not in os.environ: # only log in main process
-                logger.debug(f"updating application name from '{cls.__name__}' to '{cls.algorithm_application}'")
-            cls.__name__ = cls.algorithm_application
+        algorithm = type(algorithm_name, (BaseAlgorithm,), {})
+
+        if "OPENAD_MAIN_PROCESS" not in os.environ: # only log in main process
+            logger.debug(
+                "registering generation app class='%s' as algorithm_application='%s'",
+                cls.__name__,
+                app_name,
+            )
+
         model_location = get_properties_model_path(
-            cls.algorithm_type, cls.algorithm_name, cls.__name__, cls.algorithm_version
+            algorithm_type,
+            algorithm_name,
+            app_name,
+            algorithm_version,
         )
         try:
             os.makedirs(model_location, exist_ok=True)
-        except Exception:
-            logger.error(f"could not create model cache location: {model_location}")
+        except Exception as e:
+            logger.error("could not create model cache location '%s': %s", model_location, str(e))
+
         if "OPENAD_MAIN_PROCESS" not in os.environ: # only log in main process
-            logger.info(f"registering generator model: {model_location}")
-        ApplicationsRegistry.register_algorithm_application(algorithm)(cls)
+            logger.info(
+                "registering generator model: %s (type=%s, name=%s, app=%s, version=%s)",
+                model_location,
+                algorithm_type,
+                algorithm_name,
+                app_name,
+                algorithm_version,
+            )
+
+        ApplicationsRegistry.register_algorithm_application(
+            algorithm,
+            as_algorithm_application=app_name,
+        )(cls)
 
     @abstractmethod
     def setup(self):
